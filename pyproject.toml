@@ -1,0 +1,36 @@
+[mypy]
+plugins = "numpy.typing.mypy_plugin"
+
+[tool.black]
+line-length = 90
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '^external/'
+ignore_missing_imports = true
+disable-error-code = "override"
+
+[tool.poetry]
+name = "hiveformer"
+version = "0.1.0"
+description = "Hiveformer"
+authors = ["Anonymous <anonymous@anonymous.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^1.21.4"
+torch = "^1.11.0"
+torchvision = "^0.11.0"
+pillow = "^9.0.1"
+einops = "^0.4.1"
+typed-argument-parser = "^1.7.2"
+tqdm = "^4.63.1"
+transformers = "^4.15.0"
+
+[tool.pyright]
+reportMissingImports = false
+reportPrivateImportUsage = false
+include = ["*.py"]
+exclude = ["**/__pycache__"]
+venv = "h"
+pythonVersion = "3.9"
+pythonPlatform = "Linux"
