@@ -17,6 +17,6 @@ export const socialLinks = {
   contact: {
     url: 'mailto:pierrelouisguhur@gmail.com',
     icon: 'fa-envelope',
-    disable: true,
+    disable: false,
   },
 };
