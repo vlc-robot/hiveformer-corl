@@ -14,4 +14,9 @@ export const socialLinks = {
     icon: 'fa-arxiv',
     disable: true,
   },
+  contact: {
+    url: 'mailto:pierrelouisguhur@gmail.com',
+    icon: 'fa-envelope',
+    disable: true,
+  },
 };
