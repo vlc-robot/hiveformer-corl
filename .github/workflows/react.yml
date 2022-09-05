@@ -36,11 +36,11 @@ jobs:
       - name: Detect package manager
         id: detect-package-manager
         run: |
-          if [ -f "${{ github.workspace }}/yarn.lock" ]; then
+          if [ -f "${{ github.workspace }}/docs/yarn.lock" ]; then
             echo "::set-output name=manager::yarn"
             echo "::set-output name=command::install"
             exit 0
-          elif [ -f "${{ github.workspace }}/package.json" ]; then
+          elif [ -f "${{ github.workspace }}/docs/package.json" ]; then
             echo "::set-output name=manager::npm"
             echo "::set-output name=command::ci"
             exit 0
@@ -65,13 +65,15 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            public
-            .cache
+            docs/public
+            docs/.cache
           key: ${{ runner.os }}-react-build-${{ hashFiles('public') }}
           restore-keys: |
             ${{ runner.os }}-react-build-
       - name: Install dependencies
-        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+        run: |
+          cd docs
+          ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
       - name: Build with React
         env:
           PREFIX_PATHS: 'true'
@@ -79,7 +81,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: ./build
+          path: docs/build
 
   # Deployment job
   deploy:
