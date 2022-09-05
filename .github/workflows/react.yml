@@ -53,6 +53,7 @@ jobs:
         with:
           node-version: "16"
           cache: ${{ steps.detect-package-manager.outputs.manager }}
+          cache-dependency-path: '**/package-lock.json'
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v2
