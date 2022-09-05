@@ -1,8 +1,8 @@
 import React, {Component} from 'react';
 import Header from './components/Header';
 import Project from './components/Project';
-import Demo from './components/Demo';
-import Paper from './components/Paper';
+// import Demo from './components/Demo';
+// import Paper from './components/Paper';
 
 class App extends Component {
   render() {
