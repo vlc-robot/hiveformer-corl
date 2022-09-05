@@ -49,13 +49,11 @@
 
    /* About Section
    ------------------------------------------------------------------- */
-   #about .profile-pic {
-      width: 114px;
-      height: 114px;
+   #project .profile-pic {
       margin-left: 12px;
    }
-   #about .contact-details { width: 50%; }
-   #about .download { width: 50%; }
+   #project .contact-details { width: 50%; }
+   #project .download { width: 50%; }
 
    /* Resume Section
    ------------------------------------------------------------------- */
@@ -215,13 +213,13 @@
 
    /* About Section
    -------------------------------------------------------------------- */
-   #about .profile-pic { display: none; }
-   #about .download .button {
+   #project .profile-pic { display: none; }
+   #project .download .button {
       width: 100%;
       text-align: center;
       padding: 15px 20px;
    }
-   #about .main-col { padding-right: 30px; }
+   #project .main-col { padding-right: 30px; }
 
 
    /* Resume Section

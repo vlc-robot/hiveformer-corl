@@ -9,11 +9,6 @@
    a. General Styles
    b. Header Styles
    c. About Section
-   d. Resume Section
-   e. Portfolio Section
-   f. Call To Action Section
-   g. Testimonials Section
-   h. Contact Section
    i. Footer
 
 ===================================================================== */
@@ -22,7 +17,12 @@
 /* a. General Styles
 /* ------------------------------------------------------------------ */
 
-body { background: #0f0f0f; }
+body { background: white; }
+
+sup {
+  vertical-align: super;
+  font-size: smaller;
+}
 
 /* ------------------------------------------------------------------ */
 /* b. Header Styles
@@ -33,7 +33,7 @@ header {
    height: 800px;
    min-height: 500px;
    width: 100%;
-   background: #161415 url(../images/header-background.jpg) no-repeat top center;
+   background: #161415 url(../images/cute-robots.png) no-repeat top center;
    background-size: cover !important;
 	-webkit-background-size: cover !important;
    text-align: center;
@@ -52,7 +52,7 @@ header .banner {
    vertical-align: middle;
    margin: 0 auto;
    width: 85%;
-   padding-bottom: 30px;s
+   padding-bottom: 30px;
    text-align: center;
 }
 
@@ -186,46 +186,44 @@ ul#nav li.current a { color: #F06000; }
 /* c. About Section
 /* ------------------------------------------------------------------ */
 
-#about {
-   background: #2B2B2B;
+#project {
+   background: #538F94;
    padding-top: 96px;
    padding-bottom: 66px;
    overflow: hidden;
 }
 
-#about a, #about a:visited  { color: #fff; }
-#about a:hover, #about a:focus { color: #11ABB0; }
+#project h1 { color: #28FA94;}
+#project a, #project a:visited  { color: #28FA94; }
+#project a:hover, #project a:focus { color: #28FA94; }
 
-#about h2 {
+#project h2 {
    font: 22px/30px 'opensans-bold', sans-serif;
    color: #fff;
    margin-bottom: 12px;
 }
-#about p {
+#project p {
    line-height: 30px;
-   color: #7A7A7A;
+   color: #28FA94;
 }
-#about .profile-pic {
+#project .profile-pic {
    position: relative;
-   width: 120px;
-   height: 120px;
-   border-radius: 100%;
 }
-#about .contact-details { width: 41.66667%; }
-#about .download {
+#project .contact-details { width: 41.66667%; }
+#project .download {
    width: 58.33333%;
    padding-top: 6px;
 }
-#about .main-col { padding-right: 5%; }
-#about .download .button {
+#project .main-col { padding-right: 5%; }
+#project .download .button {
    margin-top: 6px;
    background: #444;
 }
-#about .download .button:hover {
+#project .download .button:hover {
    background: #fff;
    color: #2B2B2B;
 }
-#about .download .button i {
+#project .download .button i {
    margin-right: 15px;
    font-size: 20px;
 }
@@ -1003,4 +1001,23 @@ footer .social-links li:first-child { margin-left: 0; }
  	border-radius: 100%;
 }
 #go-top a:hover { background-color: #0F9095; }
+
+
+/* Teaser */
+.teaser {
+  margin-top: 50px;
+  margin-bottom: 50px;
+}
+.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+.model {
+  margin-top: 50px;
+  margin-bottom: 50px;
+  padding-top: 40px;
+  padding-bottom: 40px;
+  background-color: #C9BAE8;
+  color: black;
+}
 
