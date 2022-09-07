@@ -1,4 +1,4 @@
-import os
+import itertools
 import random
 from typing import (
     Union,
@@ -121,6 +121,66 @@ def loader(file: Path) -> Optional[np.ndarray]:
     return None
 
 
+class DataTransform(object):
+    def __init__(self, scales):
+        self.scales = scales
+
+    def __call__(self, **kwargs: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """
+        Except tensors as T, N, C, H, W
+        """
+        keys = list(kwargs.keys())
+
+        if len(keys) == 0:
+            raise RuntimeError("No args")
+
+        # Continuous range of scales
+        sc = np.random.uniform(*self.scales)
+
+        t, n, c, raw_h, raw_w = kwargs[keys[0]].shape
+        kwargs = {n: arg.flatten(0, 1) for n, arg in kwargs.items()}
+        resized_size = [int(raw_h * sc), int(raw_w * sc)]
+
+        # Resize based on randomly sampled scale
+        kwargs = {
+            n: transforms_f.resize(
+                arg,
+                resized_size,
+                transforms.InterpolationMode.NEAREST
+                # if "pc" in n
+                # else transforms.InterpolationMode.BILINEAR,
+            )
+            for n, arg in kwargs.items()
+        }
+
+        # Adding padding if crop size is smaller than the resized size
+        if raw_h > resized_size[0] or raw_w > resized_size[1]:
+            right_pad, bottom_pad = max(raw_h - resized_size[1], 0), max(
+                raw_w - resized_size[0], 0
+            )
+            kwargs = {
+                n: transforms_f.pad(
+                    arg,
+                    padding=[0, 0, right_pad, bottom_pad],
+                    padding_mode="reflect",
+                )
+                for n, arg in kwargs.items()
+            }
+
+        # Random Cropping
+        i, j, h, w = transforms.RandomCrop.get_params(
+            kwargs[keys[0]], output_size=(raw_h, raw_w)
+        )
+
+        kwargs = {n: transforms_f.crop(arg, i, j, h, w) for n, arg in kwargs.items()}
+
+        kwargs = {
+            n: einops.rearrange(arg, "(t n) c h w -> t n c h w", t=t)
+            for n, arg in kwargs.items()
+        }
+
+        return kwargs
+
 class RLBenchDataset(data.Dataset):
     """
     RLBench dataset, 10 tasks
@@ -128,7 +188,7 @@ class RLBenchDataset(data.Dataset):
 
     def __init__(
         self,
-        root: Union[Path, str],
+        root: Union[Path, str, List[Path], List[str]],
         taskvar: List[Tuple[str, int]],
         instructions: Instructions,
         max_episode_length: int,
@@ -145,18 +205,22 @@ class RLBenchDataset(data.Dataset):
         self._num_iters = num_iters
         self._training = training
         self._taskvar = taskvar
-        self._root = Path(os.path.expanduser(root))
+        if isinstance(root, (Path, str)):
+            root = [Path(root)]
+        self._root: List[Path] = [Path(r).expanduser() for r in root]
 
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
 
+        self._transform = DataTransform((0.75, 1.25))
+
         self._data_dirs = []
         self._episodes = []
         self._num_episodes = 0
-        for task, var in taskvar:
-            data_dir = self._root / f"{task}+{var}"
+        for root, (task, var) in itertools.product(self._root, taskvar):
+            data_dir = root / f"{task}+{var}"
             if not data_dir.is_dir():
                 raise ValueError(f"Can't find dataset folder {data_dir}")
             episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
@@ -213,7 +277,7 @@ class RLBenchDataset(data.Dataset):
         rgbs = torch.cat([rgbs, attns], 2)
 
         if self._training:
-            modals = self._transform((0.75, 1.25), rgbs=rgbs, pcds=pcds)
+            modals = self._transform(rgbs=rgbs, pcds=pcds)
             rgbs = modals["rgbs"]
             pcds = modals["pcds"]
 

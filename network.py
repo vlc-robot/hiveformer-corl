@@ -676,7 +676,7 @@ class Hiveformer(nn.Module):
 
         # Add extra channels with Point Clouds
         pcd = einops.rearrange(pc_obs, "b t n c h w -> (b t n) c h w")
-        pcd = F.mean_pool2d(pcd, (16, 16))
+        pcd = F.avg_pool2d(pcd, 16)
         pcd = einops.rearrange(pcd, "(b t n) c h w -> b t n c h w", b=B, t=T, n=N)
         x = torch.cat([x, pcd], 3)
 

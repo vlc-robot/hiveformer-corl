@@ -1,85 +1,68 @@
-from typing import List, Tuple, Dict, Optional
+import random
+from typing import List, Tuple, Dict, Optional, Any, Union
 import itertools
-import subprocess
+import pickle
 import os
 from pathlib import Path
-import random
 import torch
 from torch import nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter  # type: ignore
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
+import numpy as np
+from tqdm import tqdm, trange
 from filelock import FileLock
 import tap
-
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import (
-    DeviceStatsMonitor,
-    LearningRateMonitor,
-    ModelCheckpoint,
-)
-from pytorch_lightning.plugins import DDPPlugin
-import numpy as np
+from network import Hiveformer
 from utils import (
     LossAndMetrics,
     load_instructions,
     RLBenchEnv,
+    count_parameters,
     load_episodes,
     get_max_episode_length,
     Actioner,
 )
 from dataset import RLBenchDataset, Sample
-from network import Hiveformer
 
 
 class Arguments(tap.Tap):
-    # PyTorch Lightning
-    gpus: int = 1
-    num_nodes: int = 1
-    use_half: bool = False
-    log_every_n_steps: int = 20
     accumulate_grad_batches: int = 1
-    eval_only: bool = False
-
-    dataset: Path
-    seed: int = 2
-    xp: Path = Path(__file__).parent / "xp"
-    valset: Optional[Path] = None
-    name: str = "multitask"
-    arch: str = "mct"
-    num_workers: int = 5
-    variations: Tuple[int, ...] = (0,)
-    max_tries: int = 10
-    max_episodes_per_taskvar: int = 100
-    instructions: Path
-    cache_size: int = 100
+    cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
+    dataset: List[Path]
+    device: str = "cuda"
+    xp: Path = Path(__file__).parent / "xp"
+    valset: Optional[Tuple[Path, ...]] = None
+    name: str = "hiveformer"
+    arch: str = "mct"
+    num_workers: int = 5
+    max_tries: int = 10
+    max_episodes_per_taskvar: int = 100
+    instructions: Optional[Path] = None
+    cache_size: int = 100
+    seed: int = 2
 
-    tasks: Tuple[str, ...] = (
-        "reach_target",
-        "push_button",
-        "pick_and_lift",
-        "pick_up_cup",
-        "put_knife_on_chopping_board",
-        "take_money_out_safe",
-        "put_money_in_safe",
-        "take_umbrella_out_of_umbrella_stand",
-        "stack_wine",
-        "slide_block_to_target",
-    )
+    tasks: Tuple[str, ...]
+    variations: Tuple[int, ...] = (0,)
+
+
     # Train
     batch_size: int = 32
-    lr: float = 1e-5
+    lr: float = 0.001
     val_freq: int = 200
     val_batch_size: int = 100
     train_iters: int = 100_000
+    jitter: bool = False
 
     # tests
     headless: bool = False
     output: Path = Path(__file__).parent / "records.txt"
 
     # model
+    depth: int = 4
     dim_feedforward: int = 64
     hidden_dim: int = 64
     instr_size: int = 512
@@ -87,152 +70,193 @@ class Arguments(tap.Tap):
     num_layers: int = 1
 
 
-def get_git_patch():
-    current_file = os.path.dirname(os.path.abspath(__file__))
-    describe = subprocess.check_output(["git", "diff"], cwd=current_file)
-    return describe.strip().decode()
+def training(
+    model: nn.Module,
+    optimizer,
+    train_loader,
+    val_loaders,
+    checkpointer,
+    loss_and_metrics,
+    args: Arguments,
+    writer: SummaryWriter,
+):
+    iter_loader = iter(train_loader)
+    device = next(model.parameters()).device
+
+    with trange(args.train_iters) as tbar:
+        for step_id in tbar:
+            try:
+                sample = next(iter_loader)
+            except StopIteration:
+                iter_loader = iter(train_loader)
+                sample = next(iter_loader)
+
+            rgbs = sample["rgbs"].to(device)
+            pcds = sample["pcds"].to(device)
+            gripper = sample["gripper"].to(device)
+            outputs = sample["action"].to(device)
+            padding_mask = sample["padding_mask"].to(device)
+
+            instr = sample["instr"]
+            if instr is not None:
+                instr = instr.to(device)
+
+            frame_id = sample["frame_id"]
+            tasks = sample["task"]
+
+            if step_id % args.accumulate_grad_batches == 0:
+                optimizer.zero_grad()
+
+            pred = model(
+                rgbs,
+                pcds,
+                padding_mask,
+                instr,
+                gripper,
+            )
+
+            train_losses = loss_and_metrics.compute_loss(pred, sample)
+            train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
+
+            for n, l in train_losses.items():
+                writer.add_scalar(f"train-loss/{n}", l, step_id)
+
+            writer.add_scalar(f"lr/", args.lr, step_id)
+
+            metrics = loss_and_metrics.compute_metrics(pred, sample)
+            for n, l in metrics.items():
+                writer.add_scalar(f"train-metrics/{n}", l, step_id)
+
+            train_losses["total"].backward()  # type: ignore
+
+            if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
+                optimizer.step()
+
+            if (step_id + 1) % args.val_freq == 0:
+                if val_loaders is not None:
+                    val_metrics = validation_step(
+                        step_id,
+                        val_loaders,
+                        model,
+                        writer,
+                        loss_and_metrics,
+                    )
+                    model.train()
+                else:
+                    val_metrics = {}
+                checkpointer(val_metrics)
+
+            tbar.set_postfix(l=float(train_losses["total"]))
 
 
-class Module(pl.LightningModule):
-    def __init__(self, args: Arguments):
-        super().__init__()
-        self._args = args
-        self._loss_and_metrics = LossAndMetrics()
+def get_log_dir(args: Arguments) -> Path:
+    log_dir = args.xp / args.name
+    version = int(os.environ.get("SLURM_JOBID", 0))
+    while (log_dir / f"version{version}").is_dir():
+        version += 1
+    return log_dir / f"version{version}"
 
-        max_episode_length = get_max_episode_length(
-            self._args.tasks, self._args.variations
-        )
-        self.model = Hiveformer(
-            dim_feedforward=self._args.dim_feedforward,
-            hidden_dim=self._args.hidden_dim,
-            instr_size=self._args.instr_size,
-            mask_obs_prob=self._args.mask_obs_prob,
-            max_episode_length=max_episode_length,
-            num_layers=args.num_layers,
-        )
 
-    def configure_optimizers(self):
-        optimizer_grouped_parameters = [
-            {
-                "params": list(self.t_dict.values()),
-                "weight_decay": 0.0,
-                "lr": self._args.lr,
-            },
-            {
-                "params": list(self.z_dict.values()),
-                "weight_decay": 5e-4,
-                "lr": self._args.lr,
-            },
-            {"params": [], "weight_decay": 5e-4, "lr": self._args.lr_transformer},
-            {"params": [], "weight_decay": 0.0, "lr": self._args.lr_rotation},
-        ]
-        no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-        transformer_modules = ["encoder"]
-        zinstr = ["z_pos_instr", "z_proj_instr"]
-        rotation_modules = ["quat_decoder"]
-        for name, param in self.model.named_parameters():
-            if any(nd in name for nd in no_decay):
-                optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
-            elif any(nd in name for nd in zinstr):
-                optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
-            elif any(nd in name for nd in transformer_modules):
-                optimizer_grouped_parameters[2]["params"].append(param)  # type: ignore
-            elif any(nd in name for nd in rotation_modules):
-                optimizer_grouped_parameters[3]["params"].append(param)  # type: ignore
-            else:
-                optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
-            optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
-            return optimizer
+class CheckpointCallback:
+    def __init__(
+        self,
+        name: str,
+        log_dir: Path,
+        state_dict: Any,
+        minimizing: bool = True,
+        checkpoint_period: int = 200,
+    ):
+        self._name = name
+        self._minimizing = minimizing
+        self._best = float("inf") if minimizing else -float("inf")
+        self._log_dir = log_dir
+        self._checkpoint_period = checkpoint_period
+        self._step = 0
+        self._state_dict = state_dict
 
-    @property
-    def log_dir(self):
-        log_dir = (
-            Path(self.logger._save_dir)
-            / self.logger._name
-            / f"version_{self.logger._version}"
-        )
-        log_dir.mkdir(exist_ok=True, parents=True)
-        return log_dir
+    def __call__(self, metrics: Dict[str, torch.Tensor]):
+        self._step += 1
+        if self._step % self._checkpoint_period != 0:
+            return
 
-    def on_fit_start(self):
-        self._args.save(str(self.log_dir / "hparams.json"))
+        value = int(metrics.get(self._name, 0))
+        dest = self._log_dir / f"model.step={self._step}-value={value}.pth"
+        torch.save(self._state_dict, dest)
 
-        log_dir = Path(self.logger.log_dir)
-        log_dir.mkdir(exist_ok=True, parents=True)
-        with open(log_dir / "git.patch", "w") as fid:
-            fid.write(get_git_patch())
+        if (self._minimizing and self._best > value) or (
+            not self._minimizing and self._best < value
+        ):
+            best = self._log_dir / "best.pth"
+            best.unlink(missing_ok=True)
+            best.symlink_to(dest.resolve())
+            self._best = value
 
-    def forward(self, batch: Sample):  # type: ignore
-        return self.model(batch)
 
-    def training_step(self, sample: Sample, *_):  # type: ignore
-        rgbs = sample["rgbs"]
-        pcds = sample["pcds"]
-        gripper = sample["gripper"]
-        outputs = sample["action"]
-        padding_mask = sample["padding_mask"]
-        instr = sample["instr"]
-        frame_id = sample["frame_id"]
-        tasks = sample["task"]
+@torch.no_grad()
+def validation_step(
+    step_id: int,
+    val_loaders: List[DataLoader],
+    model,
+    writer,
+    loss_and_metrics,
+    val_iters: int = 5,
+):
+    values = {}
+    device = next(model.parameters()).device 
+    model.eval()
 
-        pred = self.model(
-            rgbs,
-            pcds,
-            padding_mask,
-            instr,
-            gripper,
-        )
+    for val_id, val_loader in enumerate(val_loaders):
+        for i, sample in enumerate(val_loader):
+            if i == val_iters:
+                break
 
-        train_losses = self._loss_and_metrics.compute_loss(pred, sample)
-        train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
+            rgbs = sample["rgbs"].to(device)
+            pcds = sample["pcds"].to(device)
+            gripper = sample["gripper"].to(device)
+            outputs = sample["action"].to(device)
+            padding_mask = sample["padding_mask"].to(device)
 
-        self.log_dict(
-            {f"train/{key}/loss": v for key, v in train_losses.items()},
-            batch_size=len(tasks),
-        )
+            instr = sample["instr"]
+            if instr is not None:
+                instr = instr.to(device)
 
-        train_metrics = self._loss_and_metrics.compute_metrics(pred, sample)
-        self.log_dict(
-            {f"train/{key}/metrics": v for key, v in train_metrics.items()},
-            batch_size=len(tasks),
-        )
+            frame_id = sample["frame_id"]
+            tasks = sample["task"]
 
-        return {"loss": train_losses["total"]}
+            pred = model(
+                rgbs,
+                pcds,
+                padding_mask,
+                instr,
+                gripper,
+            )
 
-    @torch.no_grad()
-    def validation_step(self, sample, *_):
-        rgbs = sample["rgbs"]
-        pcds = sample["pcds"]
-        gripper = sample["gripper"]
-        outputs = sample["action"]
-        padding_mask = sample["padding_mask"]
-        instr = sample["instr"]
-        frame_id = sample["frame_id"]
-        tasks = sample["task"]
+            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
+            losses["total"] = torch.stack(list(losses.values())).sum()
 
-        pred = self.model(
-            rgbs,
-            pcds,
-            padding_mask,
-            t,
-            z,
-            instr,
-            gripper,
-            taskvar,
-        )
+            for n, l in losses.items():
+                key = f"val-loss-{val_id}/{n}"
+                writer.add_scalar(key, l, step_id + i)
+                if key not in values:
+                    values[key] = torch.Tensor([]).to(device)
+                values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-        val_losses = self._loss_and_metrics.compute_loss(pred, sample)
-        val_losses["total"] = sum(list(val_losses.values()))  # type: ignore
+            writer.add_scalar(f"lr/", args.lr, step_id + i)
 
-        self.log_dict(
-            {f"val/{key}/loss": v for key, v in val_losses.items()}, batch_size=len(tasks)
-        )
+            metrics = loss_and_metrics.compute_metrics(pred, sample)
+            for n, l in metrics.items():
+                key = f"val-metrics-{val_id}/{n}"
+                writer.add_scalar(key, l, step_id + i)
+                if key not in metrics:
+                    values[key] = torch.Tensor([]).to(device)
+                values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-        val_metrics = self._loss_and_metrics.compute_metrics(pred, sample)
-        self.log_dict(
-            {f"val/{key}/metrics": v for key, v in val_metrics.items()},
-            batch_size=len(tasks),
-        )
+        key = f"val-loss-{val_id}/total"
+        print(f"Validation Loss {val_id}: {values[key].mean():.05f}")
+        key = f"val-metrics-{val_id}/position"
+        print(f"Validation Position {val_id}: {values[key].mean():.05f}")
+
+    return values
 
 
 def collate_fn(batch: List[Dict]):
@@ -245,147 +269,194 @@ def collate_fn(batch: List[Dict]):
     }
 
 
-class DataModule(pl.LightningDataModule):
-    def __init__(self, args: Arguments):
-        super().__init__()
-        self._args = args
+def get_train_loader(args: Arguments) -> DataLoader:
+    instruction = load_instructions(
+        args.instructions, tasks=args.tasks, variations=args.variations
+    )
 
-    def train_dataloader(self) -> DataLoader:
-        taskvar = list(itertools.product(self._args.tasks, self._args.variations))
-        instruction = load_instructions(self._args.instructions)
-        max_episode_length = get_max_episode_length(
-            self._args.tasks, self._args.variations
-        )
-        num_iters = (
-            self._args.train_iters
-            * self._args.batch_size
-            * self._args.num_nodes
-            * self._args.gpus
-        )
+    if instruction is None:
+        taskvar = list(itertools.product(args.tasks, args.variations))
+    else:
+        taskvar = [
+            (task, var)
+            for task, var_instr in instruction.items()
+            for var in var_instr.keys()
+        ]
+    print(f"Valset has {len(taskvar)} taskvars")
+
+    max_episode_length = get_max_episode_length(args.tasks, args.variations)
+
+    dataset = RLBenchDataset(
+        root=args.dataset,
+        taskvar=taskvar,
+        instructions=instruction,
+        max_episode_length=max_episode_length,
+        max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+        cache_size=args.cache_size,
+        num_iters=args.train_iters,
+        cameras=args.cameras,  # type: ignore
+    )
+    loader = DataLoader(
+        dataset=dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        collate_fn=collate_fn,
+    )
+    return loader
+
+
+def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
+    if args.valset is None:
+        return None
+
+    instruction = load_instructions(
+        args.instructions, tasks=args.tasks, variations=args.variations
+    )
+
+    if instruction is None:
+        taskvar = list(itertools.product(args.tasks, args.variations))
+    else:
+        taskvar = [
+            (task, var)
+            for task, var_instr in instruction.items()
+            for var in var_instr.keys()
+        ]
+    print(f"Valset has {len(taskvar)} taskvars")
+
+    max_episode_length = get_max_episode_length(args.tasks, args.variations)
+    loaders = []
+
+    for valset in args.valset:
         dataset = RLBenchDataset(
-            root=self._args.dataset,
+            root=valset,
             taskvar=taskvar,
             instructions=instruction,
-            num_iters=num_iters,
             max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=self._args.max_episodes_per_taskvar,
-            cache_size=self._args.cache_size,
+            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            cache_size=args.cache_size,
+            training=False,
         )
         loader = DataLoader(
             dataset=dataset,
-            batch_size=self._args.batch_size,
-            shuffle=True,
-            num_workers=self._args.num_workers,
-            collate_fn=collate_fn,
-            persistent_workers=self._args.num_workers > 0,
-        )
-        # return AutoReloadLoader(loader)
-        return loader
-
-    def val_dataloader(self) -> Optional[DataLoader]:
-        if self._args.valset is None:
-            return None
-
-        instruction = load_instructions(self._args.instructions)
-        taskvar = list(itertools.product(self._args.tasks, self._args.variations))
-        max_episode_length = get_max_episode_length(
-            self._args.tasks, self._args.variations
-        )
-
-        dataset = RLBenchDataset(
-            root=self._args.valset,
-            instructions=instruction,
-            max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=self._args.max_episodes_per_taskvar,
-            cache_size=0,
-        )
-        loader = DataLoader(
-            dataset=dataset,
-            batch_size=self._args.batch_size,
+            batch_size=args.batch_size,
             shuffle=False,
             num_workers=0,
             collate_fn=collate_fn,
-            persistent_workers=False,
         )
-        return loader
+        loaders.append(loader)
+
+    print(len(loaders), "validation loaders")
+
+    return loaders
 
 
-class AutoReloadLoader:
-    def __init__(self, loader: DataLoader):
-        self._loader = loader
-        self._iter = iter(self._loader)
+def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
+    device = torch.device(args.device)
 
-    def __next__(self):
-        try:
-            return next(self._iter)
-        except StopIteration:
-            self._iter = iter(self._loader)
-            return next(self._iter)
+    max_eps_dict = load_episodes()["max_episode_length"]
 
+    max_episode_length = get_max_episode_length(args.tasks, args.variations)
+    model = Hiveformer(
+        depth=args.depth,
+        dim_feedforward=args.dim_feedforward,
+        hidden_dim=args.hidden_dim,
+        instr_size=args.instr_size,
+        mask_obs_prob=args.mask_obs_prob,
+        max_episode_length=max_episode_length,
+        num_layers=args.num_layers,
+    ).to(device)
 
-def get_log_dir(args: Arguments) -> Path:
-    log_dir = args.xp / args.name
-    version = int(os.environ.get("SLURM_JOBID", 0))
-    while (log_dir / f"version{version}").is_dir():
-        version += 1
-    return log_dir / f"version{version}"
+    optimizer_grouped_parameters = [
+        {"params": [], "weight_decay": 0.0, "lr": args.lr},
+        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
+    ]
+    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+    for name, param in model.named_parameters():
+        if any(nd in name for nd in no_decay):
+            optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
+        else:
+            optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
+    optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
+
+    if args.checkpoint is not None:
+        model_dict = torch.load(args.checkpoint, map_location="cpu")
+        model.load_state_dict(model_dict["weight"])
+        optimizer.load_state_dict(model_dict["optimizer"])
+
+    print("Number of parameters:")
+    model_params = count_parameters(model)
+    print("- model", model_params)
+    print("Total", model_params)
+
+    return optimizer, model
 
 
 if __name__ == "__main__":
-    random.seed(0)
-    np.random.seed(0)
-    torch.random.manual_seed(0)
-
     args = Arguments().parse_args()
     print(args)
+    log_dir = get_log_dir(args)
+    log_dir.mkdir(exist_ok=True, parents=True)
+    print("Logging:", log_dir)
+    args.save(str(log_dir / "hparams.json"))
+    writer = SummaryWriter(log_dir=log_dir)
 
-    dm = DataModule(args)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
-    if args.checkpoint is None:
-        model = Module(args)
-    else:
-        model = Module.load_from_checkpoint(args.checkpoint, args=args)
+    device = torch.device(args.device)
 
-    # callbacks
-    checkpoint_period = args.val_freq
-    if args.checkpoint_period > 0:
-        save_top_k = -1
-        checkpoint_period *= args.checkpoint_period
-    else:
-        save_top_k = 5
-    checkpoint_callback = ModelCheckpoint(
-        monitor="train/position/metrics",
-        save_top_k=save_top_k,
-        every_n_train_steps=checkpoint_period,
-        mode="max",
+    optimizer, model = get_model(args)
+    
+    loss_and_metrics = LossAndMetrics()
+
+    # training episode
+    model_dict = {
+        "weight": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    checkpointer = CheckpointCallback(
+        "val-metrics/position",
+        log_dir,
+        model_dict,
+        minimizing=False,
+        checkpoint_period=args.checkpoint_period,
     )
-    device_stats = DeviceStatsMonitor()
-    lr_monitor = LearningRateMonitor(logging_interval="step")
-    callbacks = [lr_monitor, checkpoint_callback]
+    model.train()
 
-    default_root_dir = f"{args.xp}/{args.name}" if args.name != "" else None
+    val_loaders = get_val_loaders(args)
 
-    trainer = pl.Trainer(
-        gpus=args.gpus,
-        num_nodes=args.num_nodes,
-        precision=16 if args.use_half else 32,
-        callbacks=callbacks,
-        gradient_clip_val=20.0,
-        log_every_n_steps=args.log_every_n_steps,
-        limit_train_batches=0 if args.eval_only else 1.0,
-        limit_val_batches=5,
-        max_steps=args.train_iters,
-        val_check_interval=int(args.val_freq),
-        default_root_dir=default_root_dir,
-        strategy=None,
-        accumulate_grad_batches=args.accumulate_grad_batches,
-    )
-    if args.eval_only:
-        trainer.fit(model, dm)
-    else:
-        trainer.validate(model, dm)
+    if args.train_iters > 0:
+        train_loader = get_train_loader(args)
+        training(
+            model,
+            optimizer,
+            train_loader,
+            val_loaders,
+            checkpointer,
+            loss_and_metrics,
+            args,
+            writer,
+        )
 
-    # Evaluation
+    if val_loaders is not None:
+        val_metrics = validation_step(
+            args.train_iters,
+            val_loaders,
+            model,
+            writer,
+            loss_and_metrics,
+            val_iters=-1,
+        )
+
+    # last checkpoint
+    checkpoint = log_dir / f"mtl_{args.seed}_{args.lr}.pth"
+    torch.save(model_dict, checkpoint)
+
+    # evaluation
+    model.eval()
+
     env = RLBenchEnv(
         data_path="",
         apply_rgb=True,
@@ -393,8 +464,6 @@ if __name__ == "__main__":
         apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
         headless=args.headless,
     )
-    log_dir = get_log_dir(args)
-    log_dir.mkdir(exist_ok=True, parents=True)
 
     instruction = load_instructions(args.instructions)
     actioner = Actioner(model=model.model, instructions=instruction)

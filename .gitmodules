@@ -1,0 +1,6 @@
+[submodule "RLBench"]
+	path = RLBench
+	url = https://github.com/guhur/RLBench
+[submodule "PyRep"]
+	path = PyRep
+	url = https://github.com/guhur/PyRep
