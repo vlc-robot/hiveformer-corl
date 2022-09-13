@@ -9,9 +9,9 @@ export const socialLinks = {
     icon: 'fa-youtube',
     disable: false,
   },
-  paper: {
-    url: 'https://github.com/guhur/hiveformer',
-    icon: 'fa-arxiv',
+  "arXiv": {
+    url: 'https://arxiv.org/abs/2209.04899',
+    icon: 'fa-memo',
     disable: true,
   },
   "Contact": {
