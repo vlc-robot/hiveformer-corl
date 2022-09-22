@@ -2,9 +2,13 @@
 
 [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
+![arXiv](https://img.shields.io/badge/cs.RO-2209.04899-red.svg?style=for-the-badge&logo=arXiv&logoColor=white)
 
+This is the PyTorch implementation of the Hiveformer research paper:
 
-This is the PyTorch implementation of the Hiveformer research paper.
+> Instruction-driven history-aware policies for robotic manipulations  
+> Pierre-Louis Guhur, Shizhe Chen, Ricardo Garcia, Makarand Tapaswi, Ivan Laptev, Cordelia Schmid  
+> **CoRL 2022 (oral)**
 
 
 
