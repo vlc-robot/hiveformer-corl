@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import * as constants from '../constants';
+import * as constants from '@services/constants';
 
 
 export default class Header extends Component {

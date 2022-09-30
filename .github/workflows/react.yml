@@ -1,6 +1,6 @@
-# Workflow for building and deploying a Gatsby site to GitHub Pages
+# Workflow for building and deploying a Next site to GitHub Pages
 #
-name: Deploy React site to Pages
+name: Deploy project site to Pages
 
 on:
   # Runs on pushes targeting the default branch
@@ -75,7 +75,7 @@ jobs:
         run: |
           cd docs
           ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
-      - name: Build with React
+      - name: Build with Next
         env:
           PREFIX_PATHS: 'true'
         run: |
