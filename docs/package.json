@@ -4,20 +4,20 @@
   "private": true,
   "homepage": "https://guhur.github.io/hiveformer",
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "^5.0.1"
+    "react": "latest",
+    "react-dom": "latest",
+    "next": "latest"
   },
   "scripts": {
-    "start": "react-scripts --openssl-legacy-provider start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "predeploy": "next build",
+    "deploy": "gh-pages -d build",
+    "lint": "next lint"
   },
   "eslintConfig": {
-    "extends": "react-app"
+    "extends": "next"
   },
   "browserslist": [
     ">0.2%",

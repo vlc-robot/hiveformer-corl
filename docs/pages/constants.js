@@ -11,8 +11,8 @@ export const socialLinks = {
   },
   "arXiv": {
     url: 'https://arxiv.org/abs/2209.04899',
-    icon: 'fa-memo',
-    disable: true,
+    icon: 'fa-book',
+    disable: false,
   },
   "Contact": {
     url: 'mailto:pierrelouisguhur@gmail.com',
