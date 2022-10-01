@@ -6,12 +6,4 @@ module.exports = {
   images: {
     unoptimized: true,
   },
-  compilerOptions: {
-    "baseUrl": "./",
-    "paths": {
-      "@components/*": ["components/*"],
-      "@styles/*": ["styles/*"],
-      "@services/*": ["services/*"]
-    }
-  }
 }
