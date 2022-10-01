@@ -1,4 +1,6 @@
 import React, {Component} from 'react';
+import Logo from '@styles/images/logo.png';
+
 export default class About extends Component {
   render() {
     return (
@@ -7,7 +9,7 @@ export default class About extends Component {
 
           <div className="three columns">
 
-            <img className="profile-pic" src="images/logo.png" alt="" />
+            <Image src={Logo} className="profile-pic" alt="A bee hive" />
 
           </div>
 

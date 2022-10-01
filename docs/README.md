@@ -7,8 +7,7 @@ The website showcasing our Hiveformer model.
 
 ```bash
 npm install
-npm install -g react-scripts
-npm start
+npm run dev
 ```
 
 ## :pray: Credits
