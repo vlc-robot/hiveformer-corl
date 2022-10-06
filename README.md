@@ -2,8 +2,8 @@
 
 [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
-![arXiv](https://img.shields.io/badge/cs.RO-2209.04899-red.svg?style=for-the-badge&logo=arXiv&logoColor=white)
-![Star this repository](https://img.shields.io/github/stars/guhur/hiveformer?style=social)
+[![arXiv](https://img.shields.io/badge/cs.RO-2209.04899-red.svg?style=for-the-badge&logo=arXiv&logoColor=white)](https://arxiv.org/abs/2209.04899)
+![Star this repository](https://img.shields.io/github/stars/guhur/hiveformer?style=for-the-badge)
 
 This is the PyTorch implementation of the Hiveformer research paper:
 
