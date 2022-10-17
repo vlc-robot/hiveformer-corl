@@ -5,6 +5,8 @@
 [![arXiv](https://img.shields.io/badge/cs.RO-2209.04899-red.svg?style=for-the-badge&logo=arXiv&logoColor=white)](https://arxiv.org/abs/2209.04899)
 ![Star this repository](https://img.shields.io/github/stars/guhur/hiveformer?style=for-the-badge)
 [![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fguhur%2Fhiveformer%2Fbadge%3Fref%3Dmain&style=for-the-badge)](https://actions-badge.atrox.dev/guhur/hiveformer/goto?ref=main)
+[![site](https://img.shields.io/badge/site-🌐-blue.svg?style=for-the-badge)](https://guhur.github.io/hiveformer)
+
 
 
 This is the PyTorch implementation of the Hiveformer research paper:
