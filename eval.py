@@ -1,16 +1,11 @@
 import random
-from typing import Tuple, Dict, Optional, TypedDict, List
-import pickle
-import json
+from typing import Tuple, Optional
 from copy import deepcopy
 from pathlib import Path
-from tqdm import trange
 import torch
-from torch import nn
 import numpy as np
 import tap
 from filelock import FileLock
-from rlbench.demo import Demo
 from network import Hiveformer
 from utils import (
     RLBenchEnv,
@@ -19,7 +14,7 @@ from utils import (
     Actioner,
     load_instructions,
 )
-from multi_task_baselines import Arguments as TrainArguments, get_dec_len
+from train import Arguments as TrainArguments
 
 
 class Arguments(tap.Tap):

@@ -1,5 +1,11 @@
-[mypy]
+[tool.mypy]
 plugins = "numpy.typing.mypy_plugin"
+follow_imports = "normal"
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
 
 [tool.black]
 line-length = 90

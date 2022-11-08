@@ -1,14 +1,12 @@
 import random
-from typing import List, Tuple, Dict, Optional, Any, Union
-import itertools
-import pickle
+from typing import List, Tuple, Dict, Optional, Any
 import os
 from pathlib import Path
 import torch
 from torch import nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import tqdm, trange
@@ -24,7 +22,7 @@ from utils import (
     get_max_episode_length,
     Actioner,
 )
-from dataset import RLBenchDataset, Sample
+from dataset import RLBenchDataset
 
 
 class Arguments(tap.Tap):
