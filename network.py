@@ -423,14 +423,14 @@ class ConvLayer(nn.Module):
             return out
 
 
-def dense_layer(in_channels, out_channels, apply_activation=True):
+def dense_layer(in_channels: int, out_channels: int, apply_activation=True):
     layer: List[nn.Module] = [nn.Linear(in_channels, out_channels)]
     if apply_activation:
         layer += [nn.LeakyReLU(0.02)]
     return layer
 
 
-def normalise_quat(x):
+def normalise_quat(x: torch.Tensor):
     return x / x.square().sum(dim=-1).sqrt().unsqueeze(-1)
 
 

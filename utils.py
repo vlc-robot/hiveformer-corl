@@ -653,22 +653,23 @@ def compute_rotation_loss(logit: torch.Tensor, rot: torch.Tensor):
     return {"rotation": sym_loss.mean()}
 
 
-def load_instructions(instructions: Optional[Path], tasks: Optional[Sequence[str]] = None, variations: Optional[Sequence[int]] = None) -> Optional[Instructions]:
+def load_instructions(
+    instructions: Optional[Path],
+    tasks: Optional[Sequence[str]] = None,
+    variations: Optional[Sequence[int]] = None,
+) -> Optional[Instructions]:
     if instructions is not None:
         with open(instructions, "rb") as fid:
             data: Instructions = pickle.load(fid)
 
         if tasks is not None:
-            data = {
-                task: var_instr
-                for task, var_instr in data.items()
-                if task in tasks 
-            }
-        
+            data = {task: var_instr for task, var_instr in data.items() if task in tasks}
+
         if variations is not None:
             data = {
-                task: {var: instr for var, instr in var_instr.items()
-                     if var in variations}
+                task: {
+                    var: instr for var, instr in var_instr.items() if var in variations
+                }
                 for task, var_instr in data.items()
             }
 

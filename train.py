@@ -48,7 +48,6 @@ class Arguments(tap.Tap):
     tasks: Tuple[str, ...]
     variations: Tuple[int, ...] = (0,)
 
-
     # Train
     batch_size: int = 32
     lr: float = 0.001
@@ -202,7 +201,7 @@ def validation_step(
     val_iters: int = 5,
 ):
     values = {}
-    device = next(model.parameters()).device 
+    device = next(model.parameters()).device
     model.eval()
 
     for val_id, val_loader in enumerate(val_loaders):
@@ -275,7 +274,7 @@ def get_train_loader(args: Arguments) -> DataLoader:
     )
 
     if instruction is None:
-        taskvar = list(itertools.product(args.tasks, args.variations))
+        raise NotImplementedError()
     else:
         taskvar = [
             (task, var)
@@ -315,7 +314,7 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
     )
 
     if instruction is None:
-        taskvar = list(itertools.product(args.tasks, args.variations))
+        raise NotImplementedError()
     else:
         taskvar = [
             (task, var)
@@ -353,8 +352,6 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
 
 def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     device = torch.device(args.device)
-
-    max_eps_dict = load_episodes()["max_episode_length"]
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
     model = Hiveformer(
@@ -408,7 +405,7 @@ if __name__ == "__main__":
     device = torch.device(args.device)
 
     optimizer, model = get_model(args)
-    
+
     loss_and_metrics = LossAndMetrics()
 
     # training episode
@@ -466,6 +463,9 @@ if __name__ == "__main__":
     )
 
     instruction = load_instructions(args.instructions)
+    if instruction is None:
+        raise NotImplementedError()
+
     actioner = Actioner(model=model.model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
