@@ -36,27 +36,29 @@ root=/home/theophile_gervet
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
 seed=0
+episodes_per_task=2
+task_file=10_autolambda_tasks.csv
 
 cd $root/hiveformer/RLBench/tools
 nohup sudo X &
 export DISPLAY=:0.0
 python dataset_generator.py \
 --save_path=$data_dir/$seed \
---tasks=$(cat $root/hiveformer/10_autolambda_tasks.csv | tr '\n' ' ') \
+--tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
 --image_size=128,128 \
 --renderer=opengl \
---episodes_per_task=100 \
+--episodes_per_task=$episodes_per_task \
 --variations=1 \
 --offset=0 \
 --processes=1
 
 cd $root/hiveformer
-for task in $(cat 10_autolambda_tasks.csv | tr '\n' ' '); do
+for task in $(cat $task_file | tr '\n' ' '); do
     python data_gen.py \
     --data_dir=$data_dir/seed \
     --output=$output_dir \
     --max_variations=1 \
-    --num_episodes=100 \
+    --num_episodes=$episodes_per_task \
     --tasks=$task \
 done
 ```
@@ -67,6 +69,6 @@ Issue 1:
 * `python dataset_generator.py [...]` fails because
 * `cd $COPPELIASIM_ROOT ; ./coppeliaSim.sh` fails because
 * `sudo X` fails
-* https://github.com/stepjam/RLBench/issues/139
-* https://github.com/stepjam/RLBench/issues/142
-* https://github.com/Unity-Technologies/obstacle-tower-env/issues/51
+* https://github.com/stepjam/RLBench/issues/139 (problem)
+* https://github.com/stepjam/RLBench/issues/142 (problem)
+* https://github.com/Unity-Technologies/obstacle-tower-env/issues/51 (solution)
