@@ -5,7 +5,7 @@ Only Linux is supported by RLBench.
 conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
 conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
-pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py;
+pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard;
 git submodule update --init --recursive
 
 # Install PyRep
@@ -37,35 +37,82 @@ data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
 seed=0
 episodes_per_task=2
+#task_file=tasks.csv
 task_file=10_autolambda_tasks.csv
 
-cd $root/hiveformer/RLBench/tools
 nohup sudo X &
 export DISPLAY=:0.0
+
+cd $root/hiveformer/RLBench/tools
 python dataset_generator.py \
---save_path=$data_dir/$seed \
---tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
---image_size=128,128 \
---renderer=opengl \
---episodes_per_task=$episodes_per_task \
---variations=1 \
---offset=0 \
---processes=1
+    --save_path=$data_dir/$seed \
+    --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
+    --image_size=128,128 \
+    --renderer=opengl \
+    --episodes_per_task=$episodes_per_task \
+    --variations=1 \
+    --offset=0 \
+    --processes=1
 
 cd $root/hiveformer
 for task in $(cat $task_file | tr '\n' ' '); do
     python data_gen.py \
-    --data_dir=$data_dir/seed \
-    --output=$output_dir \
-    --max_variations=1 \
-    --num_episodes=$episodes_per_task \
-    --tasks=$task \
+        --data_dir=$data_dir/$seed \
+        --output=$output_dir/$seed \
+        --max_variations=1 \
+        --tasks=$task
 done
+
+python preprocess_instructions.py \
+    --tasks $(cat $task_file | tr '\n' ' ') \
+    --output instructions.pkl \
+    --variations {0..199} \
+    --annotations annotations.json
+```
+
+## Training
+
+Single task training:
+```
+root=/home/theophile_gervet
+seed=0
+task_file=10_autolambda_tasks.csv
+output_dir=$root/datasets/hiveformer/packaged
+
+# All tasks
+for task in $(cat $task_file | tr '\n' ' '); do
+    python train.py \
+        --tasks $task \
+        --dataset $output_dir/$seed \
+        --num_workers 10  \
+        --instructions instructions.pkl \
+        --variations 0
+done
+
+# One specific task debugging
+python train.py \
+    --tasks pick_and_lift \
+    --dataset $output_dir/$seed \
+    --num_workers 10  \
+    --instructions instructions.pkl \
+    --variations 0 \
+    --device cpu \
+    --train_iters 0
+```
+
+## Evaluation
+
+```
+python eval.py \
+    --checkpoint /path/to/checkpoint/ \
+    --variations 0 \
+    --instructions instructions.pkl \
+    --num_episodes 100
 ```
 
 ## Issues Faced
 
-Issue 1:
+CoppeliaSim requires XServer:
 * `python dataset_generator.py [...]` fails because
 * `cd $COPPELIASIM_ROOT ; ./coppeliaSim.sh` fails because
 * `sudo X` fails

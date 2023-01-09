@@ -464,7 +464,7 @@ if __name__ == "__main__":
     if instruction is None:
         raise NotImplementedError()
 
-    actioner = Actioner(model=model.model, instructions=instruction)
+    actioner = Actioner(model=model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
         for variation in args.variations:

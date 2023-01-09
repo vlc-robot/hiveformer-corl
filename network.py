@@ -440,7 +440,7 @@ class Hiveformer(nn.Module):
         hidden_dim: int = 64,
         dim_feedforward: int = 64,
         mask_obs_prob: float = 0.0,
-        num_words: int = 42,
+        num_words: int = 84,  # 42 in original code-base causes exception
         num_layers: int = 1,
         num_cams: int = 3,
         num_heads: int = 8,

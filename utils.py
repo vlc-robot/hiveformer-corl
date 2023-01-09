@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABC
+import os
 import random
 import itertools
 import pickle
@@ -26,6 +27,10 @@ from rlbench.backend.exceptions import InvalidActionError
 from rlbench.demo import Demo
 from pyrep.errors import IKError, ConfigurationPathError
 from pyrep.const import RenderMode
+from pyrep.objects.dummy import Dummy
+from pyrep.objects.vision_sensor import VisionSensor
+
+from video_utils import CircleCameraMotion, TaskRecorder
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
@@ -385,6 +390,7 @@ class RLBenchEnv:
         max_tries: int = 1,
         demos: Optional[List[Demo]] = None,
         save_attn: bool = False,
+        record_videos: bool = True
     ):
         """
         Evaluate the policy network on the desired demo or test environments
@@ -393,6 +399,7 @@ class RLBenchEnv:
             :param num_demos: number of test demos for evaluation
             :param model: the policy network
             :param demos: whether to use the saved demos
+            :param record_videos: whether to record videos
             :return: success rate
         """
 
@@ -400,6 +407,15 @@ class RLBenchEnv:
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
         task.set_variation(variation)  # type: ignore
+
+        if record_videos:
+            cam_placeholder = Dummy('cam_cinematic_placeholder')
+            cam = VisionSensor.create([1280, 720])
+            cam.set_pose(cam_placeholder.get_pose())
+            cam.set_parent(cam_placeholder)
+            cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
+            task_recorder = TaskRecorder(self.env, cam_motion, fps=30)
+            self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
         device = actioner.device
 
@@ -414,6 +430,8 @@ class RLBenchEnv:
 
         with torch.no_grad():
             for demo_id, demo in enumerate(tqdm(fetch_list)):
+                if record_videos:
+                    task_recorder._cam_motion.save_pose()
 
                 images = []
                 rgbs = torch.Tensor([]).to(device)
@@ -422,11 +440,13 @@ class RLBenchEnv:
 
                 # reset a new demo or a defined demo in the demo list
                 if demos is None:
-                    _, obs = task.reset()
+                    descriptions, obs = task.reset()
                 else:
                     print("Resetting to demo")
                     print(demo)
-                    _, obs = task.reset_to_demo(demo)
+                    descriptions, obs = task.reset_to_demo(demo)
+
+                lang_goal = descriptions[0]  # first description variant
 
                 actioner.load_episode(task_str, variation, demo_id, demo)
 
@@ -473,6 +493,16 @@ class RLBenchEnv:
                         print(task_type, demo, step_id, success_rate, e)
                         reward = 0
                         break
+
+                # record video
+                if record_videos:
+                    record_video_file = os.path.join(
+                        log_dir,
+                        "videos",
+                        '%s_s%s_%s.mp4' % (task_str, demo_id, 'succ' if (reward == 1) else 'fail')
+                    )
+                    task_recorder.save(record_video_file, lang_goal)
+                    task_recorder._cam_motion.restore_pose()
 
                 print(
                     task_str,
