@@ -49,7 +49,7 @@ class TaskRecorder(object):
             (self._cam_motion.cam.capture_rgb() * 255.).astype(np.uint8))
 
     def save(self, path, lang_goal):
-        print('Converting to video ...')
+        print(f"Saving eval video at {path}")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         # OpenCV QT version can conflict with PyRep, so import here
         import cv2

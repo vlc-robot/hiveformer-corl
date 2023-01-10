@@ -417,6 +417,23 @@ class RLBenchEnv:
             task_recorder = TaskRecorder(self.env, cam_motion, fps=30)
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
+            # Record demo video for comparison with evaluation videos
+            task_recorder._cam_motion.save_pose()
+            demo = task.get_demos(
+                amount=1,
+                live_demos=True,
+                callable_each_step=task_recorder.take_snap,
+                max_attempts=1
+            )[0]
+            record_video_file = os.path.join(log_dir, "videos", f'{task_str}_demo.mp4')
+            descriptions, obs = task.reset()
+            lang_goal = descriptions[0]  # first description variant
+            task_recorder.save(record_video_file, lang_goal)
+            task_recorder._cam_motion.restore_pose()
+
+            # DEBUG
+            # keyframe_actions = actioner.get_action_from_demo(demo)
+
         device = actioner.device
 
         success_rate = 0.0
@@ -471,6 +488,9 @@ class RLBenchEnv:
                     output = actioner.predict(step_id, rgbs, pcds, grippers)
                     action = output["action"]
 
+                    # DEBUG
+                    # action = keyframe_actions[step_id]
+
                     if action is None:
                         break
 
@@ -499,7 +519,7 @@ class RLBenchEnv:
                     record_video_file = os.path.join(
                         log_dir,
                         "videos",
-                        '%s_s%s_%s.mp4' % (task_str, demo_id, 'succ' if (reward == 1) else 'fail')
+                        '%s_ep%s_rew%s.mp4' % (task_str, demo_id, reward)
                     )
                     task_recorder.save(record_video_file, lang_goal)
                     task_recorder._cam_motion.restore_pose()

@@ -5,7 +5,7 @@ Only Linux is supported by RLBench.
 conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
 conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
-pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard;
+pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python;
 git submodule update --init --recursive
 
 # Install PyRep
@@ -28,6 +28,9 @@ wget https://sourceforge.net/projects/virtualgl/files/2.5.2/virtualgl_2.5.2_amd6
 sudo dpkg -i virtualgl*.deb; rm virtualgl*.deb;
 sudo reboot
 ```
+
+Small changes to HiveFormer RLBench fork:
+* add `set_callable_each_step` from [PerAct RLBench fork](https://github.com/MohitShridhar/RLBench/blob/peract/rlbench/action_modes/arm_action_modes.py)
 
 ## Dataset Generation
 
