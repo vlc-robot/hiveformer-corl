@@ -12,7 +12,7 @@ git submodule update --init --recursive
 cd PyRep; 
 wget https://www.coppeliarobotics.com/files/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04.tar.xz; 
 tar -xf CoppeliaSim_Edu_V4_1_0_Ubuntu20_04.tar.xz;
-echo "export COPPELIASIM_ROOT=/home/theophile_gervet/Documents/hiveformer/PyRep/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04" >> ~/.bashrc; 
+echo "export COPPELIASIM_ROOT=/home/theophile_gervet/hiveformer/PyRep/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04" >> ~/.bashrc; 
 echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:\$COPPELIASIM_ROOT" >> ~/.bashrc;
 echo "export QT_QPA_PLATFORM_PLUGIN_PATH=\$COPPELIASIM_ROOT" >> ~/.bashrc;
 source ~/.bashrc;
@@ -20,13 +20,37 @@ pip install -r requirements.txt; pip install -e .; cd ..
 
 # Install RLBench
 cd RLBench; pip install -r requirements.txt; pip install -e .; cd ..;
-
-# Possibly needed
 sudo apt-get update; sudo apt-get install xorg libxcb-randr0-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-0 libavcodec-dev libavformat-dev libswscale-dev;
 sudo nvidia-xconfig -a --virtual=1280x1024;
 wget https://sourceforge.net/projects/virtualgl/files/2.5.2/virtualgl_2.5.2_amd64.deb/download -O virtualgl_2.5.2_amd64.deb --no-check-certificate;
 sudo dpkg -i virtualgl*.deb; rm virtualgl*.deb;
-sudo reboot
+sudo reboot  # Need to reboot for changes to take effect
+
+# Install Mask3D
+conda create --name=mask3d python=3.10.6
+conda activate mask3d
+conda update -n base -c defaults conda
+conda install openblas-devel -c anaconda
+pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps --install-option="--blas_include_dirs=${CONDA_PREFIX}/include" --install-option="--blas=openblas"
+pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu116
+pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.0+cu116.html
+pip install ninja==1.10.2.3
+pip install pytorch-lightning==1.7.2 fire imageio tqdm wandb python-dotenv pyviz3d scipy plyfile scikit-learn trimesh loguru albumentations volumentations
+pip install antlr4-python3-runtime==4.8
+pip install black==21.4b2
+pip install 'git+https://github.com/facebookresearch/detectron2.git@710e7795d0eeadf9def0e7ef957eea13532e34cf'
+pip install omegaconf==2.0.6 hydra-core==1.0.5 --no-deps
+cd third_party/pointnet2 && python setup.py install
+```
+
+TODO Unify Mask3D and RLBench envs
+```
+# Temporary Mask3D command
+python main_instance_segmentation.py \
+general.experiment_name="benchmark" \
+general.eval_on_segments=true \
+general.train_on_segments=true \
+data.train_mode=train
 ```
 
 Small changes to HiveFormer RLBench fork:
@@ -40,7 +64,6 @@ data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
 seed=0
 episodes_per_task=2
-#task_file=tasks.csv
 task_file=10_autolambda_tasks.csv
 
 nohup sudo X &
