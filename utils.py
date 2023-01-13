@@ -414,7 +414,8 @@ class RLBenchEnv:
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
             cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
-            task_recorder = TaskRecorder(self.env, cam_motion, fps=30)
+            task_recorder = TaskRecorder(("left_shoulder", "right_shoulder", "wrist"),
+                                         self.env, cam_motion, fps=30)
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
             # Record demo video for comparison with evaluation videos
@@ -425,7 +426,7 @@ class RLBenchEnv:
                 callable_each_step=task_recorder.take_snap,
                 max_attempts=1
             )[0]
-            record_video_file = os.path.join(log_dir, "videos", f'{task_str}_demo.mp4')
+            record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
             descriptions, obs = task.reset()
             lang_goal = descriptions[0]  # first description variant
             task_recorder.save(record_video_file, lang_goal)
@@ -519,7 +520,7 @@ class RLBenchEnv:
                     record_video_file = os.path.join(
                         log_dir,
                         "videos",
-                        '%s_ep%s_rew%s.mp4' % (task_str, demo_id, reward)
+                        '%s_ep%s_rew%s' % (task_str, demo_id, reward)
                     )
                     task_recorder.save(record_video_file, lang_goal)
                     task_recorder._cam_motion.restore_pose()

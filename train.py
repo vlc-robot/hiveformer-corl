@@ -115,7 +115,7 @@ def training(
             )
 
             # DEBUG
-            raise NotImplementedError
+            # raise NotImplementedError
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
@@ -357,16 +357,16 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     device = torch.device(args.device)
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
-    # model = Hiveformer(
-    #     depth=args.depth,
-    #     dim_feedforward=args.dim_feedforward,
-    #     hidden_dim=args.hidden_dim,
-    #     instr_size=args.instr_size,
-    #     mask_obs_prob=args.mask_obs_prob,
-    #     max_episode_length=max_episode_length,
-    #     num_layers=args.num_layers,
-    # ).to(device)
-    model = Baseline().to(device)
+    model = Hiveformer(
+        depth=args.depth,
+        dim_feedforward=args.dim_feedforward,
+        hidden_dim=args.hidden_dim,
+        instr_size=args.instr_size,
+        mask_obs_prob=args.mask_obs_prob,
+        max_episode_length=max_episode_length,
+        num_layers=args.num_layers,
+    ).to(device)
+    # model = Baseline().to(device)
 
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},

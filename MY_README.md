@@ -4,7 +4,7 @@ Only Linux is supported by RLBench.
 ```
 conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
-conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
+conda uninstall pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
 pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d;
 git submodule update --init --recursive
 
@@ -12,7 +12,7 @@ git submodule update --init --recursive
 cd PyRep; 
 wget https://www.coppeliarobotics.com/files/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04.tar.xz; 
 tar -xf CoppeliaSim_Edu_V4_1_0_Ubuntu20_04.tar.xz;
-echo "export COPPELIASIM_ROOT=/home/theophile_gervet/hiveformer/PyRep/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04" >> ~/.bashrc; 
+echo "export COPPELIASIM_ROOT=/home/theophile_gervet_gmail_com/hiveformer/PyRep/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04" >> ~/.bashrc; 
 echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:\$COPPELIASIM_ROOT" >> ~/.bashrc;
 echo "export QT_QPA_PLATFORM_PLUGIN_PATH=\$COPPELIASIM_ROOT" >> ~/.bashrc;
 source ~/.bashrc;
@@ -27,30 +27,17 @@ sudo dpkg -i virtualgl*.deb; rm virtualgl*.deb;
 sudo reboot  # Need to reboot for changes to take effect
 
 # Install Mask3D
-conda create --name=mask3d python=3.10.6
-conda activate mask3d
-conda update -n base -c defaults conda
+sudo apt install build-essential python3-dev libopenblas-dev
 conda install openblas-devel -c anaconda
-pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps --install-option="--blas_include_dirs=${CONDA_PREFIX}/include" --install-option="--blas=openblas"
-pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu116
-pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.0+cu116.html
-pip install ninja==1.10.2.3
-pip install pytorch-lightning==1.7.2 fire imageio tqdm wandb python-dotenv pyviz3d scipy plyfile scikit-learn trimesh loguru albumentations volumentations
-pip install antlr4-python3-runtime==4.8
-pip install black==21.4b2
-pip install 'git+https://github.com/facebookresearch/detectron2.git@710e7795d0eeadf9def0e7ef957eea13532e34cf'
+pip install ninja==1.10.2.3;
+CUDA_HOME=/usr/local/cuda-11.3 pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps --install-option="--blas_include_dirs=${CONDA_PREFIX}/include" --install-option="--blas=openblas";
+pip install torch-scatter -f https://data.pyg.org/whl/1.11.0+cu113.html;
+pip install pytorch-lightning==1.7.2 fire imageio tqdm wandb python-dotenv pyviz3d scipy plyfile scikit-learn trimesh loguru albumentations volumentations;
+pip install antlr4-python3-runtime==4.8;
+pip install black==21.4b2;
+pip install 'git+https://github.com/facebookresearch/detectron2.git@710e7795d0eeadf9def0e7ef957eea13532e34cf';
 pip install omegaconf==2.0.6 hydra-core==1.0.5 --no-deps
 cd third_party/pointnet2 && python setup.py install
-```
-
-TODO Unify Mask3D and RLBench envs
-```
-# Temporary Mask3D command
-python main_instance_segmentation.py \
-general.experiment_name="benchmark" \
-general.eval_on_segments=true \
-general.train_on_segments=true \
-data.train_mode=train
 ```
 
 Small changes to HiveFormer RLBench fork:
@@ -59,7 +46,7 @@ Small changes to HiveFormer RLBench fork:
 ## Dataset Generation
 
 ```
-root=/home/theophile_gervet
+root=/home/theophile_gervet_gmail_com
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
 seed=0
@@ -100,7 +87,7 @@ python preprocess_instructions.py \
 
 Single task training:
 ```
-root=/home/theophile_gervet
+root=/home/theophile_gervet_gmail_com
 seed=0
 task_file=10_autolambda_tasks.csv
 output_dir=$root/datasets/hiveformer/packaged
@@ -119,11 +106,11 @@ done
 python train.py \
     --tasks pick_and_lift \
     --dataset $output_dir/$seed \
-    --num_workers 10  \
+    --num_workers 1  \
     --instructions instructions.pkl \
     --variations 0 \
     --device cpu \
-    --train_iters 0
+    --train_iters 10
 ```
 
 ## Evaluation
@@ -145,3 +132,7 @@ CoppeliaSim requires XServer:
 * https://github.com/stepjam/RLBench/issues/139 (problem)
 * https://github.com/stepjam/RLBench/issues/142 (problem)
 * https://github.com/Unity-Technologies/obstacle-tower-env/issues/51 (solution)
+
+Need to install Nvidia drivers and CUDA toolkit on Google Cloud:
+* [Drivers](https://cloud.google.com/compute/docs/gpus/install-drivers-gpu)
+* [CUDA toolkit 11.3](https://developer.nvidia.com/cuda-11.3.0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_local)
