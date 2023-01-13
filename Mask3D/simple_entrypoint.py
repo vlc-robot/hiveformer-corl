@@ -1,4 +1,4 @@
-from mask3d_without_hydra import Mask3D
+from models_without_hydra.mask3d import Mask3D
 
 
 model = Mask3D(

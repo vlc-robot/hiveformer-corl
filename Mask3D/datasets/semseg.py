@@ -202,16 +202,19 @@ class SemanticSegmentationDataset(Dataset):
         if self.dataset_name == "s3dis":
             color_mean_std = color_mean_std.replace("color_mean_std.yaml", f"Area_{self.area}_color_mean_std.yaml")
 
-        if Path(str(color_mean_std)).exists():
-            color_mean_std = self._load_yaml(color_mean_std)
-            color_mean, color_std = (
-                tuple(color_mean_std["mean"]),
-                tuple(color_mean_std["std"]),
-            )
-        elif len(color_mean_std[0]) == 3 and len(color_mean_std[1]) == 3:
-            color_mean, color_std = color_mean_std[0], color_mean_std[1]
-        else:
-            logger.error("pass mean and std as tuple of tuples, or as an .yaml file")
+        # if Path(str(color_mean_std)).exists():
+        #     color_mean_std = self._load_yaml(color_mean_std)
+        #     color_mean, color_std = (
+        #         tuple(color_mean_std["mean"]),
+        #         tuple(color_mean_std["std"]),
+        #     )
+        # elif len(color_mean_std[0]) == 3 and len(color_mean_std[1]) == 3:
+        #     color_mean, color_std = color_mean_std[0], color_mean_std[1]
+        # else:
+        #     logger.error("pass mean and std as tuple of tuples, or as an .yaml file")
+
+        color_mean = (0.47793125906962, 0.4303257521323044, 0.3749598901421883)
+        color_std = (0.2834475483823543, 0.27566157565723015, 0.27018971370874995)
 
         # augmentations
         self.volume_augmentations = V.NoOp()

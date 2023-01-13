@@ -198,7 +198,44 @@ class Mask3D(nn.Module):
         return pos_encodings_pcd
 
     def forward(self, x, point2segment=None, raw_coordinates=None, is_eval=False):
+        # DEBUG
+        print()
+        print()
+        print("# model parameters", sum(p.numel() for p in self.parameters()))
+        print("# backbone parameters", sum(p.numel() for p in self.backbone.parameters()))
+        decoder_modules = [
+            self.decoder_norm,
+            self.mask_embed_head,
+            self.class_embed_head,
+            self.cross_attention,
+            self.self_attention,
+            self.ffn_attention,
+            self.lin_squeeze,
+        ]
+        decoder_params = [sum(p.numel() for p in module.parameters()) for module in decoder_modules]
+        print(f"# decoder parameters {decoder_params} for {sum(decoder_params)} total")
+        print()
+
+        print("type(x)", type(x))
+        print("x.shape", x.shape)
+        print("type(point2segment)", type(point2segment))
+        print("len(point2segment)", len(point2segment))
+        print("point2segment[0].shape", point2segment[0].shape)
+        print("point2segment", point2segment)
+        print("type(raw_coordinates)", type(raw_coordinates))
+        print("raw_coordinates.shape", raw_coordinates.shape)
+        print("is_eval", is_eval)
+        print()
+
         pcd_features, aux = self.backbone(x)
+
+        # DEBUG
+        print("type(pcd_features)", type(pcd_features))
+        print("pcd_features.shape", pcd_features.shape)
+        print("type(aux)", type(aux))
+        print("len(aux)", len(aux))
+        print("[type(x) for x in aux]", [type(x) for x in aux])
+        print()
 
         batch_size = len(x.decomposed_coordinates)
 
@@ -216,6 +253,19 @@ class Mask3D(nn.Module):
 
         pos_encodings_pcd = self.get_pos_encs(coords)
         mask_features = self.mask_features_head(pcd_features)
+
+        # DEBUG
+        print("type(coords)", type(coords))
+        print("len(coords)", len(coords))
+        print("type(coords[0])", type(coords[0]))
+        print("coords[0].shape", coords[0].shape)
+        print("type(pos_encodings_pcd)", type(pos_encodings_pcd))
+        print("len(pos_encodings_pcd)", len(pos_encodings_pcd))
+        print("type(mask_features)", type(mask_features))
+        print("mask_features.shape", mask_features.shape)
+        print("self.train_on_segments", self.train_on_segments)
+        print("self.non_parametric_queries", self.non_parametric_queries)
+        print()
 
         if self.train_on_segments:
             mask_segments = []
@@ -264,6 +314,13 @@ class Mask3D(nn.Module):
             # PARAMETRIC QUERIES
             queries = self.query_feat.weight.unsqueeze(0).repeat(batch_size, 1, 1)
             query_pos = self.query_pos.weight.unsqueeze(1).repeat(1, batch_size, 1)
+
+        print("queries.shape", queries.shape)
+        print("query_pos.shape", query_pos.shape)
+        print("self.shared_decoder", self.shared_decoder)
+        print("self.num_decoders", self.num_decoders)
+        print("self.hlevels", self.hlevels)
+        print()
 
         predictions_class = []
         predictions_mask = []
@@ -361,6 +418,21 @@ class Mask3D(nn.Module):
                     query_pos=query_pos
                 )
 
+                # DEBUG
+                print("(decoder_counter, i)", (decoder_counter, i))
+                print("queries.shape", queries.shape)
+                print("mask_features.shape", mask_features.shape)
+                print("self.lin_squeeze[decoder_counter][i]", self.lin_squeeze[decoder_counter][i])
+                print("batched_aux.permute((1, 0, 2)).shape", batched_aux.permute((1, 0, 2)).shape)
+                print("src_pcd.shape", src_pcd.shape)
+                print("type(output_class)", type(output_class))
+                print("output_class.shape", output_class.shape)
+                print("type(outputs_mask)", type(outputs_mask))
+                print("type(attn_mask)", type(attn_mask))
+                print("attn_mask.shape", attn_mask.shape)
+                print("output.shape", output.shape)
+                print()
+
                 output = self.self_attention[decoder_counter][i](
                     output, tgt_mask=None,
                     tgt_key_padding_mask=None,
@@ -393,6 +465,13 @@ class Mask3D(nn.Module):
                                                           coords=coords)
         predictions_class.append(output_class)
         predictions_mask.append(outputs_mask)
+
+        # DEBUG
+        print("queries.shape", queries.shape)
+        print("mask_features.shape", mask_features.shape)
+        print("output_class.shape", output_class.shape)
+        print("outputs_mask.shape", len(outputs_mask))
+        print()
 
         return {
             'pred_logits': predictions_class[-1],

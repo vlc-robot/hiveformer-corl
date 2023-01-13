@@ -3,6 +3,7 @@ import os
 from hashlib import md5
 from uuid import uuid4
 import hydra
+import shutil
 from dotenv import load_dotenv
 from omegaconf import DictConfig, OmegaConf
 from trainer.trainer import InstanceSegmentation, RegularCheckpointing
@@ -35,11 +36,13 @@ def get_parameters(cfg: DictConfig):
     # unique_id = "_" + str(uuid4())[:4]
     # cfg.general.version = md5(str(params).encode("utf-8")).hexdigest()[:8] + unique_id
 
-    if not os.path.exists(cfg.general.save_dir):
-        os.makedirs(cfg.general.save_dir)
-    else:
-        print("EXPERIMENT ALREADY EXIST")
-        cfg['trainer']['resume_from_checkpoint'] = f"{cfg.general.save_dir}/last-epoch.ckpt"
+    # if not os.path.exists(cfg.general.save_dir):
+    #     os.makedirs(cfg.general.save_dir)
+    # else:
+    #     print("EXPERIMENT ALREADY EXIST")
+    #     cfg['trainer']['resume_from_checkpoint'] = f"{cfg.general.save_dir}/last-epoch.ckpt"
+    shutil.rmtree(cfg.general.save_dir)
+    os.makedirs(cfg.general.save_dir)
 
     for log in cfg.logging:
         print(log)
