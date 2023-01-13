@@ -54,7 +54,7 @@ class Baseline(nn.Module):
                 pcd_obs[0, t].cpu().numpy(),
             )
             for c, img in enumerate(pcd_imgs):
-                cv2.imwrite(f"{dir_path}/pcd_t{t}_view{c}.png", img[:, :, ::-1])
+                cv2.imwrite(f"{dir_path}/pcd_t{t}_view{c}.png", img)
         vis.destroy_window()
 
         return {
