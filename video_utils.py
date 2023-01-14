@@ -5,13 +5,18 @@ import cv2
 import open3d
 import einops
 import numpy as np
+from typing import List
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 from rlbench import Environment
 from rlbench.backend.observation import Observation
 
 
-def get_point_cloud_images(vis, rgb_obs: np.array, pcd_obs: np.array):
+def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
+                           rgb_obs: np.array, pcd_obs: np.array):
+    num_cams = rgb_obs.shape[0]
+    assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
+
     def get_point_cloud_image(opcds, vis):
         for opcd in opcds:
             vis.add_geometry(opcd)
@@ -26,16 +31,16 @@ def get_point_cloud_images(vis, rgb_obs: np.array, pcd_obs: np.array):
     opcds = []
     imgs = []
 
-    for cam in range(rgb_obs.shape[0]):
+    for cam in range(num_cams):
         rgb = einops.rearrange(rgb_obs[cam, :3], "c h w -> (h w) c")
         pcd = einops.rearrange(pcd_obs[cam], "c h w -> (h w) c")
         opcd = open3d.geometry.PointCloud()
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
         opcds.append(opcd)
-        imgs.append(get_point_cloud_image([opcd], vis))
+        imgs.append(get_point_cloud_image([opcd], vis[cam]))
 
-    imgs.append(get_point_cloud_image(opcds, vis))
+    imgs.append(get_point_cloud_image(opcds, vis[-1]))
     return imgs
 
 
@@ -79,8 +84,34 @@ class TaskRecorder(object):
         self._pcd_views = [*self._obs_cameras, "aggregate"]
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
-        self._pcd_vis = open3d.visualization.Visualizer()
-        self._pcd_vis.create_window()
+
+        # Create Open3D point cloud visualizers
+        self._open3d_pcd_vis = []
+        for view in self._pcd_views:
+            vis = open3d.visualization.Visualizer()
+            vis.create_window(width=640, height=480)
+            self._open3d_pcd_vis.append(vis)
+            # if view == "wrist":
+            #     sensor = VisionSensor("cam_wrist")
+            # elif view == "left_shoulder":
+            #     sensor = VisionSensor("cam_over_shoulder_left")
+            # elif view == "right_shoulder":
+            #     sensor = VisionSensor("cam_over_shoulder_right")
+            # else:
+            #     sensor = None
+            # if sensor is None:
+            #     continue
+            # pose = sensor.get_pose()
+            # position, rot_quaternion = pose[:3], pose[3:]
+            # rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(rot_quaternion)
+            # intrinsic = sensor.get_intrinsic_matrix()
+            # extrinsic = np.eye(4)
+            # extrinsic[:3, :3] = rot_matrix
+            # extrinsic[:3, 3] = position
+            # param = vis.get_view_control().convert_to_pinhole_camera_parameters()
+            # param.extrinsic = extrinsic
+            # # param.intrinsic = intrinsic
+            # vis.get_view_control().convert_from_pinhole_camera_parameters(param)
 
     def take_snap(self, obs: Observation):
         # Third-person snap
@@ -99,7 +130,7 @@ class TaskRecorder(object):
             rgb_obs = rgb_obs / 255.0
             rgb_obs = 2 * (rgb_obs - 0.5)
             pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
-            pcd_imgs = get_point_cloud_images(self._pcd_vis, rgb_obs, pcd_obs)
+            pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs)
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 
