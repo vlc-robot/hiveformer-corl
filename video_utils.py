@@ -91,27 +91,27 @@ class TaskRecorder(object):
             vis = open3d.visualization.Visualizer()
             vis.create_window(width=640, height=480)
             self._open3d_pcd_vis.append(vis)
-            # if view == "wrist":
-            #     sensor = VisionSensor("cam_wrist")
-            # elif view == "left_shoulder":
-            #     sensor = VisionSensor("cam_over_shoulder_left")
-            # elif view == "right_shoulder":
-            #     sensor = VisionSensor("cam_over_shoulder_right")
-            # else:
-            #     sensor = None
-            # if sensor is None:
-            #     continue
-            # pose = sensor.get_pose()
-            # position, rot_quaternion = pose[:3], pose[3:]
-            # rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(rot_quaternion)
-            # intrinsic = sensor.get_intrinsic_matrix()
-            # extrinsic = np.eye(4)
-            # extrinsic[:3, :3] = rot_matrix
-            # extrinsic[:3, 3] = position
-            # param = vis.get_view_control().convert_to_pinhole_camera_parameters()
-            # param.extrinsic = extrinsic
-            # # param.intrinsic = intrinsic
-            # vis.get_view_control().convert_from_pinhole_camera_parameters(param)
+            if view == "wrist":
+                sensor = VisionSensor("cam_wrist")
+            elif view == "left_shoulder":
+                sensor = VisionSensor("cam_over_shoulder_left")
+            elif view == "right_shoulder":
+                sensor = VisionSensor("cam_over_shoulder_right")
+            else:
+                sensor = None
+            if sensor is None:
+                continue
+            pose = sensor.get_pose()
+            position, rot_quaternion = pose[:3], pose[3:]
+            rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(rot_quaternion)
+            intrinsic = sensor.get_intrinsic_matrix()
+            extrinsic = np.eye(4)
+            extrinsic[:3, :3] = rot_matrix
+            extrinsic[:3, 3] = position
+            param = vis.get_view_control().convert_to_pinhole_camera_parameters()
+            param.extrinsic = extrinsic
+            # param.intrinsic = intrinsic
+            vis.get_view_control().convert_from_pinhole_camera_parameters(param)
 
     def take_snap(self, obs: Observation):
         # Third-person snap
