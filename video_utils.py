@@ -23,7 +23,8 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
             vis.update_geometry(opcd)
         vis.poll_events()
         vis.update_renderer()
-        img = (np.array(vis.capture_screen_float_buffer()) * 255).astype(np.uint8)[:, :, ::-1]
+        img = vis.capture_screen_float_buffer(do_render=True)
+        img = (np.array(img) * 255).astype(np.uint8)[:, :, ::-1]
         for opcd in opcds:
             vis.remove_geometry(opcd)
         return img
@@ -87,30 +88,36 @@ class TaskRecorder(object):
 
         # Create Open3D point cloud visualizers
         self._open3d_pcd_vis = []
-        for view in self._pcd_views:
+        assert len(self._pcd_views) <= 4
+        for i, view in enumerate(self._pcd_views):
+            if i == 0:
+                left, top = 0, 0
+            elif i == 1:
+                left, top = 640, 0
+            elif i == 2:
+                left, top = 0, 480
+            elif i == 3:
+                left, top = 640, 480
+
             vis = open3d.visualization.Visualizer()
-            vis.create_window(width=640, height=480)
+            vis.create_window(width=640, height=480, left=left, top=top)
             self._open3d_pcd_vis.append(vis)
-            if view == "wrist":
-                sensor = VisionSensor("cam_wrist")
-            elif view == "left_shoulder":
+
+            if view == "left_shoulder":
                 sensor = VisionSensor("cam_over_shoulder_left")
             elif view == "right_shoulder":
                 sensor = VisionSensor("cam_over_shoulder_right")
             else:
-                sensor = None
-            if sensor is None:
                 continue
+
             pose = sensor.get_pose()
             position, rot_quaternion = pose[:3], pose[3:]
             rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(rot_quaternion)
-            intrinsic = sensor.get_intrinsic_matrix()
             extrinsic = np.eye(4)
             extrinsic[:3, :3] = rot_matrix
             extrinsic[:3, 3] = position
             param = vis.get_view_control().convert_to_pinhole_camera_parameters()
             param.extrinsic = extrinsic
-            # param.intrinsic = intrinsic
             vis.get_view_control().convert_from_pinhole_camera_parameters(param)
 
     def take_snap(self, obs: Observation):
