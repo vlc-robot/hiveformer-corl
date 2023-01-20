@@ -433,6 +433,7 @@ class RLBenchEnv:
             task_recorder._cam_motion.restore_pose()
 
             # DEBUG
+            raise NotImplementedError
             # keyframe_actions = actioner.get_action_from_demo(demo)
 
         device = actioner.device

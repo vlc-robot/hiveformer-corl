@@ -13,20 +13,28 @@ from rlbench.backend.observation import Observation
 
 
 def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
-                           rgb_obs: np.array, pcd_obs: np.array):
+                           rgb_obs: np.array, pcd_obs: np.array,
+                           custom_cam_params: bool = False):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
-    def get_point_cloud_image(opcds, vis):
+    def get_point_cloud_image(opcds, vis, custom_cam_params):
+        if custom_cam_params:
+            ctr = vis.get_view_control()
+            window_name = vis.get_window_name()
+            param_orig = ctr.convert_to_pinhole_camera_parameters()
         for opcd in opcds:
             vis.add_geometry(opcd)
             vis.update_geometry(opcd)
+        if custom_cam_params and window_name in ["left_shoulder", "right_shoulder"]:
+            ctr.convert_from_pinhole_camera_parameters(param_orig)
         vis.poll_events()
         vis.update_renderer()
         img = vis.capture_screen_float_buffer(do_render=True)
-        img = (np.array(img) * 255).astype(np.uint8)[:, :, ::-1]
-        for opcd in opcds:
-            vis.remove_geometry(opcd)
+        img = np.fliplr(np.flipud((np.array(img) * 255).astype(np.uint8)[:, :, ::-1]))
+        vis.clear_geometries()
+        if custom_cam_params and window_name in ["left_shoulder", "right_shoulder"]:
+            ctr.convert_from_pinhole_camera_parameters(param_orig)
         return img
 
     opcds = []
@@ -39,9 +47,9 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
         opcds.append(opcd)
-        imgs.append(get_point_cloud_image([opcd], vis[cam]))
+        imgs.append(get_point_cloud_image([opcd], vis[cam], custom_cam_params))
 
-    imgs.append(get_point_cloud_image(opcds, vis[-1]))
+    imgs.append(get_point_cloud_image(opcds, vis[-1], custom_cam_params))
     return imgs
 
 
@@ -75,16 +83,30 @@ class CircleCameraMotion(CameraMotion):
 class TaskRecorder(object):
 
     def __init__(self, obs_cameras, env: Environment, cam_motion: CameraMotion,
-                 fps=30, obs_record_freq=10):
+                 fps=30, obs_record_freq=10, custom_cam_params=False):
         self._env = env
         self._cam_motion = cam_motion
         self._fps = fps
         self._obs_record_freq = obs_record_freq
+        self._custom_cam_params = custom_cam_params
         self._3d_person_snaps = []
         self._obs_cameras = obs_cameras
         self._pcd_views = [*self._obs_cameras, "aggregate"]
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
+
+        def get_extrinsic(sensor: VisionSensor) -> np.array:
+            pose = sensor.get_pose()
+            position, rot_quaternion = pose[:3], pose[3:]
+            rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(
+                np.array((rot_quaternion[3], rot_quaternion[0], rot_quaternion[1], rot_quaternion[2]))
+            )
+            extrinsic = np.eye(4)
+            rot_matrix = rot_matrix.T
+            position = - rot_matrix @ position
+            extrinsic[:3, :3] = rot_matrix
+            extrinsic[:3, 3] = position
+            return extrinsic
 
         # Create Open3D point cloud visualizers
         self._open3d_pcd_vis = []
@@ -100,25 +122,21 @@ class TaskRecorder(object):
                 left, top = 640, 480
 
             vis = open3d.visualization.Visualizer()
-            vis.create_window(width=640, height=480, left=left, top=top)
+            vis.create_window(window_name=view, width=640, height=480, left=left, top=top)
             self._open3d_pcd_vis.append(vis)
 
-            if view == "left_shoulder":
-                sensor = VisionSensor("cam_over_shoulder_left")
-            elif view == "right_shoulder":
-                sensor = VisionSensor("cam_over_shoulder_right")
-            else:
-                continue
+            if self._custom_cam_params:
+                ctr = vis.get_view_control()
+                param = ctr.convert_to_pinhole_camera_parameters()
 
-            pose = sensor.get_pose()
-            position, rot_quaternion = pose[:3], pose[3:]
-            rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(rot_quaternion)
-            extrinsic = np.eye(4)
-            extrinsic[:3, :3] = rot_matrix
-            extrinsic[:3, 3] = position
-            param = vis.get_view_control().convert_to_pinhole_camera_parameters()
-            param.extrinsic = extrinsic
-            vis.get_view_control().convert_from_pinhole_camera_parameters(param)
+                if view == "left_shoulder":
+                    sensor = VisionSensor("cam_over_shoulder_left")
+                    param.extrinsic = get_extrinsic(sensor)
+                    ctr.convert_from_pinhole_camera_parameters(param)
+                elif view == "right_shoulder":
+                    sensor = VisionSensor("cam_over_shoulder_right")
+                    param.extrinsic = get_extrinsic(sensor)
+                    ctr.convert_from_pinhole_camera_parameters(param)
 
     def take_snap(self, obs: Observation):
         # Third-person snap
@@ -137,7 +155,8 @@ class TaskRecorder(object):
             rgb_obs = rgb_obs / 255.0
             rgb_obs = 2 * (rgb_obs - 0.5)
             pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
-            pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs)
+            pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs,
+                                              self._custom_cam_params)
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 
