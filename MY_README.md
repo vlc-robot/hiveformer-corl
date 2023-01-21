@@ -42,6 +42,12 @@ cd third_party/pointnet2 && python setup.py install
 
 Small changes to HiveFormer RLBench fork:
 * add `set_callable_each_step` from [PerAct RLBench fork](https://github.com/MohitShridhar/RLBench/blob/peract/rlbench/action_modes/arm_action_modes.py)
+* give `keyframe_actions` to `callable_each_step` in `get_demo()` of `rlbench/backend/scene.py`
+```
+# Record keyframe actions for visualization
+keyframe_actions = np.stack([w._waypoint.get_matrix() for w in waypoints])
+callable_each_step(self.get_observation(), keyframe_actions=keyframe_actions)
+```
 
 ## Dataset Generation
 

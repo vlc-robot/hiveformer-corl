@@ -6,28 +6,111 @@ import torch
 import open3d
 import einops
 import numpy as np
-from typing import List
+import trimesh.transformations as tra
+from typing import List, Optional
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 from rlbench import Environment
 from rlbench.backend.observation import Observation
 
 
+def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2, 0.8, 0.)):
+    """
+    Open3D Visualization of parallel-jaw grasp.
+    From https://github.com/adithyamurali/TaskGrasp/blob/master/visualize.py
+
+    Arguments:
+        grasp: [4, 4] np array
+    """
+
+    meshes = []
+    align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+
+    # Cylinder 3,5,6
+    cylinder_1 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.139)
+    transform = np.eye(4)
+    transform[0, 3] = -0.03
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_1.paint_uniform_color(color)
+    cylinder_1.transform(transform)
+
+    # Cylinder 1 and 2
+    cylinder_2 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.07)
+    transform = tra.euler_matrix(0, np.pi / 2, 0)
+    transform[0, 3] = -0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_2.paint_uniform_color(color)
+    cylinder_2.transform(transform)
+
+    # Cylinder 5,4
+    cylinder_3 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.06)
+    transform = tra.euler_matrix(0, np.pi / 2, 0)
+    transform[2, 3] = 0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_3.paint_uniform_color(color)
+    cylinder_3.transform(transform)
+
+    # Cylinder 6, 7
+    cylinder_4 = open3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.06)
+    transform = tra.euler_matrix(0, np.pi / 2, 0)
+    transform[2, 3] = -0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp, transform)
+    cylinder_4.paint_uniform_color(color)
+    cylinder_4.transform(transform)
+
+    cylinder_1.compute_vertex_normals()
+    cylinder_2.compute_vertex_normals()
+    cylinder_3.compute_vertex_normals()
+    cylinder_4.compute_vertex_normals()
+
+    meshes.append(cylinder_1)
+    meshes.append(cylinder_2)
+    meshes.append(cylinder_3)
+    meshes.append(cylinder_4)
+
+    # Just for visualizing - sweep volume
+    if show_sweep_volume:
+        finger_sweep_volume = open3d.geometry.TriangleMesh.create_box(
+            width=0.06, height=0.02, depth=0.14)
+        transform = np.eye(4)
+        transform[0, 3] = -0.06 / 2
+        transform[1, 3] = -0.02 / 2
+        transform[2, 3] = -0.14 / 2
+
+        transform = np.matmul(align, transform)
+        transform = np.matmul(grasp, transform)
+        finger_sweep_volume.paint_uniform_color([0, 0.2, 0.8])
+        finger_sweep_volume.transform(transform)
+        finger_sweep_volume.compute_vertex_normals()
+
+        meshes.append(finger_sweep_volume)
+
+    return meshes
+
+
 def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            rgb_obs: np.array, pcd_obs: np.array,
-                           keyframe_actions: np.array,
-                           custom_cam_params: bool):
+                           custom_cam_params: bool,
+                           keyframe_actions: Optional[np.array] = None):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
-    def get_point_cloud_image(opcds, vis, custom_cam_params):
+    def plot_geometries(geometries, vis, custom_cam_params):
         if custom_cam_params:
             ctr = vis.get_view_control()
             window_name = vis.get_window_name()
             param_orig = ctr.convert_to_pinhole_camera_parameters()
-        for opcd in opcds:
-            vis.add_geometry(opcd)
-            vis.update_geometry(opcd)
+        for geom in geometries:
+            vis.add_geometry(geom)
+            vis.update_geometry(geom)
         if custom_cam_params and window_name in ["left_shoulder", "right_shoulder"]:
             ctr.convert_from_pinhole_camera_parameters(param_orig)
         vis.poll_events()
@@ -39,15 +122,15 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
             ctr.convert_from_pinhole_camera_parameters(param_orig)
         return img
 
-    # Add gripper keyframe actions to point clouds for visualization
-    keyframe_actions_opcd = open3d.geometry.PointCloud()
-    keyframe_actions_opcd.points = open3d.utility.Vector3dVector(keyframe_actions)
-    keyframe_actions_color = np.zeros_like(keyframe_actions)
-    keyframe_actions_color[:, -1] = 1
-    keyframe_actions_opcd.colors = open3d.utility.Vector3dVector(keyframe_actions_color)
-
-    opcds = [keyframe_actions_opcd]
+    all_geometries = []
     imgs = []
+
+    # Add gripper keyframe actions to point clouds for visualization
+    keyframe_action_geometries = []
+    if keyframe_actions is not None:
+        for grasp in keyframe_actions:
+            keyframe_action_geometries += get_gripper_control_points_open3d(grasp)
+    all_geometries += keyframe_action_geometries
 
     for cam in range(num_cams):
         rgb = einops.rearrange(rgb_obs[cam, :3], "c h w -> (h w) c")
@@ -55,10 +138,11 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         opcd = open3d.geometry.PointCloud()
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
-        opcds.append(opcd)
-        imgs.append(get_point_cloud_image([opcd, keyframe_actions_opcd], vis[cam], custom_cam_params))
+        all_geometries.append(opcd)
+        view_geometries = [opcd, *keyframe_action_geometries] if vis[cam].get_window_name() != "wrist" else [opcd]
+        imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
 
-    imgs.append(get_point_cloud_image(opcds, vis[-1], custom_cam_params))
+    imgs.append(plot_geometries(all_geometries, vis[-1], custom_cam_params))
     return imgs
 
 
@@ -113,7 +197,7 @@ class TaskRecorder(object):
         self._pcd_views = [*self._obs_cameras, "aggregate"]
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
-        self._keyframe_actions = []
+        self._keyframe_actions = None
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
             # Note: The extrinsic and intrinsic matrices are in the observation,
@@ -160,9 +244,17 @@ class TaskRecorder(object):
                     param.extrinsic = get_extrinsic(sensor)
                     ctr.convert_from_pinhole_camera_parameters(param)
 
-    def take_snap(self, obs: Observation, keyframe: bool = False):
-        if keyframe:
-            self._keyframe_actions.append(obs.gripper_pose[:3])
+    def take_snap(self, obs: Observation, keyframe_actions: Optional[np.array] = None):
+        """
+        Take observation snapshot.
+
+        Arguments:
+            obs: observations to use in snapshot
+            keyframe_actions: if not None, keyframe actions to record and display in all
+             snapshots until save() is called
+        """
+        if keyframe_actions is not None:
+            self._keyframe_actions = keyframe_actions
 
         # Third-person snap
         self._cam_motion.step()
@@ -181,7 +273,7 @@ class TaskRecorder(object):
             rgb_obs = 2 * (rgb_obs - 0.5)
             pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
             pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs,
-                                              np.stack(self._keyframe_actions), self._custom_cam_params)
+                                              self._custom_cam_params, self._keyframe_actions)
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 
@@ -244,4 +336,4 @@ class TaskRecorder(object):
 
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
-        self._keyframe_actions = []
+        self._keyframe_actions = None
