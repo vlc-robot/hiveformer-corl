@@ -1,7 +1,8 @@
-# From https://github.com/MohitShridhar/YARR/blob/peract/yarr/utils/video_utils.py
+# Start from https://github.com/MohitShridhar/YARR/blob/peract/yarr/utils/video_utils.py
 import os
 import shutil
 import cv2
+import torch
 import open3d
 import einops
 import numpy as np
@@ -14,7 +15,8 @@ from rlbench.backend.observation import Observation
 
 def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            rgb_obs: np.array, pcd_obs: np.array,
-                           custom_cam_params: bool = False):
+                           keyframe_actions: np.array,
+                           custom_cam_params: bool):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
@@ -37,7 +39,14 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
             ctr.convert_from_pinhole_camera_parameters(param_orig)
         return img
 
-    opcds = []
+    # Add gripper keyframe actions to point clouds for visualization
+    keyframe_actions_opcd = open3d.geometry.PointCloud()
+    keyframe_actions_opcd.points = open3d.utility.Vector3dVector(keyframe_actions)
+    keyframe_actions_color = np.zeros_like(keyframe_actions)
+    keyframe_actions_color[:, -1] = 1
+    keyframe_actions_opcd.colors = open3d.utility.Vector3dVector(keyframe_actions_color)
+
+    opcds = [keyframe_actions_opcd]
     imgs = []
 
     for cam in range(num_cams):
@@ -47,7 +56,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
         opcds.append(opcd)
-        imgs.append(get_point_cloud_image([opcd], vis[cam], custom_cam_params))
+        imgs.append(get_point_cloud_image([opcd, keyframe_actions_opcd], vis[cam], custom_cam_params))
 
     imgs.append(get_point_cloud_image(opcds, vis[-1], custom_cam_params))
     return imgs
@@ -84,6 +93,16 @@ class TaskRecorder(object):
 
     def __init__(self, obs_cameras, env: Environment, cam_motion: CameraMotion,
                  fps=30, obs_record_freq=10, custom_cam_params=False):
+        """
+        Arguments:
+            obs_cameras: observation camera view points
+            env: environment that generates observations to record
+            cam_motion: motion for 3rd person camera recording
+            fps: frames per second
+            obs_record_freq: frequency of first-person observation recording
+            custom_cam_params: if True, record point cloud observations with custom camera
+             params instead of default top-down view
+        """
         self._env = env
         self._cam_motion = cam_motion
         self._fps = fps
@@ -94,8 +113,11 @@ class TaskRecorder(object):
         self._pcd_views = [*self._obs_cameras, "aggregate"]
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
+        self._keyframe_actions = []
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
+            # Note: The extrinsic and intrinsic matrices are in the observation,
+            # no need to compute them here
             pose = sensor.get_pose()
             position, rot_quaternion = pose[:3], pose[3:]
             rot_matrix = open3d.geometry.get_rotation_matrix_from_quaternion(
@@ -138,7 +160,10 @@ class TaskRecorder(object):
                     param.extrinsic = get_extrinsic(sensor)
                     ctr.convert_from_pinhole_camera_parameters(param)
 
-    def take_snap(self, obs: Observation):
+    def take_snap(self, obs: Observation, keyframe: bool = False):
+        if keyframe:
+            self._keyframe_actions.append(obs.gripper_pose[:3])
+
         # Third-person snap
         self._cam_motion.step()
         self._3d_person_snaps.append(
@@ -156,7 +181,7 @@ class TaskRecorder(object):
             rgb_obs = 2 * (rgb_obs - 0.5)
             pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
             pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs,
-                                              self._custom_cam_params)
+                                              np.stack(self._keyframe_actions), self._custom_cam_params)
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 
@@ -216,5 +241,7 @@ class TaskRecorder(object):
             for snap in snaps:
                 video.write(snap[:, :, ::-1])
             video.release()
+
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
+        self._keyframe_actions = []
