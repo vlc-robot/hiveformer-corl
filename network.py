@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.nn.init import kaiming_uniform_, normal
 from torch.distributions import Bernoulli
 from transformers.activations import ACT2FN
-from utils import Output
+from utils_without_rlbench import Output
 
 
 def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
