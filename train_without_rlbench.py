@@ -89,15 +89,22 @@ def training(
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
 
-            rgbs = sample["rgbs"].to(device)
-            pcds = sample["pcds"].to(device)
-            gripper = sample["gripper"].to(device)
-            outputs = sample["action"].to(device)
-            padding_mask = sample["padding_mask"].to(device)
+            # rgbs = sample["rgbs"].to(device)
+            # pcds = sample["pcds"].to(device)
+            # gripper = sample["gripper"].to(device)
+            # outputs = sample["action"].to(device)
+            # padding_mask = sample["padding_mask"].to(device)
+            rgbs = sample["rgbs"]
+            pcds = sample["pcds"]
+            gripper = sample["gripper"]
+            outputs = sample["action"]
+            padding_mask = sample["padding_mask"]
 
             instr = sample["instr"]
+            # if instr is not None:
+            #     instr = instr.to(device)
             if instr is not None:
-                instr = instr.to(device)
+                instr = instr
 
             frame_id = sample["frame_id"]
             tasks = sample["task"]
@@ -208,15 +215,22 @@ def validation_step(
             if i == val_iters:
                 break
 
-            rgbs = sample["rgbs"].to(device)
-            pcds = sample["pcds"].to(device)
-            gripper = sample["gripper"].to(device)
-            outputs = sample["action"].to(device)
-            padding_mask = sample["padding_mask"].to(device)
+            # rgbs = sample["rgbs"].to(device)
+            # pcds = sample["pcds"].to(device)
+            # gripper = sample["gripper"].to(device)
+            # outputs = sample["action"].to(device)
+            # padding_mask = sample["padding_mask"].to(device)
+            rgbs = sample["rgbs"]
+            pcds = sample["pcds"]
+            gripper = sample["gripper"]
+            outputs = sample["action"]
+            padding_mask = sample["padding_mask"]
 
             instr = sample["instr"]
+            # if instr is not None:
+            #     instr = instr.to(device)
             if instr is not None:
-                instr = instr.to(device)
+                instr = instr
 
             frame_id = sample["frame_id"]
             tasks = sample["task"]
@@ -362,13 +376,10 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     )
     # _model = Baseline()
 
-    if len(args.devices) == 1:
-        device = torch.device(args.devices[0])
-        model = _model.to(device)
-    else:
+    devices = [torch.device(d) for d in args.devices]
+    model = _model.to(devices[0])
+    if args.devices[0] != "cpu":
         assert all("cuda" in d for d in args.devices)
-        devices = [torch.device(d) for d in args.devices]
-        model = _model.to(devices[0])
         model = torch.nn.DataParallel(model, device_ids=devices)
 
     optimizer_grouped_parameters = [
