@@ -24,7 +24,7 @@ from utils_without_rlbench import (
 )
 from dataset import RLBenchDataset
 
-from baseline.baseline import Baseline
+# from baseline.baseline import Baseline
 
 
 class Arguments(tap.Tap):
