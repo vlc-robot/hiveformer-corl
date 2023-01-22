@@ -367,10 +367,9 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         model = _model.to(device)
     else:
         assert all("cuda" in d for d in args.devices)
-        model = torch.nn.DataParallel(
-            _model,
-            device_ids=[torch.device(d) for d in args.devices]
-        )
+        devices = [torch.device(d) for d in args.devices]
+        model = _model.to(devices[0])
+        model = torch.nn.DataParallel(model, device_ids=devices)
 
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},
