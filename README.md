@@ -95,7 +95,8 @@ python preprocess_instructions.py \
 Single task training:
 ```
 #root=/home/theophile_gervet_gmail_com
-root=/opt
+#root=/opt
+root=/home/tgervet
 seed=0
 task_file=10_autolambda_tasks.csv
 output_dir=$root/datasets/hiveformer/packaged
