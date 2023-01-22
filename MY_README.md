@@ -6,7 +6,8 @@ conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
 conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
 pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d trimesh;
-git submodule update --init --recursive
+# Not needed anymore: dumped the submodules in this repo to make a few changes
+#git submodule update --init --recursive
 
 # Install PyRep
 cd PyRep; 
