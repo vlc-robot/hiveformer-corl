@@ -47,7 +47,8 @@ Small changes to HiveFormer RLBench fork:
 ```
 # Record keyframe actions for visualization
 keyframe_actions = np.stack([w._waypoint.get_matrix() for w in waypoints])
-callable_each_step(self.get_observation(), keyframe_actions=keyframe_actions)
+if callable_each_step is not None:
+    callable_each_step(self.get_observation(), keyframe_actions=keyframe_actions)
 ```
 
 ## Dataset Generation
@@ -57,7 +58,7 @@ root=/home/theophile_gervet_gmail_com
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
 seed=0
-episodes_per_task=2
+episodes_per_task=100
 task_file=10_autolambda_tasks.csv
 
 nohup sudo X &

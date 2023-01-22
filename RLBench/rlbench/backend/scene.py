@@ -335,7 +335,8 @@ class Scene(object):
 
         # Record keyframe actions for visualization
         keyframe_actions = np.stack([w._waypoint.get_matrix() for w in waypoints])
-        callable_each_step(self.get_observation(), keyframe_actions=keyframe_actions)
+        if callable_each_step is not None:
+            callable_each_step(self.get_observation(), keyframe_actions=keyframe_actions)
 
         demo = []
         if record:
