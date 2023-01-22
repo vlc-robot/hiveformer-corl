@@ -4,8 +4,8 @@ Only Linux is supported by RLBench.
 ```
 conda create -n analogical_manipulation python=3.9
 conda activate analogical_manipulation;
-conda uninstall pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
-pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d;
+conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch;
+pip install numpy pillow einops typed-argument-parser tqdm transformers absl-py matplotlib scipy tensorboard opencv-python open3d trimesh;
 git submodule update --init --recursive
 
 # Install PyRep
@@ -26,7 +26,7 @@ wget https://sourceforge.net/projects/virtualgl/files/2.5.2/virtualgl_2.5.2_amd6
 sudo dpkg -i virtualgl*.deb; rm virtualgl*.deb;
 sudo reboot  # Need to reboot for changes to take effect
 
-# Install Mask3D
+# Install Mask3D (currently not used)
 sudo apt install build-essential python3-dev libopenblas-dev
 conda install openblas-devel -c anaconda
 pip install ninja==1.10.2.3;
@@ -93,10 +93,12 @@ python preprocess_instructions.py \
 
 Single task training:
 ```
-root=/home/theophile_gervet_gmail_com
+#root=/home/theophile_gervet_gmail_com
+root=/opt
 seed=0
 task_file=10_autolambda_tasks.csv
 output_dir=$root/datasets/hiveformer/packaged
+#DISPLAY=:0.0
 
 # All tasks
 for task in $(cat $task_file | tr '\n' ' '); do
@@ -105,7 +107,8 @@ for task in $(cat $task_file | tr '\n' ' '); do
         --dataset $output_dir/$seed \
         --num_workers 10  \
         --instructions instructions.pkl \
-        --variations 0
+        --variations 0 \
+        --train_iters 0
 done
 
 # One specific task debugging
@@ -116,7 +119,7 @@ python train.py \
     --instructions instructions.pkl \
     --variations 0 \
     --device cpu \
-    --train_iters 10
+    --train_iters 0
 ```
 
 ## Evaluation
@@ -129,15 +132,43 @@ python eval.py \
     --num_episodes 100
 ```
 
+## Docker
+
+Install Nvidia Docker
+```
+sudo apt install -y nvidia-docker2
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+following [this](https://github.com/NVIDIA/nvidia-docker/issues/953) if run into an issue.
+
+Build image and start container:
+```
+sudo DOCKER_BUILDKIT=1 docker build -f Dockerfile . -t hiveformer
+sudo docker run --privileged --runtime=nvidia --gpus all -it -v /home/theophile_gervet_gmail_com/hiveformer:/opt/hiveformer -v /home/theophile_gervet_gmail_com/datasets/hiveformer:/opt/datasets/hiveformer -v /usr/bin/nvidia-xconfig:/usr/bin/nvidia-xconfig hiveformer:latest bash
+```
+
 ## Issues Faced
 
-CoppeliaSim requires XServer:
+[Resolved] CoppeliaSim requires XServer:
 * `python dataset_generator.py [...]` fails because
 * `cd $COPPELIASIM_ROOT ; ./coppeliaSim.sh` fails because
 * `sudo X` fails
 * https://github.com/stepjam/RLBench/issues/139 (problem)
 * https://github.com/stepjam/RLBench/issues/142 (problem)
 * https://github.com/Unity-Technologies/obstacle-tower-env/issues/51 (solution)
+
+[Unresolved] Same issue within a Docker container:
+* When using https://github.com/bengreenier/docker-xvfb, `cd $COPPELIASIM_ROOT ; ./coppeliaSim.sh` works fine but `python train.py` fails
+* When trying to follow [these instructions](https://github.com/stepjam/RLBench/blob/master/README.md#running-headless) and start an X server with `X` as in the conda instructions within the container, we can't start the X server
+* Same problem when trying to follow headless instructions from https://github.com/askforalfred/alfred
+* https://github.com/stepjam/PyRep/issues/297
+* https://github.com/stepjam/PyRep/issues/150
+* https://github.com/NVIDIA/nvidia-docker/issues/529
+* https://github.com/askforalfred/alfred/issues/61
+* https://github.com/soyeonm/FILM/issues/3
+* https://github.com/askforalfred/alfred/issues/112
+* https://github.com/Bumblebee-Project/Bumblebee/issues/526
 
 Need to install Nvidia drivers and CUDA toolkit on Google Cloud:
 * [Drivers](https://cloud.google.com/compute/docs/gpus/install-drivers-gpu)

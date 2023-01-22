@@ -435,9 +435,6 @@ class RLBenchEnv:
             task_recorder.save(record_video_file, lang_goal)
             task_recorder._cam_motion.restore_pose()
 
-            # DEBUG
-            return 1.0
-
         device = actioner.device
 
         success_rate = 0.0
@@ -491,9 +488,6 @@ class RLBenchEnv:
 
                     output = actioner.predict(step_id, rgbs, pcds, grippers)
                     action = output["action"]
-
-                    # DEBUG
-                    # action = keyframe_actions[step_id]
 
                     if action is None:
                         break

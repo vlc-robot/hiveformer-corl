@@ -483,6 +483,7 @@ if __name__ == "__main__":
                 demos=None,
                 log_dir=log_dir,
                 max_tries=args.max_tries,
+                record_videos=False
             )
 
             print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
