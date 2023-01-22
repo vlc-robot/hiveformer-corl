@@ -41,13 +41,14 @@ class Arguments(tap.Tap):
     arch: Optional[str] = None
     variations: Tuple[int, ...] = (0,)
     attention: bool = False  # saving attention maps
+
     # model
-    depth: Optional[int] = None
-    dim_feedforward: Optional[int] = None
-    hidden_dim: Optional[int] = None
-    instr_size: Optional[int] = None
+    depth: Optional[int] = 4
+    dim_feedforward: Optional[int] = 64
+    hidden_dim: Optional[int] = 64
+    instr_size: Optional[int] = 512
     mask_obs_prob: float = 0.0
-    num_layers: Optional[int] = None
+    num_layers: Optional[int] = 1
 
 
 def get_log_dir(args: Arguments) -> Path:

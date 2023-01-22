@@ -125,7 +125,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
         --valset $output_dir/$val_seed
 done
 
-# One specific task debugging
+# One specific task
 python train.py \
     --tasks pick_and_lift \
     --dataset $output_dir/$train_seed \
@@ -135,7 +135,10 @@ python train.py \
 ## Evaluation
 
 ```
-python eval.py --checkpoint /path/to/checkpoint
+# One specific task
+python eval.py \
+    --tasks pick_and_lift \
+    --checkpoint /path/to/checkpoint
 ```
 
 ## Docker
