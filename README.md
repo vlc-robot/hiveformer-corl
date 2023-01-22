@@ -122,20 +122,14 @@ for task in $(cat $task_file | tr '\n' ' '); do
     python train.py \
         --tasks $task \
         --dataset $output_dir/$train_seed \
-        --valset $output_dir/$val_seed \
-        --instructions instructions.pkl \
-        --variations 0 \
-        --train_iters 100000
+        --valset $output_dir/$val_seed
 done
 
 # One specific task debugging
 python train.py \
     --tasks pick_and_lift \
     --dataset $output_dir/$train_seed \
-    --valset $output_dir/$val_seed \
-    --instructions instructions.pkl \
-    --variations 0 \
-    --train_iters 100000
+    --valset $output_dir/$val_seed
 ```
 
 ## Evaluation

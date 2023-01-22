@@ -51,7 +51,7 @@ class Arguments(tap.Tap):
     # Train
     batch_size: int = 32 * len(devices)
     lr: float = 0.001
-    val_freq: int = 200
+    val_freq: int = 50
     train_iters: int = 100_000 // len(devices)
     jitter: bool = False
 
@@ -148,7 +148,7 @@ class CheckpointCallback:
         log_dir: Path,
         state_dict: Any,
         minimizing: bool = True,
-        checkpoint_period: int = 200,
+        checkpoint_period: int = 1,
     ):
         self._name = name
         self._minimizing = minimizing
