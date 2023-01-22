@@ -390,7 +390,7 @@ class RLBenchEnv:
         max_tries: int = 1,
         demos: Optional[List[Demo]] = None,
         save_attn: bool = False,
-        record_videos: bool = True
+        record_videos: bool = False
     ):
         """
         Evaluate the policy network on the desired demo or test environments

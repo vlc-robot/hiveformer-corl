@@ -159,26 +159,21 @@ if __name__ == "__main__":
         raise RuntimeError()
     model = load_model(checkpoint, args)
 
-    if args.tasks is None or args.gripper_pose is None or args.taskvar_token is None:
-        raise ValueError()
-
     # load RLBench environment
     env = RLBenchEnv(
-        data_path=args.data_dir,
+        data_path="",
         apply_rgb=True,
         apply_pc=True,
         headless=args.headless,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
     )
 
-    device = torch.device(args.device)
     instruction = load_instructions(args.instructions)
     if instruction is None:
         raise NotImplementedError()
-    max_eps_dict = load_episodes()["max_episode_length"]
 
     actioner = Actioner(model=model, instructions=instruction)
-
+    max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
         for variation in args.variations:
             success_rate = env.evaluate(
