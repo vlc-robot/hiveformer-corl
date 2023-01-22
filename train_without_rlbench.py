@@ -33,7 +33,7 @@ class Arguments(tap.Tap):
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
     dataset: List[Path]
-    devices: List[str] = ["cuda:1", "cuda:2", "cuda:3"]
+    devices: List[str] = ["cpu", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
     valset: Optional[Tuple[Path, ...]] = None
     name: str = "hiveformer"
