@@ -33,7 +33,7 @@ class Arguments(tap.Tap):
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
     dataset: List[Path]
-    device: str = "cuda"
+    devices: List[str] = ["cuda:1", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
     valset: Optional[Tuple[Path, ...]] = None
     name: str = "hiveformer"
@@ -52,7 +52,6 @@ class Arguments(tap.Tap):
     batch_size: int = 32
     lr: float = 0.001
     val_freq: int = 200
-    val_batch_size: int = 100
     train_iters: int = 100_000
     jitter: bool = False
 
@@ -351,10 +350,8 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
 
 
 def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
-    device = torch.device(args.device)
-
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
-    model = Hiveformer(
+    _model = Hiveformer(
         depth=args.depth,
         dim_feedforward=args.dim_feedforward,
         hidden_dim=args.hidden_dim,
@@ -362,15 +359,25 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         mask_obs_prob=args.mask_obs_prob,
         max_episode_length=max_episode_length,
         num_layers=args.num_layers,
-    ).to(device)
-    # model = Baseline().to(device)
+    )
+    # _model = Baseline()
+
+    if len(args.devices) == 1:
+        device = torch.device(args.devices[0])
+        model = _model.to(device)
+    else:
+        assert all("cuda" in d for d in args.devices)
+        model = torch.nn.DataParallel(
+            _model,
+            device_ids=[torch.device(d) for d in args.devices]
+        )
 
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},
         {"params": [], "weight_decay": 5e-4, "lr": args.lr},
     ]
     no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in model.named_parameters():
+    for name, param in _model.named_parameters():
         if any(nd in name for nd in no_decay):
             optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
         else:
@@ -379,11 +386,11 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
 
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(model_dict["weight"])
+        _model.load_state_dict(model_dict["weight"])
         optimizer.load_state_dict(model_dict["optimizer"])
 
     print("Number of parameters:")
-    model_params = count_parameters(model)
+    model_params = count_parameters(_model)
     print("- model", model_params)
     print("Total", model_params)
 
@@ -402,8 +409,6 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
-
-    device = torch.device(args.device)
 
     optimizer, model = get_model(args)
 
