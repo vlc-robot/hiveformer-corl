@@ -31,7 +31,7 @@ class Arguments(tap.Tap):
     accumulate_grad_batches: int = 1
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     checkpoint: Optional[Path] = None
-    checkpoint_period: int = 2  # TODO 5
+    checkpoint_period: int = 5
     dataset: List[Path]
     devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
@@ -51,7 +51,7 @@ class Arguments(tap.Tap):
     # Train
     batch_size: int = 32 * len(devices)
     lr: float = 0.001
-    val_freq: int = 10  # TODO 200
+    val_freq: int = 200
     train_iters: int = 100_000 // len(devices)
     jitter: bool = False
 
@@ -159,12 +159,9 @@ class CheckpointCallback:
         self._state_dict = state_dict
 
     def __call__(self, metrics: Dict[str, torch.Tensor]):
-        print("DEBUG Checkpoint -", self._step)
         self._step += 1
-        print("self._step % self._checkpoint_period", self._step % self._checkpoint_period)
         if self._step % self._checkpoint_period != 0:
             return
-        print("DEBUG Checkpoint --------", self._step)
 
         value = int(metrics.get(self._name, 0))
         dest = self._log_dir / f"model.step={self._step}-value={value}.pth"
