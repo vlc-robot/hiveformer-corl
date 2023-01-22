@@ -2,7 +2,6 @@ output/
 .ipynb_checkpoints
 output*
 *.jpg
-*.txt
 tinybert
 download
 .cache*
