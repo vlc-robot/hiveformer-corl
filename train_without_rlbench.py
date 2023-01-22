@@ -272,6 +272,7 @@ def get_train_loader(args: Arguments) -> DataLoader:
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
+        pin_memory=True,
         collate_fn=collate_fn,
     )
     return loader
