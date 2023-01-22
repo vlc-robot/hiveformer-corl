@@ -161,6 +161,7 @@ class CheckpointCallback:
     def __call__(self, metrics: Dict[str, torch.Tensor]):
         print("DEBUG Checkpoint -", self._step)
         self._step += 1
+        print("self._step % self._checkpoint_period", self._step % self._checkpoint_period)
         if self._step % self._checkpoint_period != 0:
             return
         print("DEBUG Checkpoint --------", self._step)
