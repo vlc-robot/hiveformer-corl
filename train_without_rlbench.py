@@ -114,9 +114,6 @@ def training(
                 gripper,
             )
 
-            # DEBUG
-            # raise NotImplementedError
-
             train_losses = loss_and_metrics.compute_loss(pred, sample)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
 

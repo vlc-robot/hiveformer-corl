@@ -57,8 +57,10 @@ if callable_each_step is not None:
 root=/home/theophile_gervet_gmail_com
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
-seed=0
-episodes_per_task=100
+train_seed=0
+val_seed=1
+train_episodes_per_task=100
+val_episodes_per_task=5
 task_file=10_autolambda_tasks.csv
 
 nohup sudo X &
@@ -66,22 +68,33 @@ export DISPLAY=:0.0
 
 cd $root/hiveformer/RLBench/tools
 python dataset_generator.py \
-    --save_path=$data_dir/$seed \
+    --save_path=$data_dir/$train_seed \
     --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
     --image_size=128,128 \
     --renderer=opengl \
-    --episodes_per_task=$episodes_per_task \
+    --episodes_per_task=$train_episodes_per_task \
+    --variations=1 \
+    --offset=0 \
+    --processes=1
+python dataset_generator.py \
+    --save_path=$data_dir/$val_seed \
+    --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
+    --image_size=128,128 \
+    --renderer=opengl \
+    --episodes_per_task=$val_episodes_per_task \
     --variations=1 \
     --offset=0 \
     --processes=1
 
 cd $root/hiveformer
 for task in $(cat $task_file | tr '\n' ' '); do
-    python data_gen.py \
-        --data_dir=$data_dir/$seed \
-        --output=$output_dir/$seed \
-        --max_variations=1 \
-        --tasks=$task
+    for seed in $train_seed $val_seed; do
+        python data_gen.py \
+            --data_dir=$data_dir/$seed \
+            --output=$output_dir/$seed \
+            --max_variations=1 \
+            --tasks=$task
+    done
 done
 
 python preprocess_instructions.py \
@@ -98,7 +111,8 @@ Single task training:
 #root=/home/theophile_gervet_gmail_com
 #root=/opt
 root=/home/tgervet
-seed=0
+train_seed=0
+val_seed=1
 task_file=10_autolambda_tasks.csv
 output_dir=$root/datasets/hiveformer/packaged
 #DISPLAY=:0.0
@@ -107,22 +121,23 @@ output_dir=$root/datasets/hiveformer/packaged
 for task in $(cat $task_file | tr '\n' ' '); do
     python train.py \
         --tasks $task \
-        --dataset $output_dir/$seed \
+        --dataset $output_dir/$train_seed \
+        --valset $output_dir/$val_seed \
         --num_workers 10  \
         --instructions instructions.pkl \
         --variations 0 \
-        --train_iters 0
+        --train_iters 100000
 done
 
 # One specific task debugging
 python train.py \
     --tasks pick_and_lift \
-    --dataset $output_dir/$seed \
+    --dataset $output_dir/$train_seed \
+    --valset $output_dir/$val_seed \
     --num_workers 1  \
     --instructions instructions.pkl \
     --variations 0 \
-    --device cpu \
-    --train_iters 0
+    --train_iters 100000
 ```
 
 ## Evaluation
