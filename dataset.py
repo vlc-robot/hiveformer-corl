@@ -20,7 +20,7 @@ from torch.nn import functional as F
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
 import einops
-from utils import Instructions, Sample, Camera
+from utils_without_rlbench import Instructions, Sample, Camera
 
 
 T = TypeVar("T")
