@@ -123,7 +123,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
         --tasks $task \
         --dataset $output_dir/$train_seed \
         --valset $output_dir/$val_seed \
-        --num_workers 10  \
         --instructions instructions.pkl \
         --variations 0 \
         --train_iters 100000
@@ -134,7 +133,6 @@ python train.py \
     --tasks pick_and_lift \
     --dataset $output_dir/$train_seed \
     --valset $output_dir/$val_seed \
-    --num_workers 1  \
     --instructions instructions.pkl \
     --variations 0 \
     --train_iters 100000

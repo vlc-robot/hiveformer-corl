@@ -38,7 +38,7 @@ class Arguments(tap.Tap):
     valset: Optional[Tuple[Path, ...]] = None
     name: str = "hiveformer"
     arch: str = "mct"
-    num_workers: int = 5
+    num_workers: int = 5 * len(devices)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = None
