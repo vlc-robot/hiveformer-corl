@@ -31,7 +31,7 @@ class Arguments(tap.Tap):
     accumulate_grad_batches: int = 1
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     checkpoint: Optional[Path] = None
-    checkpoint_period: int = 10
+    checkpoint_period: int = 2  # TODO 5
     dataset: List[Path]
     devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
@@ -148,7 +148,7 @@ class CheckpointCallback:
         log_dir: Path,
         state_dict: Any,
         minimizing: bool = True,
-        checkpoint_period: int = 2,  # TODO 5
+        checkpoint_period: int = 5,
     ):
         self._name = name
         self._minimizing = minimizing
