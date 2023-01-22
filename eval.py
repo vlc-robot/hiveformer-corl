@@ -20,7 +20,7 @@ from train import Arguments as TrainArguments
 class Arguments(tap.Tap):
     checkpoint: Path
     seed: int = 2
-    save_img: bool = False
+    save_img: bool = True
     device: str = "cuda"
     num_episodes: int = 1  # TODO 100
     headless: bool = False
@@ -187,6 +187,7 @@ if __name__ == "__main__":
                 log_dir=log_dir / task_str if args.save_img else None,
                 max_tries=args.max_tries,
                 save_attn=args.attention,
+                record_videos=True
             )
 
             print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
