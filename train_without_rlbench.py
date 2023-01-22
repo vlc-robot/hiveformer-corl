@@ -33,7 +33,7 @@ class Arguments(tap.Tap):
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
     dataset: List[Path]
-    devices: List[str] = ["cpu", "cuda:2", "cuda:3"]
+    devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
     valset: Optional[Tuple[Path, ...]] = None
     name: str = "hiveformer"
@@ -49,7 +49,7 @@ class Arguments(tap.Tap):
     variations: Tuple[int, ...] = (0,)
 
     # Train
-    batch_size: int = 32
+    batch_size: int = 32 * len(devices)
     lr: float = 0.001
     val_freq: int = 200
     train_iters: int = 100_000
@@ -79,7 +79,6 @@ def training(
     writer: SummaryWriter,
 ):
     iter_loader = iter(train_loader)
-    device = next(model.parameters()).device
 
     with trange(args.train_iters) as tbar:
         for step_id in tbar:
@@ -89,35 +88,15 @@ def training(
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
 
-            # rgbs = sample["rgbs"].to(device)
-            # pcds = sample["pcds"].to(device)
-            # gripper = sample["gripper"].to(device)
-            # outputs = sample["action"].to(device)
-            # padding_mask = sample["padding_mask"].to(device)
-            rgbs = sample["rgbs"]
-            pcds = sample["pcds"]
-            gripper = sample["gripper"]
-            outputs = sample["action"]
-            padding_mask = sample["padding_mask"]
-
-            instr = sample["instr"]
-            # if instr is not None:
-            #     instr = instr.to(device)
-            if instr is not None:
-                instr = instr
-
-            frame_id = sample["frame_id"]
-            tasks = sample["task"]
-
             if step_id % args.accumulate_grad_batches == 0:
                 optimizer.zero_grad()
 
             pred = model(
-                rgbs,
-                pcds,
-                padding_mask,
-                instr,
-                gripper,
+                sample["rgbs"],
+                sample["pcds"],
+                sample["padding_mask"],
+                sample["instr"],
+                sample["gripper"],
             )
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
@@ -215,32 +194,12 @@ def validation_step(
             if i == val_iters:
                 break
 
-            # rgbs = sample["rgbs"].to(device)
-            # pcds = sample["pcds"].to(device)
-            # gripper = sample["gripper"].to(device)
-            # outputs = sample["action"].to(device)
-            # padding_mask = sample["padding_mask"].to(device)
-            rgbs = sample["rgbs"]
-            pcds = sample["pcds"]
-            gripper = sample["gripper"]
-            outputs = sample["action"]
-            padding_mask = sample["padding_mask"]
-
-            instr = sample["instr"]
-            # if instr is not None:
-            #     instr = instr.to(device)
-            if instr is not None:
-                instr = instr
-
-            frame_id = sample["frame_id"]
-            tasks = sample["task"]
-
             pred = model(
-                rgbs,
-                pcds,
-                padding_mask,
-                instr,
-                gripper,
+                sample["rgbs"],
+                sample["pcds"],
+                sample["padding_mask"],
+                sample["instr"],
+                sample["gripper"],
             )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
