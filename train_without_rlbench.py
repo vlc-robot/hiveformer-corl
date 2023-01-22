@@ -41,7 +41,7 @@ class Arguments(tap.Tap):
     num_workers: int = 5 * len(devices)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
-    instructions: Optional[Path] = None
+    instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
     seed: int = 2
 
@@ -52,7 +52,7 @@ class Arguments(tap.Tap):
     batch_size: int = 32 * len(devices)
     lr: float = 0.001
     val_freq: int = 200
-    train_iters: int = 100_000
+    train_iters: int = 100_000 // len(devices)
     jitter: bool = False
 
     # tests
