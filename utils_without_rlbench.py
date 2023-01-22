@@ -30,7 +30,7 @@ import einops
 # from pyrep.objects.dummy import Dummy
 # from pyrep.objects.vision_sensor import VisionSensor
 
-from video_utils import CircleCameraMotion, TaskRecorder
+# from video_utils import CircleCameraMotion, TaskRecorder
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
