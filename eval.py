@@ -22,7 +22,7 @@ class Arguments(tap.Tap):
     seed: int = 2
     save_img: bool = False
     device: str = "cuda"
-    num_episodes: int = 100
+    num_episodes: int = 1  # TODO 100
     headless: bool = False
     offset: int = 0
     name: str = "autol"
@@ -37,7 +37,7 @@ class Arguments(tap.Tap):
     ground_truth_position: bool = False
     ground_truth_gripper: bool = False
     tasks: Optional[Tuple[str, ...]] = None
-    instructions: Optional[Path] = None
+    instructions: Optional[Path] = "instructions.pkl"
     arch: Optional[str] = None
     variations: Tuple[int, ...] = (0,)
     attention: bool = False  # saving attention maps

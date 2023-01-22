@@ -135,11 +135,7 @@ python train.py \
 ## Evaluation
 
 ```
-python eval.py \
-    --checkpoint /path/to/checkpoint/ \
-    --variations 0 \
-    --instructions instructions.pkl \
-    --num_episodes 100
+python eval.py --checkpoint /path/to/checkpoint
 ```
 
 ## Docker

@@ -51,7 +51,7 @@ class Arguments(tap.Tap):
     # Train
     batch_size: int = 32 * len(devices)
     lr: float = 0.001
-    val_freq: int = 50
+    val_freq: int = 10  # TODO 200
     train_iters: int = 100_000 // len(devices)
     jitter: bool = False
 
@@ -148,7 +148,7 @@ class CheckpointCallback:
         log_dir: Path,
         state_dict: Any,
         minimizing: bool = True,
-        checkpoint_period: int = 1,
+        checkpoint_period: int = 2,  # TODO 5
     ):
         self._name = name
         self._minimizing = minimizing
@@ -159,9 +159,11 @@ class CheckpointCallback:
         self._state_dict = state_dict
 
     def __call__(self, metrics: Dict[str, torch.Tensor]):
+        print("DEBUG Checkpoint -", self._step)
         self._step += 1
         if self._step % self._checkpoint_period != 0:
             return
+        print("DEBUG Checkpoint --------", self._step)
 
         value = int(metrics.get(self._name, 0))
         dest = self._log_dir / f"model.step={self._step}-value={value}.pth"
