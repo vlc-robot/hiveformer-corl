@@ -20,7 +20,7 @@ from utils_without_rlbench import (
 )
 from dataset import RLBenchDataset
 
-# from baseline.baseline import Baseline
+from baseline.baseline import Baseline
 
 
 class Arguments(tap.Tap):
@@ -56,6 +56,7 @@ class Arguments(tap.Tap):
     output: Path = Path(__file__).parent / "records.txt"
 
     # model
+    model: str = "original"
     depth: int = 4
     dim_feedforward: int = 64
     hidden_dim: int = 64
@@ -328,16 +329,26 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
 
 def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
-    _model = Hiveformer(
-        depth=args.depth,
-        dim_feedforward=args.dim_feedforward,
-        hidden_dim=args.hidden_dim,
-        instr_size=args.instr_size,
-        mask_obs_prob=args.mask_obs_prob,
-        max_episode_length=max_episode_length,
-        num_layers=args.num_layers,
-    )
-    # _model = Baseline()
+    if args.model == "original":
+        _model = Hiveformer(
+            depth=args.depth,
+            dim_feedforward=args.dim_feedforward,
+            hidden_dim=args.hidden_dim,
+            instr_size=args.instr_size,
+            mask_obs_prob=args.mask_obs_prob,
+            max_episode_length=max_episode_length,
+            num_layers=args.num_layers,
+        )
+    elif args.model == "develop":
+        _model = Baseline(
+            depth=args.depth,
+            dim_feedforward=args.dim_feedforward,
+            hidden_dim=args.hidden_dim,
+            instr_size=args.instr_size,
+            mask_obs_prob=args.mask_obs_prob,
+            max_episode_length=max_episode_length,
+            num_layers=args.num_layers,
+        )
 
     devices = [torch.device(d) for d in args.devices]
     model = _model.to(devices[0])
