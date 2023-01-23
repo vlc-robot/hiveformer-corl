@@ -49,7 +49,7 @@ class Arguments(tap.Tap):
     variations: Tuple[int, ...] = (0,)
 
     # Train
-    batch_size: int = 32 * len(devices)
+    batch_size: int = 24 * len(devices)
     lr: float = 0.001
     val_freq: int = 200
     train_iters: int = 100_000 // len(devices)
