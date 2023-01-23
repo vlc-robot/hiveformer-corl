@@ -10,17 +10,13 @@ from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import tqdm, trange
-from filelock import FileLock
 import tap
 from network import Hiveformer
 from utils_without_rlbench import (
     LossAndMetrics,
     load_instructions,
-    # RLBenchEnv,
     count_parameters,
-    load_episodes,
     get_max_episode_length,
-    # Actioner,
 )
 from dataset import RLBenchDataset
 
@@ -175,7 +171,7 @@ class CheckpointCallback:
             return
 
         value = int(metrics.get(self._name, 0))
-        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value}.pth"
+        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value:.3f}.pth"
         torch.save(self._state_dict, dest)
 
         if (self._minimizing and self._best > value) or (
@@ -404,7 +400,6 @@ if __name__ == "__main__":
 
     loss_and_metrics = LossAndMetrics()
 
-    # training episode
     model_dict = {
         "weight": model.state_dict(),
         "optimizer": optimizer.state_dict(),
@@ -444,45 +439,6 @@ if __name__ == "__main__":
             val_iters=-1,
         )
 
-    # last checkpoint
+    # Last checkpoint
     checkpoint = log_dir / f"mtl_{args.seed}_{args.lr}.pth"
     torch.save(model_dict, checkpoint)
-
-    # evaluation
-    # model.eval()
-    #
-    # env = RLBenchEnv(
-    #     data_path="",
-    #     apply_rgb=True,
-    #     apply_pc=True,
-    #     apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
-    #     headless=args.headless,
-    # )
-    #
-    # instruction = load_instructions(args.instructions)
-    # if instruction is None:
-    #     raise NotImplementedError()
-    #
-    # actioner = Actioner(model=model, instructions=instruction)
-    # max_eps_dict = load_episodes()["max_episode_length"]
-    # for task_str in args.tasks:
-    #     for variation in args.variations:
-    #         success_rate = env.evaluate(
-    #             task_str,
-    #             actioner=actioner,
-    #             max_episodes=max_eps_dict.get(task_str, 6),
-    #             variation=variation,
-    #             num_demos=500,
-    #             demos=None,
-    #             log_dir=log_dir,
-    #             max_tries=args.max_tries,
-    #             record_videos=False
-    #         )
-    #
-    #         print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
-    #
-    #         with FileLock(args.output.parent / f"{args.output.name}.lock"):
-    #             with open(args.output, "a") as oid:
-    #                 oid.write(
-    #                     f"{task_str}-{variation}, na, seed={args.seed}, {success_rate}\n"
-    #                 )
