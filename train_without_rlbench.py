@@ -367,13 +367,14 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         optimizer.load_state_dict(model_dict["optimizer"])
 
     model_params = count_parameters(_model)
-    print("Number of parameters:", model_params)
+    print("Model parameters:", model_params)
 
     return optimizer, model
 
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    print()
     print("Arguments:")
     print(args)
 
