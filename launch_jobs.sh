@@ -9,7 +9,7 @@ experiment=exp1
 
 sbatch train.sh \
   --name $experiment \
-  --tasks pick_and_place_task \
+  --tasks pick_and_lift \
   --dataset $output_dir/$train_seed \
   --valset $output_dir/$val_seed
 
