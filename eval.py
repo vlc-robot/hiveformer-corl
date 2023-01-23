@@ -22,7 +22,7 @@ class Arguments(tap.Tap):
     seed: int = 2
     save_img: bool = True
     device: str = "cuda"
-    num_episodes: int = 1  # TODO 100
+    num_episodes: int = 10
     headless: bool = False
     offset: int = 0
     name: str = "autol"
@@ -124,6 +124,10 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
 
     if hasattr(model, "film_gen") and model.film_gen is not None:
         model.film_gen.build(device)
+
+    model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
+    model_dict = {(k[7:] if k.startswith("module.") else k): v for k, v in model_dict.items()}
+    model.load_state_dict(model_dict)
 
     model.eval()
 

@@ -27,7 +27,7 @@ class Arguments(tap.Tap):
     accumulate_grad_batches: int = 1
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     checkpoint: Optional[Path] = None
-    checkpoint_period: int = 5
+    checkpoint_period: int = 10
     dataset: List[Path]
     devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
@@ -155,7 +155,7 @@ class CheckpointCallback:
         state_dict: Any,
         val_freq: int,
         minimizing: bool = True,
-        checkpoint_period: int = 5,
+        checkpoint_period: int = 10,
     ):
         self._name = name
         self._minimizing = minimizing
@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
     print("Logging:", log_dir)
     print("Args devices:", args.devices)
-    print("Available devices (CUDA_VISIBLE_DEVICES):", os.environ["CUDA_VISIBLE_DEVICES"])
+    print("Available devices (CUDA_VISIBLE_DEVICES):", os.environ.get("CUDA_VISIBLE_DEVICES"))
     print("Device count", torch.cuda.device_count())
 
     torch.manual_seed(args.seed)

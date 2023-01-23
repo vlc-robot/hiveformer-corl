@@ -6,6 +6,7 @@ import pickle
 from typing import List, Dict, Optional, Tuple, Literal, TypedDict, Union, Any, Sequence
 from pathlib import Path
 import math
+import open3d
 import json
 from tqdm import tqdm
 import numpy as np
@@ -361,6 +362,18 @@ class RLBenchEnv:
             action_ls.append(action.unsqueeze(0))
         return state_ls, action_ls
 
+    def get_gripper_matrix_from_action(self, action: torch.Tensor):
+        action = action.cpu().numpy()[0]
+        position = action[:3]
+        quaternion = action[3:7]
+        rotation = open3d.geometry.get_rotation_matrix_from_quaternion(
+            np.array((quaternion[3], quaternion[0], quaternion[1], quaternion[2]))
+        )
+        gripper_matrix = np.eye(4)
+        gripper_matrix[:3, :3] = rotation
+        gripper_matrix[:3, 3] = position
+        return gripper_matrix
+
     def get_demo(self, task_name, variation, episode_index):
         """
         Fetch a demo from the saved environment.
@@ -390,7 +403,8 @@ class RLBenchEnv:
         max_tries: int = 1,
         demos: Optional[List[Demo]] = None,
         save_attn: bool = False,
-        record_videos: bool = False
+        record_videos: bool = False,
+        num_videos: int = 3
     ):
         """
         Evaluate the policy network on the desired demo or test environments
@@ -448,7 +462,7 @@ class RLBenchEnv:
 
         with torch.no_grad():
             for demo_id, demo in enumerate(tqdm(fetch_list)):
-                if record_videos:
+                if record_videos and demo_id < num_videos:
                     task_recorder._cam_motion.save_pose()
 
                 images = []
@@ -473,6 +487,7 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
+                keyframe_actions = []
 
                 for step_id in range(max_episodes):
                     # fetch the current observation, and predict one action
@@ -488,6 +503,10 @@ class RLBenchEnv:
 
                     output = actioner.predict(step_id, rgbs, pcds, grippers)
                     action = output["action"]
+
+                    if record_videos and demo_id < num_videos:
+                        keyframe_actions.append(self.get_gripper_matrix_from_action(action))
+                        task_recorder.take_snap(obs, keyframe_actions=np.stack(keyframe_actions))
 
                     if action is None:
                         break
@@ -513,7 +532,7 @@ class RLBenchEnv:
                         break
 
                 # record video
-                if record_videos:
+                if record_videos and demo_id < num_videos:
                     record_video_file = os.path.join(
                         log_dir,
                         "videos",
