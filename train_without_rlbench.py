@@ -233,10 +233,10 @@ def validation_step(
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-        key = f"val-loss-{val_id}/total"
-        print(f"Validation Loss {val_id}: {values[key].mean():.05f}")
-        key = f"val-metrics-{val_id}/position"
-        print(f"Validation Position {val_id}: {values[key].mean():.05f}")
+        print()
+        print(f"Step {step_id}:")
+        for key, value in values.items():
+            print(f"{key}: {value.mean():.03f}")
 
     return values
 
@@ -264,7 +264,6 @@ def get_train_loader(args: Arguments) -> DataLoader:
             for task, var_instr in instruction.items()
             for var in var_instr.keys()
         ]
-    print(f"Valset has {len(taskvar)} taskvars")
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
@@ -305,7 +304,6 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
             for task, var_instr in instruction.items()
             for var in var_instr.keys()
         ]
-    print(f"Valset has {len(taskvar)} taskvars")
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
     loaders = []
@@ -328,8 +326,6 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
             collate_fn=collate_fn,
         )
         loaders.append(loader)
-
-    print(len(loaders), "validation loaders")
 
     return loaders
 
@@ -370,40 +366,40 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         _model.load_state_dict(model_dict["weight"])
         optimizer.load_state_dict(model_dict["optimizer"])
 
-    print("Number of parameters:")
     model_params = count_parameters(_model)
-    print("- model", model_params)
-    print("Total", model_params)
+    print("Number of parameters:", model_params)
 
     return optimizer, model
 
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
-    print("-" * 100)
     print("Arguments:")
     print(args)
+
+    print()
     print("-" * 100)
     print()
 
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
-    print("Logging:", log_dir)
     args.save(str(log_dir / "hparams.json"))
     writer = SummaryWriter(log_dir=log_dir)
 
-    print("Resources:")
+    print("Logging:", log_dir)
     print("Args devices:", args.devices)
     print("Available devices (CUDA_VISIBLE_DEVICES):", os.environ["CUDA_VISIBLE_DEVICES"])
     print("Device count", torch.cuda.device_count())
-    print("-" * 100)
-    print()
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
 
     optimizer, model = get_model(args)
+
+    print()
+    print("-" * 100)
+    print()
 
     loss_and_metrics = LossAndMetrics()
 

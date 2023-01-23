@@ -233,7 +233,7 @@ class RLBenchDataset(data.Dataset):
             self._episodes += episodes
             self._num_episodes += num_episodes
 
-        print("Num ep.", self._num_episodes)
+        print(f"Created dataset from {root} with {self._num_episodes} episodes")
 
     def __getitem__(self, episode_id: int) -> Optional[Sample]:
         episode_id %= self._num_episodes
