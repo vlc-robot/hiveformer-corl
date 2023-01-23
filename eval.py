@@ -96,7 +96,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
         files = sorted(files, key=lambda x: x.stat().st_mtime)
         checkpoint = files[0]
 
-    print("Loading model from...", checkpoint, flush=True)
+    print("Loading model from", checkpoint, flush=True)
     if args.tasks is None:
         raise RuntimeError("Can't find tasks")
 
