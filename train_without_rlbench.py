@@ -135,10 +135,19 @@ def training(
 
 def get_log_dir(args: Arguments) -> Path:
     log_dir = args.xp / args.name
+
+    def get_log_file(version):
+        if len(args.tasks) == 1:
+            log_file = f"{args.tasks[0]}_version{version}"
+        else:
+            log_file = f"version{version}"
+        return log_file
+
     version = int(os.environ.get("SLURM_JOBID", 0))
-    while (log_dir / f"version{version}").is_dir():
+    while (log_dir / get_log_file(version)).is_dir():
         version += 1
-    return log_dir / f"version{version}"
+
+    return log_dir / get_log_file(version)
 
 
 class CheckpointCallback:
@@ -147,6 +156,7 @@ class CheckpointCallback:
         name: str,
         log_dir: Path,
         state_dict: Any,
+        val_freq: int,
         minimizing: bool = True,
         checkpoint_period: int = 5,
     ):
@@ -156,6 +166,7 @@ class CheckpointCallback:
         self._log_dir = log_dir
         self._checkpoint_period = checkpoint_period
         self._step = 0
+        self._val_freq = val_freq
         self._state_dict = state_dict
 
     def __call__(self, metrics: Dict[str, torch.Tensor]):
@@ -164,7 +175,7 @@ class CheckpointCallback:
             return
 
         value = int(metrics.get(self._name, 0))
-        dest = self._log_dir / f"model.step={self._step}-value={value}.pth"
+        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value}.pth"
         torch.save(self._state_dict, dest)
 
         if (self._minimizing and self._best > value) or (
@@ -369,12 +380,24 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    print("-" * 100)
+    print("Arguments:")
     print(args)
+    print("-" * 100)
+    print()
+
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
     print("Logging:", log_dir)
     args.save(str(log_dir / "hparams.json"))
     writer = SummaryWriter(log_dir=log_dir)
+
+    print("Resources:")
+    print("Args devices:", args.devices)
+    print("Available devices (CUDA_VISIBLE_DEVICES):", os.environ["CUDA_VISIBLE_DEVICES"])
+    print("Device count", torch.cuda.device_count())
+    print("-" * 100)
+    print()
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -390,9 +413,10 @@ if __name__ == "__main__":
         "optimizer": optimizer.state_dict(),
     }
     checkpointer = CheckpointCallback(
-        "val-metrics/position",
+        "val-metrics-0/position",
         log_dir,
         model_dict,
+        val_freq=args.val_freq,
         minimizing=False,
         checkpoint_period=args.checkpoint_period,
     )
