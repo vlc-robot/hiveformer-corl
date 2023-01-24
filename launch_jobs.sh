@@ -5,7 +5,7 @@ train_seed=0
 val_seed=1
 task_file=10_autolambda_tasks.csv
 output_dir=$root/datasets/hiveformer/packaged
-experiment=exp4
+experiment=exp5
 
 for task in $(cat $task_file | tr '\n' ' '); do
 #  sbatch train_4gpus.sh \

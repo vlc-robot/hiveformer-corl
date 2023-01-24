@@ -430,7 +430,7 @@ class RLBenchEnv:
             cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
             task_recorder = TaskRecorder(
                 ("left_shoulder", "right_shoulder", "wrist"),
-                self.env, cam_motion, fps=30, obs_record_freq=10,
+                self.env, cam_motion,
                 custom_cam_params=True
             )
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)

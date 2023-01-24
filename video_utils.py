@@ -176,7 +176,7 @@ class CircleCameraMotion(CameraMotion):
 class TaskRecorder(object):
 
     def __init__(self, obs_cameras, env: Environment, cam_motion: CameraMotion,
-                 fps=30, obs_record_freq=10, custom_cam_params=False):
+                 fps=30, obs_record_freq=1, custom_cam_params=False):
         """
         Arguments:
             obs_cameras: observation camera view points
@@ -292,7 +292,7 @@ class TaskRecorder(object):
             self._fps,
             tuple(image_size)
         )
-        for image in self._3d_person_snaps:
+        for i, image in enumerate(self._3d_person_snaps):
             frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             font = cv2.FONT_HERSHEY_DUPLEX
             font_scale = (0.45 * image_size[0]) / 640
@@ -330,7 +330,7 @@ class TaskRecorder(object):
                 self._fps // self._obs_record_freq,
                 tuple(image_size)
             )
-            for snap in snaps:
+            for i, snap in enumerate(snaps):
                 video.write(snap[:, :, ::-1])
             video.release()
 
