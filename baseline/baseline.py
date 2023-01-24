@@ -10,6 +10,8 @@ from torch.distributions import Bernoulli
 from transformers.activations import ACT2FN
 from utils_without_rlbench import Output
 
+from .load_mask2former import load_mask2former
+
 
 def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
     return tensor / torch.linalg.norm(tensor, ord=2, dim=-1, keepdim=True)
@@ -452,6 +454,8 @@ class Baseline(nn.Module):
     ):
         super(Baseline, self).__init__()
 
+        self.mask2former = load_mask2former()
+
         self._instr_size = instr_size
         self._max_episode_length = max_episode_length
         self._num_cams = num_cams + 1  # for Attn
@@ -691,6 +695,7 @@ class Baseline(nn.Module):
         return self.head(
             N,
             pc_obs,
+            rgb_obs,
             x,
             enc_feat,
             padding_mask,
@@ -741,61 +746,108 @@ class Baseline(nn.Module):
         self,
         N: int,
         pc_obs: torch.Tensor,
+        rgb_obs: torch.Tensor,
         x,
         enc_feat,
         padding_mask,
         instruction: torch.Tensor,
     ) -> Output:
+
+        # print()
+        # print()
+        # print("INPUTS:")
+        # print("pc_obs", pc_obs.shape)
+        # print("rgb_obs", rgb_obs.shape)
+        # print("enc_feat - contains features at different layers of a down-sampling UNet encoding RGB")
+        # print("(batch x history x cameras) x channels x height x width")
+        # for i in range(len(enc_feat)):
+        #     print("enc_feat[i]", enc_feat[i].shape)
+        # print("x - max downsampling, with point cloud info, contextualized with instruction and history")
+        # print("x", x.shape)
+        # print()
+
         pc_obs = pc_obs[padding_mask]
-        # decoding features for translation
-        enc_feat.reverse()
-        xtr = x  # mypy
 
-        for i, l in enumerate(self.trans_decoder):
-            if i == 0:
-                xtr = self.trans_decoder[0](x)
-            else:
-                xtr = l(torch.cat([xtr, enc_feat[i]], dim=1))
+        # Position contact
+        # enc_feat.reverse()
+        # xtr = x
+        # print("ORIGINAL POSITION CONTACT:")
+        # print("heatmap (batch x history x cameras) x channels x height x width -", xtr.shape)
+        # for i, l in enumerate(self.trans_decoder):
+        #     if i == 0:
+        #         xtr = self.trans_decoder[0](x)
+        #     else:
+        #         xtr = l(torch.cat([xtr, enc_feat[i]], dim=1))
+        #     print("heatmap", xtr.shape)
+        # xt = xtr
+        # xt = self.maps_to_coord(xt)
+        # print("heatmap", xt.shape)
+        # xt = einops.rearrange(xt, "(b n) ch h w -> b (n ch h w)", n=N, ch=1)
+        # print("heatmap", xt.shape)
+        # print("heatmap.min(), heatmap.max()", xt.min(), xt.max())
+        # xt = torch.softmax(xt / 0.1, dim=1)
+        # print("heatmap.min(), heatmap.max()", xt.min(), xt.max())
+        # attn_map = einops.rearrange(
+        #     xt, "b (n ch h w) -> b n ch h w", n=N, ch=1, h=128, w=128
+        # )
+        # print("heatmap", attn_map.shape)
+        # position_contact = einops.reduce(pc_obs * attn_map, "b n ch h w -> b ch", "sum")
+        # print("position_contact", position_contact.shape)
+        # print()
 
-        xt = xtr
+        # Position contact with Mask2Former - concatenate camera images side by side
+        # print("MASK2FORMER POSITION CONTACT:")
+        imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) d h (n w)")
+        imgs = (imgs / 2 + 0.5) * 255.0  # Rescale to [0, 255]
+        imgs = imgs[:, :3, :, :]         # Remove proprio-reception channel
+        h, w = rgb_obs.shape[-2], rgb_obs.shape[-1]
+        imgs = [{"image": img, "height": h, "width": w} for img in imgs]
+        attn_map = self.mask2former(imgs)
+        # print("heatmap.shape", attn_map.shape)
+        attn_map = einops.rearrange(attn_map, "bt d h nw -> bt (d h nw)")
+        # print("heatmap.shape", attn_map.shape)
+        # print("heatmap.min(), heatmap.max()", attn_map.min(), attn_map.max())
+        attn_map = torch.softmax(attn_map, dim=-1)
+        # print("heatmap.min(), heatmap.max()", attn_map.min(), attn_map.max())
+        attn_map = einops.rearrange(attn_map, "bt (d h n w) -> bt n d h w", d=1, h=h, w=w)
+        # print("heatmap", attn_map.shape)
+        position_contact = einops.reduce(pc_obs * attn_map, "bt n d h w -> bt d", "sum")
+        # print("position_contact", position_contact.shape)
+        # print()
 
-        # predicting projected position
-        xt = self.maps_to_coord(xt)
-        xt = einops.rearrange(xt, "(b n) ch h w -> b (n ch h w)", n=N, ch=1)
-        xt = torch.softmax(xt / 0.1, dim=1)
-        attn_map = einops.rearrange(
-            xt, "b (n ch h w) -> b n ch h w", n=N, ch=1, h=128, w=128
-        )
-
-        pc_obs = einops.rearrange(pc_obs, "b n ch h w -> b n ch h w")
-        position = einops.reduce(pc_obs * attn_map, "b n ch h w -> b ch", "sum")
-
-        # decoding features for rotation
-        x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
-        xr = self.quat_decoder(x)
-        task = None
-
-        rotation = xr[:, :-1]
-        rotation = normalise_quat(rotation)
-
-        # prediction offset position
+        # Position offset
         g = instruction.mean(1)
         B, T = padding_mask.shape
         device = padding_mask.device
-
         task = self.z_proj_instr(g)
         num_tasks = task.shape[1]
         z_instr = task.softmax(1)
         z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
         z_instr = z_instr[padding_mask]
-
         step_ids = torch.arange(T, dtype=torch.long, device=device)
         z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
         z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
         z_pos = z_pos[padding_mask]
-
         z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
-        position += z_offset
+
+        # print("POSITION OFFSET:")
+        # print("offset", z_offset.shape)
+        # print()
+
+        position = position_contact + z_offset
+
+        # print("POSITION:")
+        # print("position (batch x history) x 3 -", position.shape)
+        # print()
+
+        # Rotation
+        x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
+        xr = self.quat_decoder(x)
+        rotation = xr[:, :-1]
+        rotation = normalise_quat(rotation)
+
+        # DEBUG
+        # raise NotImplementedError
 
         return {
             "position": position,
