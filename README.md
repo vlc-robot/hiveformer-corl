@@ -163,6 +163,7 @@ Build image and start container:
 ```
 sudo DOCKER_BUILDKIT=1 docker build -f Dockerfile . -t hiveformer
 sudo docker run --privileged --runtime=nvidia --gpus all -it -v /home/theophile_gervet_gmail_com/hiveformer:/opt/hiveformer -v /home/theophile_gervet_gmail_com/datasets/hiveformer:/opt/datasets/hiveformer -v /usr/bin/nvidia-xconfig:/usr/bin/nvidia-xconfig hiveformer:latest bash
+sudo docker run --runtime=nvidia -it -v /home/theophile_gervet_gmail_com/hiveformer:/opt/hiveformer -v /home/theophile_gervet_gmail_com/datasets/hiveformer:/opt/datasets/hiveformer hiveformer_without_rlbench:latest bash
 ```
 
 ## Issues Faced

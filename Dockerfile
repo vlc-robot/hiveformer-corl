@@ -47,9 +47,7 @@ RUN wget -O ~/miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-latest
 ENV PATH=/opt/conda/bin:$PATH
 
 # Create conda environment
-RUN conda create -n analogical_manipulation python=3.9 -y && \
-    source /opt/conda/etc/profile.d/conda.sh && \
-    conda activate analogical_manipulation
+RUN conda create -n analogical_manipulation python=3.9 -y
 
 # Install Coppelia
 RUN mkdir -p /opt
