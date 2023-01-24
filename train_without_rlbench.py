@@ -29,12 +29,11 @@ class Arguments(tap.Tap):
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
     dataset: List[Path]
-    devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     xp: Path = Path(__file__).parent / "xp"
     valset: Optional[Tuple[Path, ...]] = None
     name: str = "hiveformer"
-    arch: str = "mct"
-    num_workers: int = 12
+    num_workers: int = 3 * len(devices)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"

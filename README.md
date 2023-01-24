@@ -27,6 +27,14 @@ wget https://sourceforge.net/projects/virtualgl/files/2.5.2/virtualgl_2.5.2_amd6
 sudo dpkg -i virtualgl*.deb; rm virtualgl*.deb;
 sudo reboot  # Need to reboot for changes to take effect
 
+# Install Mask2Former
+git clone git@github.com:facebookresearch/Mask2Former.git
+python -m pip install 'git+https://github.com/facebookresearch/detectron2.git';
+cd Mask2Former;
+pip install -r requirements.txt;
+cd mask2former/modeling/pixel_decoder/ops;
+sh make.sh
+
 # Install Mask3D (currently not used)
 sudo apt install build-essential python3-dev libopenblas-dev
 conda install openblas-devel -c anaconda
