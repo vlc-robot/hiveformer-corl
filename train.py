@@ -49,11 +49,11 @@ class Arguments(tap.Tap):
     variations: Tuple[int, ...] = (0,)
 
     # Train
-    batch_size: int = 24
+    batch_size: int = 32
     lr: float = 0.001
     val_freq: int = 200
     val_batch_size: int = 100
-    train_iters: int = 133_000
+    train_iters: int = 100_000
     jitter: bool = False
 
     # tests
