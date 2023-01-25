@@ -261,10 +261,10 @@ class MaskFormer(nn.Module):
     #
     #         return processed_results
 
-    def forward(self, batched_inputs):
+    def forward(self, images, pcds=None):
         """
         Args:
-            batched_inputs: a list, batched outputs of :class:`DatasetMapper`.
+            images: a list, batched outputs of :class:`DatasetMapper`.
                 Each item in the list contains the inputs for one image.
                 For now, each item in the list is a dict that contains:
                    * "image": Tensor, image in (C, H, W) format.
@@ -273,12 +273,12 @@ class MaskFormer(nn.Module):
                      "height", "width" (int): the output resolution of the model (may be different
                      from input resolution), used in inference.
         """
-        images = [x["image"].to(self.device) for x in batched_inputs]
+        images = [x["image"].to(self.device) for x in images]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
 
-        features = self.backbone(images.tensor)
-        outputs = self.sem_seg_head(features)
+        image_features = self.backbone(images.tensor)
+        outputs = self.sem_seg_head(image_features, pcds=pcds)
 
         pred_masks = F.interpolate(
             outputs["pred_masks"],

@@ -798,11 +798,12 @@ class Baseline(nn.Module):
         # Position contact with Mask2Former - concatenate camera images side by side
         # print("MASK2FORMER POSITION CONTACT:")
         imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) d h (n w)")
+        pcds = einops.rearrange(pc_obs, "bt n d h w -> bt d h (n w)")
         imgs = (imgs / 2 + 0.5) * 255.0  # Rescale to [0, 255]
         imgs = imgs[:, :3, :, :]         # Remove proprio-reception channel
         h, w = rgb_obs.shape[-2], rgb_obs.shape[-1]
         imgs = [{"image": img, "height": h, "width": w} for img in imgs]
-        attn_map = self.mask2former(imgs)
+        attn_map = self.mask2former(imgs, pcds=pcds)
         # print("heatmap.shape", attn_map.shape)
         attn_map = einops.rearrange(attn_map, "bt d h nw -> bt (d h nw)")
         # print("heatmap.shape", attn_map.shape)

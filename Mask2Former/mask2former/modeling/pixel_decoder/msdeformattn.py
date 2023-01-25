@@ -15,6 +15,7 @@ from detectron2.layers import Conv2d, ShapeSpec, get_norm
 from detectron2.modeling import SEM_SEG_HEADS_REGISTRY
 
 from ..transformer_decoder.position_encoding import PositionEmbeddingSine
+from ..transformer_decoder.rotary_position_encoding import RotaryPositionEncoding3DWrapper
 from ..transformer_decoder.transformer import _get_clones, _get_activation_fn
 from .ops.modules import MSDeformAttn
 
@@ -239,6 +240,7 @@ class MSDeformAttnPixelDecoder(nn.Module):
         )
         N_steps = conv_dim // 2
         self.pe_layer = PositionEmbeddingSine(N_steps, normalize=True)
+        self.pcd_pe_layer = RotaryPositionEncoding3DWrapper(conv_dim)
 
         self.mask_dim = mask_dim
         # use 1x1 conv instead
@@ -312,14 +314,17 @@ class MSDeformAttnPixelDecoder(nn.Module):
         return ret
 
     @autocast(enabled=False)
-    def forward_features(self, features):
+    def forward_features(self, features, pcds=None):
         srcs = []
         pos = []
         # Reverse feature maps into top-down order (from low to high resolution)
         for idx, f in enumerate(self.transformer_in_features[::-1]):
             x = features[f].float()  # deformable detr does not support half precision
             srcs.append(self.input_proj[idx](x))
-            pos.append(self.pe_layer(x))
+            if pcds is None:
+                pos.append(self.pe_layer(x))
+            else:
+                pos.append(self.pcd_pe_layer(x, pcds))
 
         y, spatial_shapes, level_start_index = self.transformer(srcs, pos)
         bs = y.shape[0]
