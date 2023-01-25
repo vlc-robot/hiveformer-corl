@@ -98,21 +98,21 @@ def training(
             train_losses = loss_and_metrics.compute_loss(pred, sample)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
 
-            for n, l in train_losses.items():
-                writer.add_scalar(f"train-loss/{n}", l, step_id)
-
-            writer.add_scalar(f"lr/", args.lr, step_id)
-
-            metrics = loss_and_metrics.compute_metrics(pred, sample)
-            for n, l in metrics.items():
-                writer.add_scalar(f"train-metrics/{n}", l, step_id)
-
             train_losses["total"].backward()  # type: ignore
 
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
             if (step_id + 1) % args.val_freq == 0:
+                for n, l in train_losses.items():
+                    writer.add_scalar(f"train-loss/{n}", l, step_id)
+
+                writer.add_scalar(f"lr/", args.lr, step_id)
+
+                metrics = loss_and_metrics.compute_metrics(pred, sample)
+                for n, l in metrics.items():
+                    writer.add_scalar(f"train-metrics/{n}", l, step_id)
+
                 if val_loaders is not None:
                     val_metrics = validation_step(
                         step_id,
