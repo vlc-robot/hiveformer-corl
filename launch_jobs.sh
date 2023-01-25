@@ -15,7 +15,7 @@ output_dir=$root/datasets/hiveformer/packaged
 #    --valset $output_dir/$val_seed
 #done
 
-experiment=exp6
+experiment=exp8
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu.sh \
     --name $experiment \

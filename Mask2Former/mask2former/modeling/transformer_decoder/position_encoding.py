@@ -6,7 +6,9 @@ Various positional encodings for the transformer.
 import math
 
 import torch
+import einops
 from torch import nn
+import torch.nn.functional as F
 
 
 class PositionEmbeddingSine(nn.Module):
@@ -62,3 +64,43 @@ class PositionEmbeddingSine(nn.Module):
         # _repr_indent = 4
         lines = [head] + [" " * _repr_indent + line for line in body]
         return "\n".join(lines)
+
+
+class PositionEmbeddingLearned(nn.Module):
+    """Absolute pos embedding, learned."""
+
+    def __init__(self, dim, num_pos_feats):
+        super().__init__()
+
+        self.position_embedding_head = nn.Sequential(
+            nn.Conv1d(dim, num_pos_feats, kernel_size=1),
+            nn.BatchNorm1d(num_pos_feats),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(num_pos_feats, num_pos_feats, kernel_size=1)
+        )
+
+    def forward(self, features, XYZ):
+        """
+        Return positional encoding for features.
+
+        Arguments:
+            features: downscale image feature map of shape
+             (batch_size, channels, height, width)
+            XYZ: point cloud in world coordinates aligned to image features of
+             shape (batch_size, 3, height * downscaling, width * downscaling)
+
+        Returns:
+            pos_code: positional embeddings of shape
+             (batch_size, channels, height, width)
+        """
+        h, w = features.shape[-2:]
+        h_downscaling = XYZ.shape[-2] / h
+        w_downscaling = XYZ.shape[-1] / w
+        assert h_downscaling == w_downscaling and int(h_downscaling) == h_downscaling
+
+        XYZ = F.interpolate(XYZ, scale_factor=1. / h_downscaling, mode='bilinear')
+        XYZ = einops.rearrange(XYZ, "b c h w -> b c (h w)")
+        pos_code = self.position_embedding_head(XYZ)
+        pos_code = einops.rearrange(pos_code, "b c (h w) -> b c h w", h=h, w=w)
+
+        return pos_code
