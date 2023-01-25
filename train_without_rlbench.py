@@ -1,6 +1,7 @@
 import random
 from typing import List, Tuple, Dict, Optional, Any
 import os
+from collections import defaultdict
 from pathlib import Path
 import torch
 from torch import nn
@@ -76,6 +77,9 @@ def training(
 ):
     iter_loader = iter(train_loader)
 
+    aggregated_losses = defaultdict(list)
+    aggregated_metrics = defaultdict(list)
+
     with trange(args.train_iters) as tbar:
         for step_id in tbar:
             try:
@@ -97,21 +101,32 @@ def training(
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
-
             train_losses["total"].backward()  # type: ignore
+
+            metrics = loss_and_metrics.compute_metrics(pred, sample)
+
+            for n, l in train_losses.items():
+                aggregated_losses[n].append(l)
+            for n, l in metrics.items():
+                aggregated_metrics[n].append(l)
 
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
             if (step_id + 1) % args.val_freq == 0:
-                for n, l in train_losses.items():
-                    writer.add_scalar(f"train-loss/{n}", l, step_id)
-
                 writer.add_scalar(f"lr/", args.lr, step_id)
 
-                metrics = loss_and_metrics.compute_metrics(pred, sample)
+                for n, l in aggregated_losses.items():
+                    writer.add_scalar(f"train-loss/{n}", torch.mean(torch.stack(l)), step_id)
+                for n, l in aggregated_metrics.items():
+                    writer.add_scalar(f"train-metrics/{n}", torch.mean(torch.stack(l)), step_id)
+                aggregated_losses = defaultdict(list)
+                aggregated_metrics = defaultdict(list)
+
+                for n, l in train_losses.items():
+                    aggregated_losses[n].append(l)
                 for n, l in metrics.items():
-                    writer.add_scalar(f"train-metrics/{n}", l, step_id)
+                    aggregated_metrics[n].append(l)
 
                 if val_loaders is not None:
                     val_metrics = validation_step(
