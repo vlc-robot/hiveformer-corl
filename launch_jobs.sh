@@ -15,12 +15,13 @@ output_dir=$root/datasets/hiveformer/packaged
 #    --valset $output_dir/$val_seed
 #done
 
-experiment=exp8
+experiment=ghost_points_exp1
 for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu.sh \
+  sbatch train_1gpu_32gb.sh \
     --name $experiment \
     --tasks $task \
     --dataset $output_dir/$train_seed \
     --valset $output_dir/$val_seed \
-    --model develop
+    --model develop \
+    --batch_size 10
 done
