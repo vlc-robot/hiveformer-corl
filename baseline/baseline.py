@@ -821,8 +821,8 @@ class Baseline(nn.Module):
         img_attn_map, ghost_points_attn_map = self.mask2former(
             imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds
         )
-        # print("img_attn_map", img_attn_map.shape)
-        # print("ghost_points_attn_map", ghost_points_attn_map.shape)
+        print("img_attn_map", img_attn_map.shape)
+        print("ghost_points_attn_map", ghost_points_attn_map.shape)
 
         img_attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
         attn_map = torch.cat([img_attn_map, ghost_points_attn_map], dim=-1)
