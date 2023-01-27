@@ -4,6 +4,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 import torch
+import json
 from torch import nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
@@ -354,15 +355,19 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             num_layers=args.num_layers,
         )
     elif args.model == "develop":
-        _model = Baseline(
-            depth=args.depth,
-            dim_feedforward=args.dim_feedforward,
-            hidden_dim=args.hidden_dim,
-            instr_size=args.instr_size,
-            mask_obs_prob=args.mask_obs_prob,
-            max_episode_length=max_episode_length,
-            num_layers=args.num_layers,
-        )
+        if len(args.tasks) == 1:
+            _model = Baseline(
+                depth=args.depth,
+                dim_feedforward=args.dim_feedforward,
+                hidden_dim=args.hidden_dim,
+                instr_size=args.instr_size,
+                mask_obs_prob=args.mask_obs_prob,
+                max_episode_length=max_episode_length,
+                num_layers=args.num_layers,
+                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]]
+            )
+        else:
+            raise NotImplementedError
 
     devices = [torch.device(d) for d in args.devices]
     model = _model.to(devices[0])

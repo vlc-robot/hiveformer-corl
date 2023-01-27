@@ -3,6 +3,7 @@ import os
 import shutil
 import cv2
 import torch
+import json
 import open3d
 import einops
 import numpy as np
@@ -12,6 +13,7 @@ from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 from rlbench import Environment
 from rlbench.backend.observation import Observation
+from baseline.utils import sample_ghost_points
 
 
 def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2, 0.8, 0.)):
@@ -99,7 +101,8 @@ def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2
 def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            rgb_obs: np.array, pcd_obs: np.array,
                            custom_cam_params: bool,
-                           keyframe_actions: Optional[np.array] = None):
+                           keyframe_actions: Optional[np.array] = None,
+                           gripper_loc_bounds: Optional[np.array] = None):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
@@ -132,6 +135,16 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
             keyframe_action_geometries += get_gripper_control_points_open3d(grasp)
     all_geometries += keyframe_action_geometries
 
+    # Add gripper ghost points for visualization
+    if gripper_loc_bounds is not None:
+        ghost_points = sample_ghost_points(gripper_loc_bounds)
+        ghost_points_colors = np.zeros_like(ghost_points)
+        ghost_points_colors[:, 1] = 1.0
+        ghost_points_opcd = open3d.geometry.PointCloud()
+        ghost_points_opcd.points = open3d.utility.Vector3dVector(ghost_points)
+        ghost_points_opcd.colors = open3d.utility.Vector3dVector(ghost_points_colors)
+        all_geometries.append(ghost_points_opcd)
+
     for cam in range(num_cams):
         rgb = einops.rearrange(rgb_obs[cam, :3], "c h w -> (h w) c")
         pcd = einops.rearrange(pcd_obs[cam], "c h w -> (h w) c")
@@ -139,7 +152,8 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
         all_geometries.append(opcd)
-        view_geometries = [opcd, *keyframe_action_geometries] if vis[cam].get_window_name() != "wrist" else [opcd]
+        view_geometries = ([opcd, *keyframe_action_geometries, ghost_points_opcd]
+                           if vis[cam].get_window_name() != "wrist" else [opcd])
         imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
 
     imgs.append(plot_geometries(all_geometries, vis[-1], custom_cam_params))
@@ -176,12 +190,13 @@ class CircleCameraMotion(CameraMotion):
 class TaskRecorder(object):
 
     def __init__(self, obs_cameras, env: Environment, cam_motion: CameraMotion,
-                 fps=30, obs_record_freq=1, custom_cam_params=False):
+                 task_str: str, fps=30, obs_record_freq=1, custom_cam_params=False):
         """
         Arguments:
             obs_cameras: observation camera view points
             env: environment that generates observations to record
             cam_motion: motion for 3rd person camera recording
+            task_str: task string
             fps: frames per second
             obs_record_freq: frequency of first-person observation recording
             custom_cam_params: if True, record point cloud observations with custom camera
@@ -198,6 +213,7 @@ class TaskRecorder(object):
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
         self._keyframe_actions = None
+        self._gripper_loc_bounds = json.load(open("location_bounds.json", "r"))[task_str]
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
             # Note: The extrinsic and intrinsic matrices are in the observation,
@@ -273,7 +289,8 @@ class TaskRecorder(object):
             rgb_obs = 2 * (rgb_obs - 0.5)
             pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
             pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs,
-                                              self._custom_cam_params, self._keyframe_actions)
+                                              self._custom_cam_params, self._keyframe_actions,
+                                              self._gripper_loc_bounds)
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 

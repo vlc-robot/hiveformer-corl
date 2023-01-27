@@ -11,6 +11,7 @@ from transformers.activations import ACT2FN
 from utils_without_rlbench import Output
 
 from .load_mask2former import load_mask2former
+from .utils import sample_ghost_points
 
 
 def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
@@ -451,10 +452,12 @@ class Baseline(nn.Module):
         instr_size: int = 512,
         max_episode_length: int = 10,
         token_size: int = 19,
+        gripper_loc_bounds=None
     ):
         super(Baseline, self).__init__()
 
         self.mask2former = load_mask2former()
+        self.gripper_loc_bounds = gripper_loc_bounds
 
         self._instr_size = instr_size
         self._max_episode_length = max_episode_length
@@ -795,51 +798,60 @@ class Baseline(nn.Module):
         # print("position_contact", position_contact.shape)
         # print()
 
-        # Position contact with Mask2Former - concatenate camera images side by side
-        # print("MASK2FORMER POSITION CONTACT:")
+        # Position with Mask2Former - concatenate camera images side by side
+        # and sample ghost points
+        # print()
+        # print()
+        # print("MASK2FORMER POSITION")
         imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) d h (n w)")
         pcds = einops.rearrange(pc_obs, "bt n d h w -> bt d h (n w)")
         imgs = (imgs / 2 + 0.5) * 255.0  # Rescale to [0, 255]
         imgs = imgs[:, :3, :, :]         # Remove proprio-reception channel
         h, w = rgb_obs.shape[-2], rgb_obs.shape[-1]
         imgs = [{"image": img, "height": h, "width": w} for img in imgs]
-        attn_map = self.mask2former(imgs, pcds=pcds)
-        # print("heatmap.shape", attn_map.shape)
-        attn_map = einops.rearrange(attn_map, "bt d h nw -> bt (d h nw)")
-        # print("heatmap.shape", attn_map.shape)
-        # print("heatmap.min(), heatmap.max()", attn_map.min(), attn_map.max())
+
+        # Sample ghost points
+        ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
+        ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
+        bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
+        ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
+
+        # print("pcds", pcds.shape)
+        # print("ghost_points_pcds", ghost_points_pcds.shape)
+        img_attn_map, ghost_points_attn_map = self.mask2former(
+            imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds
+        )
+        # print("img_attn_map", img_attn_map.shape)
+        # print("ghost_points_attn_map", ghost_points_attn_map.shape)
+
+        img_attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
+        attn_map = torch.cat([img_attn_map, ghost_points_attn_map], dim=-1)
         attn_map = torch.softmax(attn_map, dim=-1)
-        # print("heatmap.min(), heatmap.max()", attn_map.min(), attn_map.max())
-        attn_map = einops.rearrange(attn_map, "bt (d h n w) -> bt n d h w", d=1, h=h, w=w)
-        # print("heatmap", attn_map.shape)
-        position_contact = einops.reduce(pc_obs * attn_map, "bt n d h w -> bt d", "sum")
-        # print("position_contact", position_contact.shape)
-        # print()
+        # print("attn_map", attn_map.shape)
+
+        img_pcds = einops.rearrange(pcds, "bt d h nw -> bt d (h nw)")
+        ghost_points_pcds = einops.rearrange(ghost_points_pcds, "bt num_points d -> bt d num_points")
+        all_pcds = torch.cat([img_pcds, ghost_points_pcds], dim=-1)
+        # print("all_pcds", all_pcds.shape)
+
+        position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
+        # print("position", position.shape)
 
         # Position offset
         g = instruction.mean(1)
-        B, T = padding_mask.shape
-        device = padding_mask.device
+        # B, T = padding_mask.shape
+        # device = padding_mask.device
         task = self.z_proj_instr(g)
-        num_tasks = task.shape[1]
-        z_instr = task.softmax(1)
-        z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
-        z_instr = z_instr[padding_mask]
-        step_ids = torch.arange(T, dtype=torch.long, device=device)
-        z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
-        z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
-        z_pos = z_pos[padding_mask]
-        z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
-
-        # print("POSITION OFFSET:")
-        # print("offset", z_offset.shape)
-        # print()
-
-        position = position_contact + z_offset
-
-        # print("POSITION:")
-        # print("position (batch x history) x 3 -", position.shape)
-        # print()
+        # num_tasks = task.shape[1]
+        # z_instr = task.softmax(1)
+        # z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
+        # z_instr = z_instr[padding_mask]
+        # step_ids = torch.arange(T, dtype=torch.long, device=device)
+        # z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
+        # z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
+        # z_pos = z_pos[padding_mask]
+        # z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
+        # position += z_offset
 
         # Rotation
         x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)

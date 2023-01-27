@@ -32,7 +32,7 @@ MODEL:
     PRE_NORM: False
     ENFORCE_INPUT_PROJ: False
     SIZE_DIVISIBILITY: 32
-    DEC_LAYERS: 3  # 2 decoder layers, add one for the loss on learnable query
+    DEC_LAYERS: 4  # 3 decoder layers, add one for the loss on learnable query
     TRAIN_NUM_POINTS: 12544
     OVERSAMPLE_RATIO: 3.0
     IMPORTANCE_SAMPLE_RATIO: 0.75

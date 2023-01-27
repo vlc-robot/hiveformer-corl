@@ -261,7 +261,7 @@ class MaskFormer(nn.Module):
     #
     #         return processed_results
 
-    def forward(self, images, pcds=None):
+    def forward(self, images, pcds, ghost_points_pcds):
         """
         Args:
             images: a list, batched outputs of :class:`DatasetMapper`.
@@ -278,15 +278,16 @@ class MaskFormer(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         image_features = self.backbone(images.tensor)
-        outputs = self.sem_seg_head(image_features, pcds=pcds)
+        outputs = self.sem_seg_head(image_features, pcds=pcds, ghost_points_pcds=ghost_points_pcds)
 
-        pred_masks = F.interpolate(
-            outputs["pred_masks"],
+        img_attn_masks = F.interpolate(
+            outputs["img_attn_masks"],
             size=(images.tensor.shape[-2], images.tensor.shape[-1]),
             mode="bilinear",
             align_corners=False,
         )
-        return pred_masks
+        ghost_points_attn_masks = outputs["ghost_points_attn_masks"]
+        return img_attn_masks, ghost_points_attn_masks
 
     def prepare_targets(self, targets, images):
         h_pad, w_pad = images.tensor.shape[-2:]

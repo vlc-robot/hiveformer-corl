@@ -431,7 +431,8 @@ class RLBenchEnv:
             task_recorder = TaskRecorder(
                 ("left_shoulder", "right_shoulder", "wrist"),
                 self.env, cam_motion,
-                custom_cam_params=True
+                task_str=task_str,
+                custom_cam_params=True,
             )
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 

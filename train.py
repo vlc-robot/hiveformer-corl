@@ -430,6 +430,7 @@ if __name__ == "__main__":
 
     if args.train_iters > 0:
         train_loader = get_train_loader(args)
+
         training(
             model,
             optimizer,
@@ -479,11 +480,11 @@ if __name__ == "__main__":
                 actioner=actioner,
                 max_episodes=max_eps_dict.get(task_str, 6),
                 variation=variation,
-                num_demos=500,
+                num_demos=1,
                 demos=None,
                 log_dir=log_dir,
                 max_tries=args.max_tries,
-                record_videos=False
+                record_videos=True
             )
 
             print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
