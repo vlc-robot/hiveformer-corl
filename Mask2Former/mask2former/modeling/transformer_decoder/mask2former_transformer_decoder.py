@@ -422,12 +422,14 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
             real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
 
-            # ghost_points_feats = self.ghost_point_cross_attention_layers[i](
-            #     ghost_points_feats, real_points_feats,
-            #     memory_mask=None,
-            #     memory_key_padding_mask=None,
-            #     pos=real_points_pos, query_pos=ghost_points_pos
-            # )
+            print("ghost_points_feats[i]", ghost_points_feats.shape)
+            print("real_points_feats[i]", real_points_feats.shape)
+            ghost_points_feats = self.ghost_point_cross_attention_layers[i](
+                ghost_points_feats, real_points_feats,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=real_points_pos, query_pos=ghost_points_pos
+            )
 
         ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points n c -> n c num_points")
 
