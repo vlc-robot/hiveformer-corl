@@ -414,7 +414,8 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # one-directional cross-attention
         #
         # Note: This takes most GPU memory
-        for i in range(self.num_ghost_point_layers):
+        # for i in range(self.num_ghost_point_layers):
+        for i in range(1):
             level_index = i % (self.num_feature_levels + 1)
 
             real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
