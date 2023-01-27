@@ -825,8 +825,8 @@ class Baseline(nn.Module):
         # print("ghost_points_attn_map", ghost_points_attn_map.shape)
 
         # DEBUG
-        img_attn_map = torch.ones([4, 1, 128, 384]).to(pcds.device)
-        ghost_points_attn_map = torch.ones([4, 1, 1000]).to(pcds.device)
+        img_attn_map = torch.ones([16, 1, 128, 384]).to(pcds.device)
+        ghost_points_attn_map = torch.ones([16, 1, 1000]).to(pcds.device)
 
         img_attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
         attn_map = torch.cat([img_attn_map, ghost_points_attn_map], dim=-1)
