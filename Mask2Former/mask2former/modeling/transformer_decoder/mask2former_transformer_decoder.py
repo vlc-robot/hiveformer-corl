@@ -412,20 +412,22 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         # Contextualize ghost points with pixel decoder visual features through
         # one-directional cross-attention
-        # for i in range(self.num_ghost_point_layers):
-        #     level_index = i % (self.num_feature_levels + 1)
         #
-        #     real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
-        #     real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
-        #     real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
-        #     real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
-        #
-        #     ghost_points_feats = self.ghost_point_cross_attention_layers[i](
-        #         ghost_points_feats, real_points_feats,
-        #         memory_mask=None,
-        #         memory_key_padding_mask=None,
-        #         pos=real_points_pos, query_pos=ghost_points_pos
-        #     )
+        # Note: This takes most GPU memory
+        for i in range(self.num_ghost_point_layers):
+            level_index = i % (self.num_feature_levels + 1)
+
+            real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
+            real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
+            real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
+            real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
+
+            # ghost_points_feats = self.ghost_point_cross_attention_layers[i](
+            #     ghost_points_feats, real_points_feats,
+            #     memory_mask=None,
+            #     memory_key_padding_mask=None,
+            #     pos=real_points_pos, query_pos=ghost_points_pos
+            # )
 
         ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points n c -> n c num_points")
 
