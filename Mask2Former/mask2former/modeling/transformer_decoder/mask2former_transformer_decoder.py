@@ -413,9 +413,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # Contextualize ghost points with pixel decoder visual features through
         # one-directional cross-attention
         #
-        # Note: This takes most GPU memory
-        # for i in range(self.num_ghost_point_layers):
-        for i in range(3):
+        # Note: The cross-attention between ghost points and finest grid of visual features
+        # takes most GPU memory by far
+        for i in range(self.num_ghost_point_layers):
             level_index = i % (self.num_feature_levels + 1)
 
             real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
@@ -423,8 +423,6 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
             real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
 
-            print("ghost_points_feats[i]", ghost_points_feats.shape)
-            print("real_points_feats[i]", real_points_feats.shape)
             ghost_points_feats = self.ghost_point_cross_attention_layers[i](
                 ghost_points_feats, real_points_feats,
                 memory_mask=None,
