@@ -500,10 +500,10 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             predictions_img_masks.append(outputs_mask)
             predictions_ghost_points_masks.append(ghost_points_masks)
 
-            # print("output", output.shape)
-            # print("mask_features", mask_features.shape)
-            # print("img_mask - predicted mask at layer i", outputs_mask.shape)
-            # print("ghost_points_mask - predicted mask at layer i", ghost_points_mask.shape)
+            print("output", output.shape)
+            print("mask_features", mask_features.shape)
+            print("img_mask - predicted mask at layer i", outputs_mask.shape)
+            print("ghost_points_mask - predicted mask at layer i", ghost_points_mask.shape)
 
         assert len(predictions_class) == self.num_layers + 1
 
