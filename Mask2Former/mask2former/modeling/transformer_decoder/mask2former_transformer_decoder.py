@@ -422,7 +422,6 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
             real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
             real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
-            print("real_points_feats[i]", real_points_feats.shape)
 
             ghost_points_feats = self.ghost_point_cross_attention_layers[i](
                 ghost_points_feats, real_points_feats,
