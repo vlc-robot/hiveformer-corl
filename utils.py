@@ -363,7 +363,7 @@ class RLBenchEnv:
         return state_ls, action_ls
 
     def get_gripper_matrix_from_action(self, action: torch.Tensor):
-        action = action.cpu().numpy()[0]
+        action = action.cpu().numpy()
         position = action[:3]
         quaternion = action[3:7]
         rotation = open3d.geometry.get_rotation_matrix_from_quaternion(
@@ -437,18 +437,18 @@ class RLBenchEnv:
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
             # Record demo video with keyframe actions for comparison with evaluation videos
-            task_recorder._cam_motion.save_pose()
-            task.get_demos(
-                amount=1,
-                live_demos=True,
-                callable_each_step=task_recorder.take_snap,
-                max_attempts=1
-            )
-            record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
-            descriptions, obs = task.reset()
-            lang_goal = descriptions[0]  # first description variant
-            task_recorder.save(record_video_file, lang_goal)
-            task_recorder._cam_motion.restore_pose()
+            # task_recorder._cam_motion.save_pose()
+            # task.get_demos(
+            #     amount=1,
+            #     live_demos=True,
+            #     callable_each_step=task_recorder.take_snap,
+            #     max_attempts=1
+            # )
+            # record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
+            # descriptions, obs = task.reset()
+            # lang_goal = descriptions[0]  # first description variant
+            # task_recorder.save(record_video_file, lang_goal)
+            # task_recorder._cam_motion.restore_pose()
 
         device = actioner.device
 
@@ -506,7 +506,7 @@ class RLBenchEnv:
                     action = output["action"]
 
                     if record_videos and demo_id < num_videos:
-                        keyframe_actions.append(self.get_gripper_matrix_from_action(action))
+                        keyframe_actions.append(self.get_gripper_matrix_from_action(action[-1]))
                         task_recorder.take_snap(obs, keyframe_actions=np.stack(keyframe_actions))
 
                     if action is None:
