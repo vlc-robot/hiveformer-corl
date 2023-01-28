@@ -437,18 +437,21 @@ class RLBenchEnv:
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
             # Record demo video with keyframe actions for comparison with evaluation videos
-            # task_recorder._cam_motion.save_pose()
-            # task.get_demos(
-            #     amount=1,
-            #     live_demos=True,
-            #     callable_each_step=task_recorder.take_snap,
-            #     max_attempts=1
-            # )
-            # record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
-            # descriptions, obs = task.reset()
-            # lang_goal = descriptions[0]  # first description variant
-            # task_recorder.save(record_video_file, lang_goal)
-            # task_recorder._cam_motion.restore_pose()
+            task_recorder._cam_motion.save_pose()
+            task.get_demos(
+                amount=1,
+                live_demos=True,
+                callable_each_step=task_recorder.take_snap,
+                max_attempts=1
+            )
+            record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
+            descriptions, obs = task.reset()
+            lang_goal = descriptions[0]  # first description variant
+            task_recorder.save(record_video_file, lang_goal)
+            task_recorder._cam_motion.restore_pose()
+
+            # DEBUG
+            return 0.0
 
         device = actioner.device
 
