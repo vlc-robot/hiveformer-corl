@@ -152,7 +152,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
         model.film_gen.build(device)
 
     model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
-    model_dict = {(k[7:] if k.startswith("module.") else k): v for k, v in model_dict.items()}
+    model_dict = {(k[7:] if k.startswith("module.") else k): v
+                  for k, v in model_dict.items()}
     model.load_state_dict(model_dict)
 
     model.eval()
@@ -172,7 +173,7 @@ def find_checkpoint(checkpoint: Path) -> Path:
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
-    print(args)
+    # print(args)
 
     if args.tasks is None:
         print(args.checkpoint)
