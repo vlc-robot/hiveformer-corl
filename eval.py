@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 import numpy as np
 import tap
+import json
 from filelock import FileLock
 from network import Hiveformer
 from utils import (
@@ -15,6 +16,8 @@ from utils import (
     load_instructions,
 )
 from train import Arguments as TrainArguments
+
+from baseline.baseline import Baseline
 
 
 class Arguments(tap.Tap):
@@ -43,6 +46,7 @@ class Arguments(tap.Tap):
     attention: bool = False  # saving attention maps
 
     # model
+    model: str = "original"
     depth: Optional[int] = 4
     dim_feedforward: Optional[int] = 64
     hidden_dim: Optional[int] = 64
@@ -119,15 +123,30 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
-    model = Hiveformer(
-        depth=args.depth,
-        dim_feedforward=args.dim_feedforward,
-        hidden_dim=args.hidden_dim,
-        instr_size=args.instr_size,
-        mask_obs_prob=args.mask_obs_prob,
-        max_episode_length=max_episode_length,
-        num_layers=args.num_layers,
-    ).to(device)
+    if args.model == "original":
+        model = Hiveformer(
+            depth=args.depth,
+            dim_feedforward=args.dim_feedforward,
+            hidden_dim=args.hidden_dim,
+            instr_size=args.instr_size,
+            mask_obs_prob=args.mask_obs_prob,
+            max_episode_length=max_episode_length,
+            num_layers=args.num_layers,
+        ).to(device)
+    elif args.model == "develop":
+        if len(args.tasks) == 1:
+            model = Baseline(
+                depth=args.depth,
+                dim_feedforward=args.dim_feedforward,
+                hidden_dim=args.hidden_dim,
+                instr_size=args.instr_size,
+                mask_obs_prob=args.mask_obs_prob,
+                max_episode_length=max_episode_length,
+                num_layers=args.num_layers,
+                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]]
+            ).to(device)
+        else:
+            raise NotImplementedError
 
     if hasattr(model, "film_gen") and model.film_gen is not None:
         model.film_gen.build(device)
