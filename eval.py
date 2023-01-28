@@ -22,7 +22,7 @@ class Arguments(tap.Tap):
     seed: int = 2
     save_img: bool = True
     device: str = "cuda"
-    num_episodes: int = 10
+    num_episodes: int = 2
     headless: bool = False
     offset: int = 0
     name: str = "autol"
@@ -53,10 +53,19 @@ class Arguments(tap.Tap):
 
 def get_log_dir(args: Arguments) -> Path:
     log_dir = args.test_xp / args.name
+
+    def get_log_file(version):
+        if len(args.tasks) == 1:
+            log_file = f"{args.tasks[0]}_version{version}"
+        else:
+            log_file = f"version{version}"
+        return log_file
+
     version = 0
-    while (log_dir / f"test-version{version}").is_dir():
+    while (log_dir / get_log_file(version)).is_dir():
         version += 1
-    return log_dir / f"test-version{version}"
+
+    return log_dir / get_log_file(version)
 
 
 def copy_args(checkpoint: Path, args: Arguments) -> Arguments:
@@ -97,8 +106,6 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
         checkpoint = files[0]
 
     print("Loading model from", checkpoint, flush=True)
-    if args.tasks is None:
-        raise RuntimeError("Can't find tasks")
 
     if (
         args.depth is None
@@ -147,10 +154,15 @@ def find_checkpoint(checkpoint: Path) -> Path:
 if __name__ == "__main__":
     args = Arguments().parse_args()
     print(args)
+
+    if args.tasks is None:
+        print(args.checkpoint)
+        args.tasks = ["_".join(str(args.checkpoint).split("/")[-2].split("_")[:-1])]
+        print(f"Automatically setting task to {args.tasks}")
+
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
     print("log dir", log_dir)
-    # args.save(str(log_dir / "hparams.json"))
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
