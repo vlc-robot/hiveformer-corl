@@ -85,7 +85,7 @@ class Arguments(tap.Tap):
     )
     # Train
     batch_size: int = 32
-    lr: float = 0.001
+    lr: float = 5e-5
     lr_rotation: float = 0.001
     lr_transformer: float = 0.001
     val_freq: int = 200
@@ -289,7 +289,6 @@ class Module(pl.LightningModule):
             Path(self.logger._save_dir)
             / self.logger._name
             / self._args.tasks[0]
-            / f"version_{self.logger._version}"
         )
         log_dir.mkdir(exist_ok=True, parents=True)
         return log_dir
@@ -493,9 +492,7 @@ class AutoReloadLoader:
 def get_log_dir(args: Arguments) -> Path:
     log_dir = args.xp / args.name
     version = int(os.environ.get("SLURM_JOBID", 0))
-    while (log_dir / f"version{version}").is_dir():
-        version += 1
-    return log_dir / f"version{version}"
+    return log_dir / args.tasks[0]
 
 
 if __name__ == "__main__":
@@ -521,7 +518,7 @@ if __name__ == "__main__":
     else:
         save_top_k = 5
     checkpoint_callback = ModelCheckpoint(
-        monitor="train/position/metrics",
+        monitor="val/position/metrics",
         save_top_k=save_top_k,
         every_n_train_steps=checkpoint_period,
         mode="max",

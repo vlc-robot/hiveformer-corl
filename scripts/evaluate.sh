@@ -1,5 +1,5 @@
-exp=ghost_points_exp1_folder2
+exp=uncleaned_code_exp1
 
-for ckpt in $(ls -d ghost_points_exp1/*); do
+for ckpt in $(ls -d $exp/*); do
   python eval.py --checkpoint $ckpt/best.pth --name $exp --model develop
 done
