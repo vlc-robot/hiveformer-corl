@@ -22,7 +22,7 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
 import einops
 from network import GripperPose
-from utils import Instructions, Sample
+from utils_without_rlbench import Instructions, Sample
 from structures import CameraName
 
 
