@@ -288,6 +288,7 @@ class Module(pl.LightningModule):
         log_dir = (
             Path(self.logger._save_dir)
             / self.logger._name
+            / self._args.tasks[0]
             / f"version_{self.logger._version}"
         )
         log_dir.mkdir(exist_ok=True, parents=True)
