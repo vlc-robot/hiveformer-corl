@@ -62,7 +62,7 @@ class Arguments(tap.Tap):
     valset: Optional[Path] = None
     name: str = "multitask"
     arch: str = "mct"
-    num_workers: int = 5
+    num_workers: int = 3 * gpus
     variations: Tuple[int, ...] = (0,)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
@@ -295,6 +295,7 @@ class Module(pl.LightningModule):
 
     def on_fit_start(self):
         self._args.save(str(self.log_dir / "hparams.json"))
+        print("Log dir", self.log_dir)
 
         log_dir = Path(self.logger.log_dir)
         log_dir.mkdir(exist_ok=True, parents=True)
