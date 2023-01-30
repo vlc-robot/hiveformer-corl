@@ -137,7 +137,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
             keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(0.2, 0.8, 0.))
     if pred_keyframe_gripper_matrices is not None:
         for grasp in pred_keyframe_gripper_matrices:
-            keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(0.8, 0.2, 0.))
+            keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(1.0, 0.2, 1.0))
     all_geometries += keyframe_action_geometries
 
     # Visualize sampled gripper ghost points
@@ -152,13 +152,16 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         all_geometries.append(ghost_points_opcd)
 
     # Visualize location prediction heatmap
+    pred_location_heatmap_opcds = []
     if pred_location_heatmap is not None:
         pred_location_heatmap_opcd = open3d.geometry.PointCloud()
         pred_location_heatmap_opcd.points = open3d.utility.Vector3dVector(pred_location_heatmap)
         pred_location_heatmap_colors = np.zeros_like(pred_location_heatmap)
-        pred_location_heatmap_colors[:, 0] = 0.8
-        pred_location_heatmap_colors[:, 1] = 0.2
+        pred_location_heatmap_colors[:, 0] = 1.0
+        pred_location_heatmap_colors[:, 1] = 0.0
+        pred_location_heatmap_colors[:, 2] = 1.0
         pred_location_heatmap_opcd.colors = open3d.utility.Vector3dVector(pred_location_heatmap_colors)
+        pred_location_heatmap_opcds.append(pred_location_heatmap_opcd)
         all_geometries.append(pred_location_heatmap_opcd)
 
     for cam in range(num_cams):
@@ -168,7 +171,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
         all_geometries.append(opcd)
-        view_geometries = ([opcd, *keyframe_action_geometries, ghost_points_opcd]
+        view_geometries = ([opcd, *keyframe_action_geometries, ghost_points_opcd, *pred_location_heatmap_opcds]
                            if vis[cam].get_window_name() != "wrist" else [opcd])
         imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
 
@@ -324,7 +327,6 @@ class TaskRecorder(object):
                 self._pred_location_heatmap,
                 self._gripper_loc_bounds
             )
-            self._pred_location_heatmap = None
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 

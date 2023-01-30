@@ -834,8 +834,8 @@ class Baseline(nn.Module):
         all_pcds = torch.cat([img_pcds, ghost_points_pcds], dim=-1)
         # print("all_pcds", all_pcds.shape)
 
-        # Compute top points for visualization
-        top_points = all_pcds[0, :, attn_map.topk(k=10, dim=-1).indices[0, 0]].transpose(1, 0)
+        # Compute top points for visualization (only last batch idx for now)
+        top_points = all_pcds[-1, :, attn_map.topk(k=500, dim=-1).indices[-1, 0]].transpose(1, 0)
 
         position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
         # print("position", position.shape)

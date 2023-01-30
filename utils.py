@@ -513,8 +513,14 @@ class RLBenchEnv:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
                         task_recorder.take_snap(
                             obs,
-                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
-                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+                            # All past keyframe actions
+                            # gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
+                            # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+
+                            # Just the last one
+                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]],
+                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
+
                             pred_location_heatmap=output["top_points"].cpu().numpy()
                         )
 
