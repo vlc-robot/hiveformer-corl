@@ -435,11 +435,11 @@ if __name__ == "__main__":
         "optimizer": optimizer.state_dict(),
     }
     checkpointer = CheckpointCallback(
-        "val-metrics-0/position",
+        "val-metrics-0/position_l2",
         log_dir,
         model_dict,
         val_freq=args.val_freq,
-        minimizing=False,
+        minimizing=True,
         checkpoint_period=args.checkpoint_period,
     )
     model.train()

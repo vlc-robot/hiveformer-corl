@@ -760,8 +760,10 @@ class LossAndMetrics:
 
         metrics = {}
 
-        acc = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt() < 0.01
-        metrics["position"] = acc.to(dtype).mean()
+        l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
+        acc = l2 < 0.01
+        metrics["position_l2"] = l2.to(dtype).mean()
+        metrics["position_l2<0.01"] = acc.to(dtype).mean()
 
         pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
         true_gripper = outputs[:, 7].bool()
