@@ -1213,7 +1213,7 @@ class TransformerUNet(PlainUNet):
         stateless: bool = False,
         mask_obs_prob: float = 0.0,
         no_residual: bool = False,
-        num_words: int = 52,
+        num_words: int = 64,
         num_layers: int = 1,
         num_cams: int = 3,
         pcd_token: PointCloudToken = "none",
