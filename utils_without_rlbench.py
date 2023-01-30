@@ -686,19 +686,17 @@ def compute_rotation_metrics(
 def compute_rotation_loss(logit: torch.Tensor, rot: torch.Tensor):
     dtype = logit.dtype
 
-    rot_ = -rot.clone()
-
     loss = F.mse_loss(logit, rot, reduction="none").to(dtype)
     loss = loss.mean(1)
 
-    loss_ = F.mse_loss(logit, rot_, reduction="none").to(dtype)
-    loss_ = loss_.mean(1)
+    # rot_ = -rot.clone()
+    # loss_ = F.mse_loss(logit, rot_, reduction="none").to(dtype)
+    # loss_ = loss_.mean(1)
+    # select_mask = (loss < loss_).float()
+    # sym_loss = 4 * (select_mask * loss + (1 - select_mask) * loss_)
+    # return {"rotation": sym_loss.mean()}
 
-    select_mask = (loss < loss_).float()
-
-    sym_loss = 4 * (select_mask * loss + (1 - select_mask) * loss_)
-
-    return {"rotation": sym_loss.mean()}
+    return {"rotation": 4 * loss.mean()}
 
 
 def load_instructions(
