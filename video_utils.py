@@ -101,7 +101,9 @@ def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2
 def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            rgb_obs: np.array, pcd_obs: np.array,
                            custom_cam_params: bool,
-                           keyframe_actions: Optional[np.array] = None,
+                           gt_keyframe_gripper_matrices: Optional[np.array] = None,
+                           pred_keyframe_gripper_matrices: Optional[np.array] = None,
+                           pred_location_heatmap: Optional[np.array] = None,
                            gripper_loc_bounds: Optional[np.array] = None):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
@@ -130,20 +132,34 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
 
     # Add gripper keyframe actions to point clouds for visualization
     keyframe_action_geometries = []
-    if keyframe_actions is not None:
-        for grasp in keyframe_actions:
-            keyframe_action_geometries += get_gripper_control_points_open3d(grasp)
+    if gt_keyframe_gripper_matrices is not None:
+        for grasp in gt_keyframe_gripper_matrices:
+            keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(0.2, 0.8, 0.))
+    if pred_keyframe_gripper_matrices is not None:
+        for grasp in pred_keyframe_gripper_matrices:
+            keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(0.8, 0.2, 0.))
     all_geometries += keyframe_action_geometries
 
-    # Add gripper ghost points for visualization
+    # Visualize sampled gripper ghost points
     if gripper_loc_bounds is not None:
         ghost_points = sample_ghost_points(gripper_loc_bounds)
         ghost_points_colors = np.zeros_like(ghost_points)
-        ghost_points_colors[:, 1] = 1.0
+        ghost_points_colors[:, 0] = 0.2
+        ghost_points_colors[:, 1] = 0.8
         ghost_points_opcd = open3d.geometry.PointCloud()
         ghost_points_opcd.points = open3d.utility.Vector3dVector(ghost_points)
         ghost_points_opcd.colors = open3d.utility.Vector3dVector(ghost_points_colors)
         all_geometries.append(ghost_points_opcd)
+
+    # Visualize location prediction heatmap
+    if pred_location_heatmap is not None:
+        pred_location_heatmap_opcd = open3d.geometry.PointCloud()
+        pred_location_heatmap_opcd.points = open3d.utility.Vector3dVector(pred_location_heatmap)
+        pred_location_heatmap_colors = np.zeros_like(pred_location_heatmap)
+        pred_location_heatmap_colors[:, 0] = 0.8
+        pred_location_heatmap_colors[:, 1] = 0.2
+        pred_location_heatmap_opcd.colors = open3d.utility.Vector3dVector(pred_location_heatmap_colors)
+        all_geometries.append(pred_location_heatmap_opcd)
 
     for cam in range(num_cams):
         rgb = einops.rearrange(rgb_obs[cam, :3], "c h w -> (h w) c")
@@ -212,7 +228,9 @@ class TaskRecorder(object):
         self._pcd_views = [*self._obs_cameras, "aggregate"]
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
-        self._keyframe_actions = None
+        self._gt_keyframe_gripper_matrices = None
+        self._pred_keyframe_gripper_matrices = None
+        self._pred_location_heatmap = None
         self._gripper_loc_bounds = json.load(open("location_bounds.json", "r"))[task_str]
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
@@ -260,17 +278,27 @@ class TaskRecorder(object):
                     param.extrinsic = get_extrinsic(sensor)
                     ctr.convert_from_pinhole_camera_parameters(param)
 
-    def take_snap(self, obs: Observation, keyframe_actions: Optional[np.array] = None):
+    def take_snap(self,
+                  obs: Observation,
+                  gt_keyframe_gripper_matrices: Optional[np.array] = None,
+                  pred_keyframe_gripper_matrices: Optional[np.array] = None,
+                  pred_location_heatmap: Optional[np.array] = None):
         """
         Take observation snapshot.
 
         Arguments:
             obs: observations to use in snapshot
-            keyframe_actions: if not None, keyframe actions to record and display in all
-             snapshots until save() is called
+            gt_keyframe_gripper_matrices: if not None, ground-truth keyframe gripper poses
+             to record and display in all snapshots until save() is called
+            pred_keyframe_gripper_matrices: if not None, predicted keyframe gripper poses
+             to record and display in all snapshots until save() is called
         """
-        if keyframe_actions is not None:
-            self._keyframe_actions = keyframe_actions
+        if gt_keyframe_gripper_matrices is not None:
+            self._gt_keyframe_gripper_matrices = gt_keyframe_gripper_matrices
+        if pred_keyframe_gripper_matrices is not None:
+            self._pred_keyframe_gripper_matrices = pred_keyframe_gripper_matrices
+        if pred_location_heatmap is not None:
+            self._pred_location_heatmap = pred_location_heatmap
 
         # Third-person snap
         self._cam_motion.step()
@@ -288,9 +316,15 @@ class TaskRecorder(object):
             rgb_obs = rgb_obs / 255.0
             rgb_obs = 2 * (rgb_obs - 0.5)
             pcd_obs = einops.rearrange(pcd_obs, "n_cam h w c -> n_cam c h w")
-            pcd_imgs = get_point_cloud_images(self._open3d_pcd_vis, rgb_obs, pcd_obs,
-                                              self._custom_cam_params, self._keyframe_actions,
-                                              self._gripper_loc_bounds)
+            pcd_imgs = get_point_cloud_images(
+                self._open3d_pcd_vis, rgb_obs, pcd_obs,
+                self._custom_cam_params,
+                self._gt_keyframe_gripper_matrices,
+                self._pred_keyframe_gripper_matrices,
+                self._pred_location_heatmap,
+                self._gripper_loc_bounds
+            )
+            self._pred_location_heatmap = None
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
 
@@ -353,4 +387,6 @@ class TaskRecorder(object):
 
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
-        self._keyframe_actions = None
+        self._gt_keyframe_gripper_matrices = None
+        self._pred_keyframe_gripper_matrices = None
+        self._pred_location_heatmap = None

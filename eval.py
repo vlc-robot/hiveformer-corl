@@ -173,7 +173,6 @@ def find_checkpoint(checkpoint: Path) -> Path:
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
-    # print(args)
 
     if args.tasks is None:
         print(args.checkpoint)
@@ -197,7 +196,8 @@ if __name__ == "__main__":
 
     # load RLBench environment
     env = RLBenchEnv(
-        data_path="",
+        # data_path="",
+        data_path=args.data_dir,
         apply_rgb=True,
         apply_pc=True,
         headless=args.headless,
@@ -217,7 +217,6 @@ if __name__ == "__main__":
                 max_episodes=max_eps_dict[task_str],
                 variation=variation,
                 num_demos=args.num_episodes,
-                demos=None,
                 offset=args.offset,
                 actioner=actioner,
                 log_dir=log_dir / task_str if args.save_img else None,

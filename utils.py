@@ -228,6 +228,7 @@ class Actioner:
         )
         output["action"] = self._model.compute_action(pred)  # type: ignore
         output["attention"] = pred["attention"]
+        output["top_points"] = pred["top_points"]
 
         return output
 
@@ -401,10 +402,11 @@ class RLBenchEnv:
         actioner: Actioner,
         offset: int = 0,
         max_tries: int = 1,
-        demos: Optional[List[Demo]] = None,
         save_attn: bool = False,
         record_videos: bool = False,
-        num_videos: int = 3
+        num_videos: int = 3,
+        record_demo_video: bool = False,
+        offline: bool = True
     ):
         """
         Evaluate the policy network on the desired demo or test environments
@@ -412,7 +414,6 @@ class RLBenchEnv:
             :param max_episodes: maximum episodes to finish a task
             :param num_demos: number of test demos for evaluation
             :param model: the policy network
-            :param demos: whether to use the saved demos
             :param record_videos: whether to record videos
             :return: success rate
         """
@@ -437,27 +438,26 @@ class RLBenchEnv:
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
             # Record demo video with keyframe actions for comparison with evaluation videos
-            task_recorder._cam_motion.save_pose()
-            task.get_demos(
-                amount=1,
-                live_demos=True,
-                callable_each_step=task_recorder.take_snap,
-                max_attempts=1
-            )
-            record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
-            descriptions, obs = task.reset()
-            lang_goal = descriptions[0]  # first description variant
-            task_recorder.save(record_video_file, lang_goal)
-            task_recorder._cam_motion.restore_pose()
+            if record_demo_video:
+                task_recorder._cam_motion.save_pose()
+                task.get_demos(
+                    amount=1,
+                    live_demos=True,
+                    callable_each_step=task_recorder.take_snap,
+                    max_attempts=1
+                )
+                record_video_file = os.path.join(log_dir, "videos", f"{task_str}_demo")
+                descriptions, obs = task.reset()
+                lang_goal = descriptions[0]  # first description variant
+                task_recorder.save(record_video_file, lang_goal)
+                task_recorder._cam_motion.restore_pose()
 
         device = actioner.device
 
         success_rate = 0.0
 
-        if demos is None:
-            fetch_list = [i for i in range(num_demos)]
-        else:
-            fetch_list = demos
+        fetch_list = [self.get_demo(task_str, variation, episode_index=i)[0]
+                      for i in range(num_demos)]
 
         fetch_list = fetch_list[offset:]
 
@@ -471,13 +471,8 @@ class RLBenchEnv:
                 pcds = torch.Tensor([]).to(device)
                 grippers = torch.Tensor([]).to(device)
 
-                # reset a new demo or a defined demo in the demo list
-                if demos is None:
-                    descriptions, obs = task.reset()
-                else:
-                    print("Resetting to demo")
-                    print(demo)
-                    descriptions, obs = task.reset_to_demo(demo)
+                # descriptions, obs = task.reset()
+                descriptions, obs = task.reset_to_demo(demo)
 
                 lang_goal = descriptions[0]  # first description variant
 
@@ -488,7 +483,10 @@ class RLBenchEnv:
                 )
                 move = Mover(task, max_tries=max_tries)
                 reward = None
-                keyframe_actions = []
+                gt_keyframe_actions = actioner.get_action_from_demo(demo)
+                gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
+                                                         for a in gt_keyframe_actions])
+                pred_keyframe_gripper_matrices = []
 
                 for step_id in range(max_episodes):
                     # fetch the current observation, and predict one action
@@ -503,11 +501,22 @@ class RLBenchEnv:
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
 
                     output = actioner.predict(step_id, rgbs, pcds, grippers)
-                    action = output["action"]
+
+                    if offline:
+                        # Follow demo
+                        action = gt_keyframe_actions[step_id]
+                    else:
+                        # Follow trained policy
+                        action = output["action"]
 
                     if record_videos and demo_id < num_videos:
-                        keyframe_actions.append(self.get_gripper_matrix_from_action(action[-1]))
-                        task_recorder.take_snap(obs, keyframe_actions=np.stack(keyframe_actions))
+                        pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
+                        task_recorder.take_snap(
+                            obs,
+                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[:step_id + 1],
+                            pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
+                            pred_location_heatmap=output["top_points"].cpu().numpy()
+                        )
 
                     if action is None:
                         break
