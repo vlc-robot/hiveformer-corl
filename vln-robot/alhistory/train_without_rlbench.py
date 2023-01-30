@@ -66,7 +66,7 @@ class Arguments(tap.Tap):
     variations: Tuple[int, ...] = (0,)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
-    instructions: Optional[Path] = None
+    instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
@@ -86,8 +86,8 @@ class Arguments(tap.Tap):
     # Train
     batch_size: int = 32
     lr: float = 5e-5
-    lr_rotation: float = 0.001
-    lr_transformer: float = 0.001
+    lr_rotation: float = 5e-5
+    lr_transformer: float = 5e-5
     val_freq: int = 200
     val_batch_size: int = 100
     train_iters: int = 100_000
@@ -491,7 +491,6 @@ class AutoReloadLoader:
 
 def get_log_dir(args: Arguments) -> Path:
     log_dir = args.xp / args.name
-    version = int(os.environ.get("SLURM_JOBID", 0))
     return log_dir / args.tasks[0]
 
 

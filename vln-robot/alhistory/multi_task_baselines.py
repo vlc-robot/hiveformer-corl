@@ -208,7 +208,7 @@ def get_dec_len(args: Arguments) -> int:
             dec_len += args.temp_len
             if "tnc" == args.tr_token:
                 dec_len += 16
-                if args.pcd_token:
+                if args.pcd_token != "none":
                     dec_len += 3
             elif "tnhw_cm_sa" == args.tr_token:
                 dec_len += 2 * args.hidden_dim

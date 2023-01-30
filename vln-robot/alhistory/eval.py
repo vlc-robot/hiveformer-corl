@@ -44,7 +44,7 @@ class Arguments(tap.Tap):
     seed: int = 2
     save_img: bool = False
     device: str = "cuda"
-    num_episodes: int = 100
+    num_episodes: int = 5
     headless: bool = False
     offset: int = 0
     name: str = "autol"
@@ -60,35 +60,35 @@ class Arguments(tap.Tap):
     ground_truth_gripper: bool = False
     workspace: Workspace = ((-0.325, 0.325, -0.455), (0.455, 0.0, 0.0))
     tasks: Optional[Tuple[str, ...]] = None
-    instructions: Optional[Path] = None
-    arch: Optional[str] = None
+    instructions: Optional[Path] = "instructions.pkl"
+    arch: Optional[str] = "mct"
     variations: Tuple[int, ...] = (0,)
     attention: bool = False  # saving attention maps
     # model
-    attn_weights: Optional[bool] = None
-    backbone: Optional[BackboneOp] = None
-    cond: Optional[bool] = None
-    depth: Optional[int] = None
-    dim_feedforward: Optional[int] = None
-    embed_only: Optional[bool] = None
-    film: Optional[bool] = None
-    film_mlp: Optional[bool] = None
-    film_residual: Optional[bool] = None
-    gripper_pose: Optional[GripperPose] = None
-    hidden_dim: Optional[int] = None
-    instr_size: Optional[int] = None
+    attn_weights: Optional[bool] = False
+    backbone: Optional[BackboneOp] = "cat"
+    cond: Optional[bool] = False
+    depth: Optional[int] = 4
+    dim_feedforward: Optional[int] = 64
+    embed_only: Optional[bool] = False
+    film: Optional[bool] = False
+    film_mlp: Optional[bool] = False
+    film_residual: Optional[bool] = False
+    gripper_pose: Optional[GripperPose] = "none"
+    hidden_dim: Optional[int] = 64
+    instr_size: Optional[int] = 512
     mask_obs_prob: float = 0.0
-    no_residual: Optional[bool] = None
-    num_layers: Optional[int] = None
-    pcd_token: Optional[PointCloudToken] = None
-    rot: Optional[RotMode] = None
-    pos: Optional[PosMode] = None
-    rot_type: Optional[RotType] = None
-    stateless: Optional[bool] = None
-    taskvar_token: Optional[bool] = None
-    tr_token: Optional[TransformerToken] = None
-    temp_len: Optional[int] = None
-    z_mode: Optional[ZMode] = None
+    no_residual: Optional[bool] = False
+    num_layers: Optional[int] = 1
+    pcd_token: Optional[PointCloudToken] = "none"
+    rot: Optional[RotMode] = "mse"
+    pos: Optional[PosMode] = "mse"
+    rot_type: Optional[RotType] = "quat"
+    stateless: Optional[bool] = False
+    taskvar_token: Optional[bool] = False
+    tr_token: Optional[TransformerToken] = "tnc"
+    temp_len: Optional[int] = 64
+    z_mode: Optional[ZMode] = "embed"
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -232,13 +232,13 @@ def load_model(checkpoint: Path, args: Arguments) -> Model:
     if hasattr(model, "film_gen") and model.film_gen is not None:
         model.film_gen.build(device)
 
-    model_dict = torch.load(checkpoint, map_location="cpu")
-    # DEBUG
-    model.load_state_dict(model_dict["weight"], strict=False)
-    # model.load_state_dict(model_dict["weight"])
-    t_dict = {k: t.to(device) for k, t in model_dict["t"].items()}
-    z_dict = {k: z.to(device) for k, z in model_dict["z"].items()}
+    model_dict = torch.load(checkpoint, map_location="cpu")["state_dict"]
 
+    t_dict = {k[7:]: t.to(device) for k, t in model_dict.items() if k.startswith("t_dict")}
+    z_dict = {k[7:]: z.to(device) for k, z in model_dict.items() if k.startswith("z_dict")}
+    model_dict = {k[6:]: z.to(device) for k, z in model_dict.items() if k.startswith("model")}
+
+    model.load_state_dict(model_dict)
     model.eval()
 
     return {"model": model, "t": t_dict, "z": z_dict}
@@ -300,7 +300,7 @@ if __name__ == "__main__":
 
     # load RLBench environment
     env = RLBenchEnv(
-        data_path=args.data_dir,
+        data_path="",
         apply_rgb=True,
         apply_pc=True,
         headless=args.headless,
@@ -357,7 +357,7 @@ if __name__ == "__main__":
                 max_episodes=max_eps_dict[task_str],
                 variation=variation,
                 num_demos=args.num_episodes,
-                demos=demos, # type: ignore
+                demos=None,  # type: ignore
                 offset=args.offset,
                 actioner=actioner,
                 log_dir=log_dir / task_str if args.save_img else None,
