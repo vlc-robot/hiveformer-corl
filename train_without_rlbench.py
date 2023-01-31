@@ -48,7 +48,7 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
 
     # Train
-    batch_size: int = 60 * len(devices)
+    batch_size: int = 100 * len(devices)
     lr: float = 5e-5
     train_iters: int = 133_000 // len(devices)
     val_freq: int = train_iters // 200
