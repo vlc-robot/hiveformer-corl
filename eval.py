@@ -54,6 +54,9 @@ class Arguments(tap.Tap):
     mask_obs_prob: float = 0.0
     num_layers: Optional[int] = 1
 
+    # baseline
+    position_prediction_only: bool = True
+
 
 def get_log_dir(args: Arguments) -> Path:
     log_dir = args.test_xp / args.name
@@ -222,7 +225,8 @@ if __name__ == "__main__":
                 log_dir=log_dir / task_str if args.save_img else None,
                 max_tries=args.max_tries,
                 save_attn=args.attention,
-                record_videos=True
+                record_videos=True,
+                position_prediction_only=args.position_prediction_only
             )
 
             print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))

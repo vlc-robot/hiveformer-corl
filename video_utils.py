@@ -104,7 +104,10 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            gt_keyframe_gripper_matrices: Optional[np.array] = None,
                            pred_keyframe_gripper_matrices: Optional[np.array] = None,
                            pred_location_heatmap: Optional[np.array] = None,
-                           gripper_loc_bounds: Optional[np.array] = None):
+                           gripper_loc_bounds: Optional[np.array] = None,
+                           position_prediction_only: bool = False,
+                           gt_color=(0.2, 0.8, 0.),
+                           pred_color=(1.0, 0., 1.0)):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
@@ -131,15 +134,17 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
     imgs = []
 
     # Visualize sampled gripper ghost points
-    if gripper_loc_bounds is not None:
-        ghost_points = sample_ghost_points(gripper_loc_bounds)
-        ghost_points_colors = np.zeros_like(ghost_points)
-        ghost_points_colors[:, 0] = 0.2
-        ghost_points_colors[:, 1] = 0.8
-        ghost_points_opcd = open3d.geometry.PointCloud()
-        ghost_points_opcd.points = open3d.utility.Vector3dVector(ghost_points)
-        ghost_points_opcd.colors = open3d.utility.Vector3dVector(ghost_points_colors)
-        all_geometries.append(ghost_points_opcd)
+    ghost_points_opcds = []
+    # if gripper_loc_bounds is not None:
+    #     ghost_points = sample_ghost_points(gripper_loc_bounds)
+    #     ghost_points_colors = np.zeros_like(ghost_points)
+    #     ghost_points_colors[:, 0] = 0.2
+    #     ghost_points_colors[:, 1] = 0.8
+    #     ghost_points_opcd = open3d.geometry.PointCloud()
+    #     ghost_points_opcd.points = open3d.utility.Vector3dVector(ghost_points)
+    #     ghost_points_opcd.colors = open3d.utility.Vector3dVector(ghost_points_colors)
+    #     ghost_points_opcds.append(ghost_points_opcd)
+    #     # all_geometries.append(ghost_points_opcd)
 
     # Visualize location prediction heatmap
     pred_location_heatmap_opcds = []
@@ -147,9 +152,9 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         pred_location_heatmap_opcd = open3d.geometry.PointCloud()
         pred_location_heatmap_opcd.points = open3d.utility.Vector3dVector(pred_location_heatmap)
         pred_location_heatmap_colors = np.zeros_like(pred_location_heatmap)
-        pred_location_heatmap_colors[:, 0] = 1.0
-        pred_location_heatmap_colors[:, 1] = 0.0
-        pred_location_heatmap_colors[:, 2] = 1.0
+        pred_location_heatmap_colors[:, 0] = pred_color[0]
+        pred_location_heatmap_colors[:, 1] = pred_color[1]
+        pred_location_heatmap_colors[:, 2] = pred_color[2]
         pred_location_heatmap_opcd.colors = open3d.utility.Vector3dVector(pred_location_heatmap_colors)
         pred_location_heatmap_opcds.append(pred_location_heatmap_opcd)
         all_geometries.append(pred_location_heatmap_opcd)
@@ -158,10 +163,26 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
     keyframe_action_geometries = []
     if gt_keyframe_gripper_matrices is not None:
         for grasp in gt_keyframe_gripper_matrices:
-            keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(0.2, 0.8, 0.))
+            if position_prediction_only:
+                align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+                position = open3d.geometry.TriangleMesh.create_sphere(radius=0.03)
+                position.paint_uniform_color(gt_color)
+                position.transform(np.matmul(grasp, align))
+                position.compute_vertex_normals()
+                keyframe_action_geometries.append(position)
+            else:
+                keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=gt_color)
     if pred_keyframe_gripper_matrices is not None:
         for grasp in pred_keyframe_gripper_matrices:
-            keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=(1.0, 0.2, 1.0))
+            if position_prediction_only:
+                align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+                position = open3d.geometry.TriangleMesh.create_sphere(radius=0.03)
+                position.paint_uniform_color(pred_color)
+                position.transform(np.matmul(grasp, align))
+                position.compute_vertex_normals()
+                keyframe_action_geometries.append(position)
+            else:
+                keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=pred_color)
     all_geometries += keyframe_action_geometries
 
     for cam in range(num_cams):
@@ -171,8 +192,11 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         opcd.points = open3d.utility.Vector3dVector(pcd)
         opcd.colors = open3d.utility.Vector3dVector(rgb)
         all_geometries.append(opcd)
-        view_geometries = ([opcd, ghost_points_opcd, *pred_location_heatmap_opcds, *keyframe_action_geometries]
-                           if vis[cam].get_window_name() != "wrist" else [opcd])
+        window_name = vis[cam].get_window_name()
+        if window_name in ["left_shoulder", "right_shoulder"]:
+            view_geometries = [opcd, *ghost_points_opcds, *pred_location_heatmap_opcds, *keyframe_action_geometries]
+        else:
+            view_geometries = [opcd]
         imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
 
     imgs.append(plot_geometries(all_geometries, vis[-1], custom_cam_params))
@@ -209,7 +233,8 @@ class CircleCameraMotion(CameraMotion):
 class TaskRecorder(object):
 
     def __init__(self, obs_cameras, env: Environment, cam_motion: CameraMotion,
-                 task_str: str, fps=30, obs_record_freq=1, custom_cam_params=False):
+                 task_str: str, fps=30, obs_record_freq=1, custom_cam_params=False,
+                 position_prediction_only=False):
         """
         Arguments:
             obs_cameras: observation camera view points
@@ -235,6 +260,7 @@ class TaskRecorder(object):
         self._pred_keyframe_gripper_matrices = None
         self._pred_location_heatmap = None
         self._gripper_loc_bounds = json.load(open("location_bounds.json", "r"))[task_str]
+        self._position_prediction_only = position_prediction_only
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
             # Note: The extrinsic and intrinsic matrices are in the observation,
@@ -306,7 +332,7 @@ class TaskRecorder(object):
         # Third-person snap
         self._cam_motion.step()
         self._3d_person_snaps.append(
-            (self._cam_motion.cam.capture_rgb() * 255.).astype(np.uint8))
+            (self._cam_motion.cam.capture_rgb()[:, :, ::-1] * 255.).astype(np.uint8))
 
         # Obs point cloud and RGB snaps
         if len(self._3d_person_snaps) % self._obs_record_freq == 0:
@@ -325,7 +351,8 @@ class TaskRecorder(object):
                 self._gt_keyframe_gripper_matrices,
                 self._pred_keyframe_gripper_matrices,
                 self._pred_location_heatmap,
-                self._gripper_loc_bounds
+                self._gripper_loc_bounds,
+                self._position_prediction_only
             )
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
@@ -346,7 +373,7 @@ class TaskRecorder(object):
             tuple(image_size)
         )
         for i, image in enumerate(self._3d_person_snaps):
-            frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            frame = image
             font = cv2.FONT_HERSHEY_DUPLEX
             font_scale = (0.45 * image_size[0]) / 640
             font_thickness = 2
@@ -357,36 +384,56 @@ class TaskRecorder(object):
                                 thickness=font_thickness, lineType=cv2.LINE_AA)
             video.write(frame)
         video.release()
-        self._3d_person_snaps = []
 
         # Obs point cloud and RGB videos
-        for (view, snaps) in zip(self._pcd_views, self._pcd_snaps):
-            if len(snaps) == 0:
-                continue
-            image_size = (640, 480)
-            video = cv2.VideoWriter(
-                f"{path}/{view}_pcd_obs.mp4",
-                cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-                self._fps // self._obs_record_freq,
-                tuple(image_size)
-            )
-            for i, snap in enumerate(snaps):
-                video.write(cv2.resize(snap, image_size))
-            video.release()
-        for (view, snaps) in zip(self._obs_cameras, self._rgb_snaps):
-            if len(snaps) == 0:
-                continue
-            image_size = snaps[0].shape[:2]
-            video = cv2.VideoWriter(
-                f"{path}/{view}_rgb_obs.mp4",
-                cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-                self._fps // self._obs_record_freq,
-                tuple(image_size)
-            )
-            for i, snap in enumerate(snaps):
-                video.write(snap[:, :, ::-1])
-            video.release()
+        # for (view, snaps) in zip(self._pcd_views, self._pcd_snaps):
+        #     if len(snaps) == 0:
+        #         continue
+        #     image_size = (640, 480)
+        #     video = cv2.VideoWriter(
+        #         f"{path}/{view}_pcd_obs.mp4",
+        #         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+        #         self._fps // self._obs_record_freq,
+        #         tuple(image_size)
+        #     )
+        #     for i, snap in enumerate(snaps):
+        #         video.write(cv2.resize(snap, image_size))
+        #     video.release()
 
+        # for (view, snaps) in zip(self._obs_cameras, self._rgb_snaps):
+        #     if len(snaps) == 0:
+        #         continue
+        #     image_size = snaps[0].shape[:2]
+        #     video = cv2.VideoWriter(
+        #         f"{path}/{view}_rgb_obs.mp4",
+        #         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+        #         self._fps // self._obs_record_freq,
+        #         tuple(image_size)
+        #     )
+        #     for i, snap in enumerate(snaps):
+        #         video.write(snap[:, :, ::-1])
+        #     video.release()
+
+        # Visualize most informative views side by side
+        assert self._obs_record_freq == 1
+        side_by_side_visualizations = [
+            self._3d_person_snaps,
+            self._pcd_snaps[0],
+            self._pcd_snaps[1],
+        ]
+        image_size = (640 * len(side_by_side_visualizations), 480)
+        video = cv2.VideoWriter(
+            f"{path}/pcd_obs.mp4",
+            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+            self._fps // self._obs_record_freq,
+            tuple(image_size)
+        )
+        for i in range(len(side_by_side_visualizations[0])):
+            snap = np.concatenate([snaps[i] for snaps in side_by_side_visualizations], axis=-2)
+            video.write(cv2.resize(snap, image_size))
+        video.release()
+
+        self._3d_person_snaps = []
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
         self._gt_keyframe_gripper_matrices = None

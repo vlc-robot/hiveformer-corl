@@ -406,7 +406,8 @@ class RLBenchEnv:
         record_videos: bool = False,
         num_videos: int = 3,
         record_demo_video: bool = False,
-        offline: bool = True
+        offline: bool = True,
+        position_prediction_only: bool = False
     ):
         """
         Evaluate the policy network on the desired demo or test environments
@@ -425,7 +426,7 @@ class RLBenchEnv:
 
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
-            cam = VisionSensor.create([1280, 720])
+            cam = VisionSensor.create([640, 480])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
             cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
@@ -434,6 +435,7 @@ class RLBenchEnv:
                 self.env, cam_motion,
                 task_str=task_str,
                 custom_cam_params=True,
+                position_prediction_only=position_prediction_only
             )
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 

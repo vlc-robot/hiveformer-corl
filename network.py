@@ -767,6 +767,10 @@ class Hiveformer(nn.Module):
             xt, "b (n ch h w) -> b n ch h w", n=N, ch=1, h=128, w=128
         )
 
+        # Compute top points for visualization (only last batch idx for now)
+        top_attn_idxs = xt.topk(k=500, dim=-1).indices[-1]
+        top_points = einops.rearrange(pc_obs, "b n ch h w -> b (n h w) ch")[-1, top_attn_idxs]
+
         pc_obs = einops.rearrange(pc_obs, "b n ch h w -> b n ch h w")
         position = einops.reduce(pc_obs * attn_map, "b n ch h w -> b ch", "sum")
 
@@ -803,4 +807,5 @@ class Hiveformer(nn.Module):
             "gripper": torch.sigmoid(xr[:, -1:]),
             "attention": attn_map,
             "task": task,
+            "top_points": top_points
         }
