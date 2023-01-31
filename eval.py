@@ -55,6 +55,7 @@ class Arguments(tap.Tap):
     num_layers: Optional[int] = 1
 
     # baseline
+    sample_ghost_points: int = 0
     position_prediction_only: bool = True
 
 
@@ -146,7 +147,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 mask_obs_prob=args.mask_obs_prob,
                 max_episode_length=max_episode_length,
                 num_layers=args.num_layers,
-                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]]
+                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
+                sample_ghost_points = bool(args.sample_ghost_points)
             ).to(device)
         else:
             raise NotImplementedError

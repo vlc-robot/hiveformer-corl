@@ -189,12 +189,15 @@ class CheckpointCallback:
         if self._step % self._checkpoint_period != 0:
             return
 
-        value = int(metrics.get(self._name, 0))
+        if self._minimizing:
+            value = int(metrics.get(self._name, -np.inf))
+        else:
+            value = int(metrics.get(self._name, np.inf))
         dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value:.3f}.pth"
         torch.save(self._state_dict, dest)
 
-        if (self._minimizing and self._best > value) or (
-            not self._minimizing and self._best < value
+        if (self._minimizing and self._best < value) or (
+            not self._minimizing and self._best > value
         ):
             best = self._log_dir / "best.pth"
             best.unlink(missing_ok=True)
