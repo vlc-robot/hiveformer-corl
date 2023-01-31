@@ -20,7 +20,7 @@ output_dir=$root/datasets/hiveformer/packaged
 #done
 
 task_file=debugging_tasks.csv
-experiment=debug_mask2former
+experiment=debug_mask2former_exp1
 for task in $(cat $task_file | tr '\n' ' '); do
   for lr in 0.00005 0.0005; do
     sbatch train_1gpu.sh \
