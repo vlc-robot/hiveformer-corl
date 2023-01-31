@@ -846,21 +846,23 @@ class Baseline(nn.Module):
         position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
         # print("position", position.shape)
 
-        # Position offset
         g = instruction.mean(1)
-        B, T = padding_mask.shape
-        device = padding_mask.device
         task = self.z_proj_instr(g)
-        num_tasks = task.shape[1]
-        z_instr = task.softmax(1)
-        z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
-        z_instr = z_instr[padding_mask]
-        step_ids = torch.arange(T, dtype=torch.long, device=device)
-        z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
-        z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
-        z_pos = z_pos[padding_mask]
-        z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
-        position += z_offset
+
+        # Position offset
+        if not self.sample_ghost_points:
+            B, T = padding_mask.shape
+            device = padding_mask.device
+            num_tasks = task.shape[1]
+            z_instr = task.softmax(1)
+            z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
+            z_instr = z_instr[padding_mask]
+            step_ids = torch.arange(T, dtype=torch.long, device=device)
+            z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
+            z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
+            z_pos = z_pos[padding_mask]
+            z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
+            position += z_offset
 
         # Rotation
         x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
