@@ -31,9 +31,9 @@ class Arguments(tap.Tap):
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
     dataset: List[Path]
-    devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"] # ["cuda:0"]
+    devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]  # ["cuda:0"]
     valset: Optional[Tuple[Path, ...]] = None
-    num_workers: int = 3 * len(devices)
+    num_workers: int = 10 * len(devices)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
