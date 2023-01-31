@@ -31,7 +31,7 @@ class Arguments(tap.Tap):
     checkpoint: Optional[Path] = None
     checkpoint_period: int = 10
     dataset: List[Path]
-    devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"] # ["cuda:0"]
     valset: Optional[Tuple[Path, ...]] = None
     num_workers: int = 3 * len(devices)
     max_tries: int = 10
@@ -44,11 +44,11 @@ class Arguments(tap.Tap):
 
     # Logging
     base_log_dir: Path = Path(__file__).parent / "xp"
-    exp_log_dir: str = "exp"
+    exp_log_dir: str = "overfit"
     run_log_dir: str = "run"
 
     # Train
-    batch_size: int = 16 * len(devices)
+    batch_size: int = 24 * len(devices)
     lr: float = 5e-5
     train_iters: int = 133_000 // len(devices)
     val_freq: int = train_iters // 200
