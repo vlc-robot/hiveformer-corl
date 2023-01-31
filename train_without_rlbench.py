@@ -190,14 +190,14 @@ class CheckpointCallback:
             return
 
         if self._minimizing:
-            value = int(metrics.get(self._name, -np.inf))
+            value = int(metrics.get(self._name, -1000))
         else:
-            value = int(metrics.get(self._name, np.inf))
-        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value:.3f}.pth"
+            value = int(metrics.get(self._name, 1000))
+        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value:.5f}.pth"
         torch.save(self._state_dict, dest)
 
-        if (self._minimizing and self._best < value) or (
-            not self._minimizing and self._best > value
+        if (self._minimizing and self._best > value) or (
+            not self._minimizing and self._best < value
         ):
             best = self._log_dir / "best.pth"
             best.unlink(missing_ok=True)

@@ -44,6 +44,7 @@ class Arguments(tap.Tap):
     arch: Optional[str] = None
     variations: Tuple[int, ...] = (0,)
     attention: bool = False  # saving attention maps
+    offline: int = 1
 
     # model
     model: str = "original"
@@ -228,7 +229,8 @@ if __name__ == "__main__":
                 max_tries=args.max_tries,
                 save_attn=args.attention,
                 record_videos=True,
-                position_prediction_only=args.position_prediction_only
+                position_prediction_only=args.position_prediction_only,
+                offline=bool(args.offline)
             )
 
             print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
