@@ -395,42 +395,46 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # disable mask, it does not affect performance
         del mask
 
-        # Compute ghost point positional embeddings
-        ghost_points_pos = self.pcd_pe_layer.position_embedding_head(
-            einops.rearrange(ghost_points_pcds, "bs num_points c -> bs c num_points")
-        )
-        ghost_points_pos = einops.rearrange(ghost_points_pos, "bs c num_points -> num_points bs c")
+        if ghost_points_pcds is not None:
+            # Compute ghost point positional embeddings
+            ghost_points_pos = self.pcd_pe_layer.position_embedding_head(
+                einops.rearrange(ghost_points_pcds, "bs num_points c -> bs c num_points")
+            )
+            ghost_points_pos = einops.rearrange(ghost_points_pos, "bs c num_points -> num_points bs c")
 
-        # Initialize ghost point features as a shared ghost point embedding
-        bs, num_points = ghost_points_pcds.shape[:2]
-        ghost_points_feats = self.ghost_points_embed.weight.unsqueeze(0).repeat(
-            num_points, bs, 1
-        )
-
-        # print("ghost_points_feats - before contextualizaton", ghost_points_feats.shape)
-        # print("ghost_points_pos", ghost_points_pos.shape)
-
-        # Contextualize ghost points with pixel decoder visual features through
-        # one-directional cross-attention
-        #
-        # Note: The cross-attention between ghost points and finest grid of visual features
-        # takes most GPU memory
-        for i in range(self.num_ghost_point_layers):
-            level_index = i % (self.num_feature_levels + 1)
-
-            real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
-            real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
-            real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
-            real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
-
-            ghost_points_feats = self.ghost_point_cross_attention_layers[i](
-                ghost_points_feats, real_points_feats,
-                memory_mask=None,
-                memory_key_padding_mask=None,
-                pos=real_points_pos, query_pos=ghost_points_pos
+            # Initialize ghost point features as a shared ghost point embedding
+            bs, num_points = ghost_points_pcds.shape[:2]
+            ghost_points_feats = self.ghost_points_embed.weight.unsqueeze(0).repeat(
+                num_points, bs, 1
             )
 
-        ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points n c -> n c num_points")
+            # print("ghost_points_feats - before contextualizaton", ghost_points_feats.shape)
+            # print("ghost_points_pos", ghost_points_pos.shape)
+
+            # Contextualize ghost points with pixel decoder visual features through
+            # one-directional cross-attention
+            #
+            # Note: The cross-attention between ghost points and finest grid of visual features
+            # takes most GPU memory
+            for i in range(self.num_ghost_point_layers):
+                level_index = i % (self.num_feature_levels + 1)
+
+                real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
+                real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
+                real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
+                real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
+
+                ghost_points_feats = self.ghost_point_cross_attention_layers[i](
+                    ghost_points_feats, real_points_feats,
+                    memory_mask=None,
+                    memory_key_padding_mask=None,
+                    pos=real_points_pos, query_pos=ghost_points_pos
+                )
+
+            ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points n c -> n c num_points")
+
+        else:
+            ghost_points_feats = None
 
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
@@ -528,7 +532,10 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
 
-        ghost_points_masks = torch.einsum("bqc,bcn->bqn", mask_embed, ghost_points_feats)
+        if ghost_points_feats is not None:
+            ghost_points_masks = torch.einsum("bqc,bcn->bqn", mask_embed, ghost_points_feats)
+        else:
+            ghost_points_masks = None
 
         # print()
         # print("mask_embed", mask_embed.shape)

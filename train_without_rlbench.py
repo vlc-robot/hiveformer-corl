@@ -32,18 +32,20 @@ class Arguments(tap.Tap):
     checkpoint_period: int = 10
     dataset: List[Path]
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    xp: Path = Path(__file__).parent / "xp"
     valset: Optional[Tuple[Path, ...]] = None
-    name: str = "hiveformer"
     num_workers: int = 3 * len(devices)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
     seed: int = 2
-
     tasks: Tuple[str, ...]
     variations: Tuple[int, ...] = (0,)
+
+    # Logging
+    base_log_dir: Path = Path(__file__).parent / "xp"
+    exp_log_dir: str = "exp"
+    run_log_dir: str = "run"
 
     # Train
     batch_size: int = 32 * len(devices)
@@ -64,6 +66,10 @@ class Arguments(tap.Tap):
     instr_size: int = 512
     mask_obs_prob: float = 0.0
     num_layers: int = 1
+
+    # baseline
+    sample_ghost_points: bool = False
+    position_prediction_only: bool = True
 
 
 def training(
@@ -146,13 +152,10 @@ def training(
 
 
 def get_log_dir(args: Arguments) -> Path:
-    log_dir = args.xp / args.name
+    log_dir = args.base_log_dir / args.exp_log_dir
 
     def get_log_file(version):
-        if len(args.tasks) == 1:
-            log_file = f"{args.tasks[0]}_version{version}"
-        else:
-            log_file = f"version{version}"
+        log_file = f"{args.run_log_dir}_version{version}"
         return log_file
 
     version = int(os.environ.get("SLURM_JOBID", 0))
@@ -364,7 +367,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 mask_obs_prob=args.mask_obs_prob,
                 max_episode_length=max_episode_length,
                 num_layers=args.num_layers,
-                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]]
+                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
+                sample_ghost_points=args.sample_ghost_points
             )
         else:
             raise NotImplementedError
@@ -428,7 +432,7 @@ if __name__ == "__main__":
     print("-" * 100)
     print()
 
-    loss_and_metrics = LossAndMetrics()
+    loss_and_metrics = LossAndMetrics(args.position_prediction_only)
 
     model_dict = {
         "weight": model.state_dict(),

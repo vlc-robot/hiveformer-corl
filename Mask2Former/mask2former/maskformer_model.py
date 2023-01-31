@@ -4,6 +4,7 @@ from typing import Tuple
 import torch
 from torch import nn
 from torch.nn import functional as F
+import einops
 
 from detectron2.config import configurable
 from detectron2.data import MetadataCatalog
@@ -262,31 +263,30 @@ class MaskFormer(nn.Module):
     #         return processed_results
 
     def forward(self, images, pcds, ghost_points_pcds):
-        """
-        Args:
-            images: a list, batched outputs of :class:`DatasetMapper`.
-                Each item in the list contains the inputs for one image.
-                For now, each item in the list is a dict that contains:
-                   * "image": Tensor, image in (C, H, W) format.
-                   * "instances": per-region ground truth
-                   * Other information that's included in the original dicts, such as:
-                     "height", "width" (int): the output resolution of the model (may be different
-                     from input resolution), used in inference.
-        """
-        images = [x["image"].to(self.device) for x in images]
-        images = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        images = ImageList.from_tensors(images, self.size_divisibility)
+        # How to deal with multi-view?
+        #  0: Pass images with an extra dimension for cameras
+        #  1. Pass through backbone independently along batch dimension
+        #  2. Pass through pixel decoder independently along batch dimension
+        #  3. Concatenate side by side before passing through Transformer decoder
+        #  4. Return concatenated attention mask
 
-        image_features = self.backbone(images.tensor)
-        outputs = self.sem_seg_head(image_features, pcds=pcds, ghost_points_pcds=ghost_points_pcds)
+        _, num_cameras, _, height, width = images.shape
+        images = einops.rearrange(images, "b n d h w -> (b n) d h w")
+        pcds = einops.rearrange(pcds, "b n d h w -> (b n) d h w")
+        images = (images - self.pixel_mean) / self.pixel_std
+
+        image_features = self.backbone(images)
+        outputs = self.sem_seg_head(
+            image_features, pcds=pcds, ghost_points_pcds=ghost_points_pcds, num_cameras=num_cameras
+        )
 
         img_attn_masks = F.interpolate(
             outputs["img_attn_masks"],
-            size=(images.tensor.shape[-2], images.tensor.shape[-1]),
+            size=(height, width * num_cameras),
             mode="bilinear",
             align_corners=False,
         )
-        ghost_points_attn_masks = outputs["ghost_points_attn_masks"]
+        ghost_points_attn_masks = outputs.get("ghost_points_attn_masks")
         return img_attn_masks, ghost_points_attn_masks
 
     def prepare_targets(self, targets, images):

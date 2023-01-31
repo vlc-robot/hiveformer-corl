@@ -3,6 +3,7 @@ import logging
 from copy import deepcopy
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+import einops
 import fvcore.nn.weight_init as weight_init
 from torch import nn
 from torch.nn import functional as F
@@ -118,10 +119,10 @@ class MaskFormerHead(nn.Module):
             ),
         }
 
-    def forward(self, features, pcds, ghost_points_pcds, mask=None):
-        return self.layers(features, pcds=pcds, ghost_points_pcds=ghost_points_pcds, mask=mask)
+    def forward(self, features, pcds, ghost_points_pcds, num_cameras, mask=None):
+        return self.layers(features, pcds=pcds, ghost_points_pcds=ghost_points_pcds, num_cameras=num_cameras, mask=mask)
 
-    def layers(self, features, pcds, ghost_points_pcds, mask=None):
+    def layers(self, features, pcds, ghost_points_pcds, num_cameras, mask=None):
         mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(
             features, pcds=pcds
         )
@@ -132,6 +133,11 @@ class MaskFormerHead(nn.Module):
         # for m in multi_scale_features:
         #     print("m.shape", m.shape)
         # print(self.transformer_in_feature)
+
+        mask_features = einops.rearrange(mask_features, "(b n) d h w -> b d h (n w)", n=num_cameras)
+        multi_scale_features = [einops.rearrange(f, "(b n) d h w -> b d h (n w)", n=num_cameras)
+                                for f in multi_scale_features]
+        pcds = einops.rearrange(pcds, "(b n) d h w -> b d h (n w)", n=num_cameras)
 
         if self.transformer_in_feature == "multi_scale_pixel_decoder":
             predictions = self.predictor(multi_scale_features, mask_features, mask=mask,

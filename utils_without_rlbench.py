@@ -727,7 +727,9 @@ def load_instructions(
 class LossAndMetrics:
     def __init__(
         self,
+        position_prediction_only=False
     ):
+        self.position_prediction_only = position_prediction_only
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -742,12 +744,13 @@ class LossAndMetrics:
         losses = {}
         losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
 
-        losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
-        losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
-        if pred["task"] is not None:
-            task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-            task = task.to(device).long()
-            losses["task"] = F.cross_entropy(pred["task"], task)
+        if not self.position_prediction_only:
+            losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
+            losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
+            if pred["task"] is not None:
+                task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+                task = task.to(device).long()
+                losses["task"] = F.cross_entropy(pred["task"], task)
         return losses
 
     def compute_metrics(
@@ -765,16 +768,17 @@ class LossAndMetrics:
         metrics["position_l2"] = l2.to(dtype).mean()
         metrics["position_l2<0.01"] = acc.to(dtype).mean()
 
-        pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
-        true_gripper = outputs[:, 7].bool()
-        acc = pred_gripper == true_gripper
-        metrics["gripper"] = acc.to(dtype).mean()
+        if not self.position_prediction_only:
+            pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
+            true_gripper = outputs[:, 7].bool()
+            acc = pred_gripper == true_gripper
+            metrics["gripper"] = acc.to(dtype).mean()
 
-        metrics.update(compute_rotation_metrics(pred["rotation"], outputs[:, 3:7]))
+            metrics.update(compute_rotation_metrics(pred["rotation"], outputs[:, 3:7]))
 
-        task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-        task = task.to(device).long()
-        acc = task == pred["task"].argmax(1)
-        metrics["task"] = acc.to(dtype).mean()
+            task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+            task = task.to(device).long()
+            acc = task == pred["task"].argmax(1)
+            metrics["task"] = acc.to(dtype).mean()
 
         return metrics

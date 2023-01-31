@@ -452,12 +452,14 @@ class Baseline(nn.Module):
         instr_size: int = 512,
         max_episode_length: int = 10,
         token_size: int = 19,
-        gripper_loc_bounds=None
+        gripper_loc_bounds=None,
+        sample_ghost_points=False
     ):
         super(Baseline, self).__init__()
 
         self.mask2former = load_mask2former()
         self.gripper_loc_bounds = gripper_loc_bounds
+        self.sample_ghost_points = sample_ghost_points
 
         self._instr_size = instr_size
         self._max_episode_length = max_episode_length
@@ -803,18 +805,19 @@ class Baseline(nn.Module):
         # print()
         # print()
         # print("MASK2FORMER POSITION")
-        imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) d h (n w)")
-        pcds = einops.rearrange(pc_obs, "bt n d h w -> bt d h (n w)")
+        imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
         imgs = (imgs / 2 + 0.5) * 255.0  # Rescale to [0, 255]
-        imgs = imgs[:, :3, :, :]         # Remove proprio-reception channel
-        h, w = rgb_obs.shape[-2], rgb_obs.shape[-1]
-        imgs = [{"image": img, "height": h, "width": w} for img in imgs]
+        imgs = imgs[:, :, :3, :, :]
+        pcds = pc_obs
 
         # Sample ghost points
-        ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
-        ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
-        bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
-        ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
+        if self.sample_ghost_points:
+            ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
+            ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
+            bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
+            ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
+        else:
+            ghost_points_pcds = None
 
         # print("pcds", pcds.shape)
         # print("ghost_points_pcds", ghost_points_pcds.shape)
@@ -824,37 +827,40 @@ class Baseline(nn.Module):
         # print("img_attn_map", img_attn_map.shape)
         # print("ghost_points_attn_map", ghost_points_attn_map.shape)
 
-        img_attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
-        attn_map = torch.cat([img_attn_map, ghost_points_attn_map], dim=-1)
+        attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
+        if self.sample_ghost_points:
+            attn_map = torch.cat([attn_map, ghost_points_attn_map], dim=-1)
         attn_map = torch.softmax(attn_map, dim=-1)
         # print("attn_map", attn_map.shape)
 
-        img_pcds = einops.rearrange(pcds, "bt d h nw -> bt d (h nw)")
-        ghost_points_pcds = einops.rearrange(ghost_points_pcds, "bt num_points d -> bt d num_points")
-        all_pcds = torch.cat([img_pcds, ghost_points_pcds], dim=-1)
+        all_pcds = einops.rearrange(pcds, "bt n d h w -> bt d (h n w)")
+        if self.sample_ghost_points:
+            ghost_points_pcds = einops.rearrange(ghost_points_pcds, "bt num_points d -> bt d num_points")
+            all_pcds = torch.cat([all_pcds, ghost_points_pcds], dim=-1)
         # print("all_pcds", all_pcds.shape)
 
         # Compute top points for visualization (only last batch idx for now)
-        top_points = all_pcds[-1, :, attn_map.topk(k=500, dim=-1).indices[-1, 0]].transpose(1, 0)
+        top_attn_idxs = attn_map.topk(k=500, dim=-1).indices[-1, 0]
+        top_points = all_pcds[-1, :, top_attn_idxs].transpose(1, 0)
 
         position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
         # print("position", position.shape)
 
         # Position offset
         g = instruction.mean(1)
-        # B, T = padding_mask.shape
-        # device = padding_mask.device
+        B, T = padding_mask.shape
+        device = padding_mask.device
         task = self.z_proj_instr(g)
-        # num_tasks = task.shape[1]
-        # z_instr = task.softmax(1)
-        # z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
-        # z_instr = z_instr[padding_mask]
-        # step_ids = torch.arange(T, dtype=torch.long, device=device)
-        # z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
-        # z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
-        # z_pos = z_pos[padding_mask]
-        # z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
-        # position += z_offset
+        num_tasks = task.shape[1]
+        z_instr = task.softmax(1)
+        z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
+        z_instr = z_instr[padding_mask]
+        step_ids = torch.arange(T, dtype=torch.long, device=device)
+        z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
+        z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
+        z_pos = z_pos[padding_mask]
+        z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
+        position += z_offset
 
         # Rotation
         x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
