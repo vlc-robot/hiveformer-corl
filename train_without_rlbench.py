@@ -68,7 +68,7 @@ class Arguments(tap.Tap):
     num_layers: int = 1
 
     # baseline
-    sample_ghost_points: bool = False
+    sample_ghost_points: int = 0
     position_prediction_only: bool = True
 
 
@@ -368,7 +368,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 max_episode_length=max_episode_length,
                 num_layers=args.num_layers,
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
-                sample_ghost_points=args.sample_ghost_points
+                sample_ghost_points=bool(args.sample_ghost_points)
             )
         else:
             raise NotImplementedError
