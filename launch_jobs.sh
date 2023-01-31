@@ -25,8 +25,8 @@ for task in $(cat $task_file | tr '\n' ' '); do
   for lr in 0.00005 0.0005; do
     sbatch train_1gpu.sh \
       --exp_log_dir $experiment \
-      --tasks mask2former_$task_$lr \
-      --run_log_dir $task \
+      --tasks $task \
+      --run_log_dir "mask2former_$task_$lr" \
       --dataset $output_dir/$train_seed \
       --valset $output_dir/$val_seed \
       --lr $lr \
@@ -36,8 +36,8 @@ done
 for task in $(cat $task_file | tr '\n' ' '); do
     sbatch train_1gpu.sh \
       --exp_log_dir $experiment \
-      --tasks $task_$lr \
-      --run_log_dir original_$task \
+      --tasks $task \
+      --run_log_dir "original_$task_$lr" \
       --dataset $output_dir/$train_seed \
       --valset $output_dir/$val_seed \
       --model original
