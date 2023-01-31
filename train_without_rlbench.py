@@ -33,7 +33,7 @@ class Arguments(tap.Tap):
     dataset: List[Path]
     devices: List[str] = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]  # ["cuda:0"]
     valset: Optional[Tuple[Path, ...]] = None
-    num_workers: int = 10 * len(devices)
+    num_workers: int = 5 * len(devices)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
@@ -48,7 +48,7 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
 
     # Train
-    batch_size: int = 100 * len(devices)
+    batch_size: int = 50 * len(devices)
     lr: float = 5e-5
     train_iters: int = 133_000 // len(devices)
     val_freq: int = train_iters // 200
