@@ -2,8 +2,9 @@ source_prefix=home/tgervet/hiveformer/xp
 #source_prefix=home/tgervet/hiveformer/vln-robot/alhistory/xp
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
 exp=overfit
-#ckpt=best.pth
-ckpt=model.step=22610-value=-1000.00000.pth
+#exp=debug_mask2former_exp1
+ckpt=best.pth
+#ckpt=model.step=22610-value=-1000.00000.pth
 #ckpt=checkpoints/epoch=0-step=50000.ckpt
 
 # Get Tensorboard from source

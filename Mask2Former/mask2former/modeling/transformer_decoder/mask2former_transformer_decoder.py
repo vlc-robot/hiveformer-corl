@@ -411,10 +411,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # Compute proprioception positional and feature embeddings
         proprioception_pos = self.pcd_pe_layer.position_embedding_head(proprioception.unsqueeze(-1))
         bs = proprioception.shape[0]
-        proprioception_embed = self.proprioception_embed.weight.repeat(bs, 1).unsqueeze(0)
-        print("proprioception_pos", proprioception_pos.shape)
-        print("proprioception_embed", proprioception_embed.shape)
-        raise NotImplementedError
+        proprioception_embed = self.proprioception_embed.weight.repeat(bs, 1).unsqueeze(-1)
+        proprioception_pos = einops.rearrange(proprioception_pos, "bs c num_points -> num_points bs c")
+        proprioception_embed = einops.rearrange(proprioception_embed, "bs c num_points -> num_points bs c")
 
         if ghost_points_pcds is not None:
             # Compute ghost point positional embeddings
@@ -441,10 +440,12 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
                 real_points_feats = mask_features if level_index == self.num_feature_levels else x[level_index]
                 real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
-                real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
-                real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
+                real_points_feats = einops.rearrange(real_points_feats, "bs c h w -> (h w) bs c")
+                real_points_pos = einops.rearrange(real_points_pos, "bs c h w -> (h w) bs c")
 
-                # TODO Add proprioception to real_points_feats, real_points_pos
+                # Add proprioception to visual features
+                real_points_feats = torch.cat([real_points_feats, proprioception_embed], dim=0)
+                real_points_pos = torch.cat([real_points_pos, proprioception_pos], dim=0)
 
                 ghost_points_feats = self.ghost_point_cross_attention_layers[i](
                     ghost_points_feats, real_points_feats,
@@ -454,7 +455,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
                 )
 
             ghost_points_feats_ = ghost_points_feats
-            ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points n c -> n c num_points")
+            ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points bs c -> bs c num_points")
 
         else:
             ghost_points_feats = None
@@ -471,7 +472,10 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        # TODO Add proprioception to src[i], pos[i]
+        # Add proprioception to visual features
+        for i in range(len(src)):
+            src[i] = torch.cat([src[i], proprioception_embed], dim=0)
+            pos[i] = torch.cat([pos[i], proprioception_pos], dim=0)
 
         # Add contextualized ghost points to the layers of the pixel decoder visual features
         # used to contextualize queries (all except the last one used to decode the mask)

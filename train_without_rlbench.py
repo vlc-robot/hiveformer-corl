@@ -50,8 +50,8 @@ class Arguments(tap.Tap):
     # Train
     batch_size: int = 10 * len(devices)
     lr: float = 5e-5
-    train_iters: int = 133_000 // len(devices)
-    val_freq: int = train_iters // 200
+    train_iters: int = 200_000 // len(devices)
+    val_freq: int = train_iters // 300
     jitter: bool = False
 
     # tests
