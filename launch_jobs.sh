@@ -52,5 +52,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --batch_size 10 \
      --sample_ghost_points 1 \
      --run_log_dir $task \
-     --train_iters 50000
+     --train_iters 50000 \
+     --exp_log_dir debug_overfitting_with_single_ghost_point_at_gt
 done
