@@ -650,6 +650,7 @@ class Baseline(nn.Module):
         padding_mask,
         instruction: torch.Tensor,
         gripper: torch.Tensor,
+        gt_action  # DEBUG
     ) -> Output:
         padding_mask2 = torch.ones_like(padding_mask)  # HACK
 
@@ -705,7 +706,8 @@ class Baseline(nn.Module):
             enc_feat,
             padding_mask,
             instruction,
-            gripper
+            gripper,
+            gt_action  # DEBUG
         )
 
     def encoding(
@@ -757,7 +759,8 @@ class Baseline(nn.Module):
         enc_feat,
         padding_mask,
         instruction: torch.Tensor,
-        gripper: torch.Tensor
+        gripper: torch.Tensor,
+        gt_action  # DEBUG
     ) -> Output:
 
         # print()
@@ -814,10 +817,13 @@ class Baseline(nn.Module):
 
         # Sample ghost points
         if self.sample_ghost_points:
-            ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
-            ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
-            bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
-            ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
+            # ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
+            # ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
+            # bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
+            # ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
+
+            # DEBUG
+            ghost_points_pcds = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
         else:
             ghost_points_pcds = None
 

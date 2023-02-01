@@ -68,7 +68,7 @@ class Arguments(tap.Tap):
     num_layers: int = 1
 
     # baseline
-    sample_ghost_points: int = 0
+    sample_ghost_points: int = 1
     position_prediction_only: bool = True
 
 
@@ -104,6 +104,7 @@ def training(
                 sample["padding_mask"],
                 sample["instr"],
                 sample["gripper"],
+                sample["action"]  # DEBUG
             )
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
@@ -227,6 +228,7 @@ def validation_step(
                 sample["padding_mask"],
                 sample["instr"],
                 sample["gripper"],
+                sample["action"]  # DEBUG
             )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
