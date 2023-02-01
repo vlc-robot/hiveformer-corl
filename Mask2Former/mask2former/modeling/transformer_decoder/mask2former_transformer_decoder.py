@@ -319,7 +319,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # learnable query p.e.
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
-        # Ghost points handling
+        # Ghost points
         self.ghost_points_embed = nn.Embedding(1, hidden_dim)
         self.num_ghost_point_layers = 4
         self.ghost_point_cross_attention_layers = nn.ModuleList()
@@ -332,6 +332,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
                     normalize_before=pre_norm,
                 )
             )
+
+        # Proprioception
+        self.proprioception_embed = nn.Embedding(1, hidden_dim)
 
         # level embedding (we always use 3 scales)
         self.num_feature_levels = 3
@@ -405,6 +408,14 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # disable mask, it does not affect performance
         del mask
 
+        # Compute proprioception positional and feature embeddings
+        proprioception_pos = self.pcd_pe_layer.position_embedding_head(proprioception.unsqueeze(-1))
+        bs = proprioception.shape[0]
+        proprioception_embed = self.proprioception_embed.weight.repeat(bs, 1).unsqueeze(0)
+        print("proprioception_pos", proprioception_pos.shape)
+        print("proprioception_embed", proprioception_embed.shape)
+        raise NotImplementedError
+
         if ghost_points_pcds is not None:
             # Compute ghost point positional embeddings
             ghost_points_pos = self.pcd_pe_layer.position_embedding_head(
@@ -422,6 +433,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             # print("ghost_points_pos", ghost_points_pos.shape)
 
             # Let ghost points attend to all layers of pixel decoder visual features one by one
+            #  (as well as proprioception)
             # Note: The cross-attention between ghost points and the finest grid of visual features
             # takes most of the GPU memory
             for i in range(self.num_ghost_point_layers):
@@ -431,6 +443,8 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
                 real_points_pos = self.pcd_pe_layer(real_points_feats, pcds)
                 real_points_feats = einops.rearrange(real_points_feats, "n c h w -> (h w) n c")
                 real_points_pos = einops.rearrange(real_points_pos, "n c h w -> (h w) n c")
+
+                # TODO Add proprioception to real_points_feats, real_points_pos
 
                 ghost_points_feats = self.ghost_point_cross_attention_layers[i](
                     ghost_points_feats, real_points_feats,
@@ -456,6 +470,8 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
+
+        # TODO Add proprioception to src[i], pos[i]
 
         # Add contextualized ghost points to the layers of the pixel decoder visual features
         # used to contextualize queries (all except the last one used to decode the mask)
