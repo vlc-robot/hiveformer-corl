@@ -98,14 +98,23 @@ def training(
             if step_id % args.accumulate_grad_batches == 0:
                 optimizer.zero_grad()
 
-            pred = model(
-                sample["rgbs"],
-                sample["pcds"],
-                sample["padding_mask"],
-                sample["instr"],
-                sample["gripper"],
-                sample["action"]  # DEBUG
-            )
+            if type(model) == Hiveformer:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"]
+                )
+            elif type(model) == Baseline:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"],
+                    sample["action"]
+                )
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
@@ -222,14 +231,23 @@ def validation_step(
             if i == val_iters:
                 break
 
-            pred = model(
-                sample["rgbs"],
-                sample["pcds"],
-                sample["padding_mask"],
-                sample["instr"],
-                sample["gripper"],
-                sample["action"]  # DEBUG
-            )
+            if type(model) == Hiveformer:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"]
+                )
+            elif type(model) == Baseline:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"],
+                    sample["action"]
+                )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
             losses["total"] = torch.stack(list(losses.values())).sum()

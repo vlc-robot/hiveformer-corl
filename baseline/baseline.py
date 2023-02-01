@@ -1,4 +1,4 @@
-from typing import Tuple, Literal, Union, List
+from typing import Tuple, Literal, Union, List, Optional
 import math
 from einops.layers.torch import Rearrange
 import einops
@@ -650,7 +650,7 @@ class Baseline(nn.Module):
         padding_mask,
         instruction: torch.Tensor,
         gripper: torch.Tensor,
-        gt_action  # DEBUG
+        gt_action: Optional[torch.Tensor] = None
     ) -> Output:
         padding_mask2 = torch.ones_like(padding_mask)  # HACK
 
@@ -707,7 +707,7 @@ class Baseline(nn.Module):
             padding_mask,
             instruction,
             gripper,
-            gt_action  # DEBUG
+            gt_action
         )
 
     def encoding(
@@ -760,7 +760,7 @@ class Baseline(nn.Module):
         padding_mask,
         instruction: torch.Tensor,
         gripper: torch.Tensor,
-        gt_action  # DEBUG
+        gt_action
     ) -> Output:
 
         # print()
@@ -817,13 +817,16 @@ class Baseline(nn.Module):
 
         # Sample ghost points
         if self.sample_ghost_points:
-            # ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
-            # ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
-            # bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
-            # ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
+            if gt_action is None:
+                # Sample ghost points evenly across the workspace
+                ghost_points_pcd = sample_ghost_points(self.gripper_loc_bounds)
+                ghost_points_pcd = torch.from_numpy(ghost_points_pcd).float().to(pcds.device)
+                bs, num_points = pcds.shape[0], ghost_points_pcd.shape[0]
+                ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
 
-            # DEBUG
-            ghost_points_pcds = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
+            else:
+                # Sample the ground-truth position as the single ghost point
+                ghost_points_pcds = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
         else:
             ghost_points_pcds = None
 

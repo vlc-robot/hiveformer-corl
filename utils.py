@@ -32,6 +32,8 @@ from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 
 from video_utils import CircleCameraMotion, TaskRecorder
+from network import Hiveformer
+from baseline.baseline import Baseline
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
@@ -209,7 +211,7 @@ class Actioner:
         return action_ls
 
     def predict(
-        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor
+        self, step_id: int, rgbs: torch.Tensor, pcds: torch.Tensor, gripper: torch.Tensor, gt_action: torch.Tensor
     ) -> Dict[str, Any]:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
         output: Dict[str, Any] = {"action": None, "attention": {}}
@@ -219,13 +221,24 @@ class Actioner:
 
         self._instr = self._instr.to(rgbs.device)
 
-        pred = self._model(
-            rgbs,
-            pcds,
-            padding_mask,
-            self._instr,
-            gripper,
-        )
+        if type(self._model) == Hiveformer:
+            pred = self._model(
+                rgbs,
+                pcds,
+                padding_mask,
+                self._instr,
+                gripper
+            )
+        elif type(self._model) == Baseline:
+            pred = self._model(
+                rgbs,
+                pcds,
+                padding_mask,
+                self._instr,
+                gripper,
+                gt_action
+            )
+
         output["action"] = self._model.compute_action(pred)  # type: ignore
         output["attention"] = pred["attention"]
         output["top_points"] = pred["top_points"]
@@ -502,7 +515,7 @@ class RLBenchEnv:
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
 
-                    output = actioner.predict(step_id, rgbs, pcds, grippers)
+                    output = actioner.predict(step_id, rgbs, pcds, grippers, gt_action=gt_keyframe_actions[step_id])
 
                     if offline:
                         # Follow demo
