@@ -43,12 +43,14 @@ output_dir=$root/datasets/hiveformer/packaged
 #      --model original
 #done
 
-sbatch train_1gpu_32gb.sh \
-   --tasks put_money_in_safe \
-   --dataset /home/tgervet/datasets/hiveformer/packaged/1 \
-   --checkpoint_period 2 \
-   --model develop \
-   --batch_size 10 \
-   --sample_ghost_points 1 \
-   --run_log_dir put_money_in_safe_with_ghost_points_v3 \
-   --train_iters 50000
+for task in $(cat $task_file | tr '\n' ' '); do
+  sbatch train_1gpu_32gb.sh \
+     --tasks $task \
+     --dataset /home/tgervet/datasets/hiveformer/packaged/1 \
+     --checkpoint_period 2 \
+     --model develop \
+     --batch_size 10 \
+     --sample_ghost_points 1 \
+     --run_log_dir $task \
+     --train_iters 50000
+done
