@@ -262,14 +262,23 @@ class MaskFormer(nn.Module):
     #
     #         return processed_results
 
-    def forward(self, images, pcds, ghost_points_pcds):
-        # How to deal with multi-view?
-        #  0: Pass images with an extra dimension for cameras
-        #  1. Pass through backbone independently along batch dimension
-        #  2. Pass through pixel decoder independently along batch dimension
-        #  3. Concatenate side by side before passing through Transformer decoder
-        #  4. Return concatenated attention mask
+    def forward(self, images, pcds, ghost_points_pcds, proprioception):
+        """
+        Mask2Former forward pass adapted to multi-view input.
 
+        Arguments:
+            images: multiple views of shape (batch, num_views, 3, h, w)
+            pcds: point cloud in world coordinates for multiple views of shape (batch, num_views, 3, h, w)
+            ghost_points_pcds: ghost point point cloud of shape (batch, num_points, 3)
+            proprioception: current gripper (x, y, z) position of shape (batch, 3)
+
+        How to deal with multi-view input?
+          0: Pass images with an extra dimension for cameras
+          1. Pass through backbone independently along batch dimension
+          2. Pass through pixel decoder independently along batch dimension
+          3. Concatenate side by side before passing through Transformer decoder
+          4. Return concatenated attention mask
+        """
         _, num_cameras, _, height, width = images.shape
         images = einops.rearrange(images, "b n d h w -> (b n) d h w")
         pcds = einops.rearrange(pcds, "b n d h w -> (b n) d h w")
@@ -277,7 +286,11 @@ class MaskFormer(nn.Module):
 
         image_features = self.backbone(images)
         outputs = self.sem_seg_head(
-            image_features, pcds=pcds, ghost_points_pcds=ghost_points_pcds, num_cameras=num_cameras
+            image_features,
+            pcds=pcds,
+            ghost_points_pcds=ghost_points_pcds,
+            proprioception=proprioception,
+            num_cameras=num_cameras
         )
 
         img_attn_masks = F.interpolate(

@@ -119,10 +119,11 @@ class MaskFormerHead(nn.Module):
             ),
         }
 
-    def forward(self, features, pcds, ghost_points_pcds, num_cameras, mask=None):
-        return self.layers(features, pcds=pcds, ghost_points_pcds=ghost_points_pcds, num_cameras=num_cameras, mask=mask)
+    def forward(self, features, pcds, ghost_points_pcds, proprioception, num_cameras, mask=None):
+        return self.layers(features, pcds=pcds, ghost_points_pcds=ghost_points_pcds,
+                           proprioception=proprioception, num_cameras=num_cameras, mask=mask)
 
-    def layers(self, features, pcds, ghost_points_pcds, num_cameras, mask=None):
+    def layers(self, features, pcds, ghost_points_pcds, proprioception, num_cameras, mask=None):
         mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(
             features, pcds=pcds
         )
@@ -141,7 +142,8 @@ class MaskFormerHead(nn.Module):
 
         if self.transformer_in_feature == "multi_scale_pixel_decoder":
             predictions = self.predictor(multi_scale_features, mask_features, mask=mask,
-                                         pcds=pcds, ghost_points_pcds=ghost_points_pcds)
+                                         pcds=pcds, ghost_points_pcds=ghost_points_pcds,
+                                         proprioception=proprioception)
         else:
             raise NotImplementedError
             # if self.transformer_in_feature == "transformer_encoder":

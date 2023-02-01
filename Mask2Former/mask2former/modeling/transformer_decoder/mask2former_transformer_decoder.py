@@ -376,7 +376,17 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         return ret
 
-    def forward(self, x, mask_features, pcds, ghost_points_pcds, mask=None):
+    def forward(self, x, mask_features, pcds, ghost_points_pcds, proprioception, mask=None):
+        """
+        Changes from standard Mask2Former Transformer decoder:
+            1. Add proprioception to visual features
+            2. Let ghost points attend to visual features (all layers of pixel decoder
+              features + proprioception)
+            3. Add ghost points back to visual features to contextualize queries and
+              decode mask - we need to remove masked attention mechanism to do this flexibly
+            4. Remove self-attention layers between queries as we only have one query
+        """
+
         # print()
         # print("MASK2FORMER DECODER:")
         # print("self.num_layers", self.num_layers)
@@ -411,11 +421,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             # print("ghost_points_feats - before contextualizaton", ghost_points_feats.shape)
             # print("ghost_points_pos", ghost_points_pos.shape)
 
-            # Contextualize ghost points with pixel decoder visual features through
-            # one-directional cross-attention
-            #
-            # Note: The cross-attention between ghost points and finest grid of visual features
-            # takes most GPU memory
+            # Let ghost points attend to all layers of pixel decoder visual features one by one
+            # Note: The cross-attention between ghost points and the finest grid of visual features
+            # takes most of the GPU memory
             for i in range(self.num_ghost_point_layers):
                 level_index = i % (self.num_feature_levels + 1)
 
@@ -431,6 +439,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
                     pos=real_points_pos, query_pos=ghost_points_pos
                 )
 
+            ghost_points_feats_ = ghost_points_feats
             ghost_points_feats = einops.rearrange(ghost_points_feats, "num_points n c -> n c num_points")
 
         else:
@@ -448,6 +457,13 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
+        # Add contextualized ghost points to the layers of the pixel decoder visual features
+        # used to contextualize queries (all except the last one used to decode the mask)
+        if ghost_points_pcds is not None:
+            for i in range(len(src)):
+                src[i] = torch.cat([src[i], ghost_points_feats_], dim=0)
+                pos[i] = torch.cat([pos[i], ghost_points_pos], dim=0)
+
         _, bs, _ = src[0].shape
 
         # QxNxC
@@ -458,14 +474,14 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         predictions_img_masks = []
         predictions_ghost_points_masks = []
 
-        # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, ghost_points_masks = self.forward_prediction_heads(
-            output, mask_features, attn_mask_target_size=size_list[0],
-            ghost_points_feats=ghost_points_feats
+        outputs_class, img_mask, ghost_points_mask = self.forward_prediction_heads(
+            output, mask_features, ghost_points_feats
+            #attn_mask_target_size=size_list[0],  # Remove masked attention
         )
+
         predictions_class.append(outputs_class)
-        predictions_img_masks.append(outputs_mask)
-        predictions_ghost_points_masks.append(ghost_points_masks)
+        predictions_img_masks.append(img_mask)
+        predictions_ghost_points_masks.append(ghost_points_mask)
 
         # print("query_embed", query_embed.shape)
         # for i in range(len(src)):
@@ -476,22 +492,25 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             # print("attn_mask", attn_mask.shape)
 
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
 
-            # The queries contextualize themselves with visual features
-            # cross-attention first
+            # Remove masked attention
+            # attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+
+            # The queries contextualize themselves with visual features (including ghost points)
             output = self.transformer_cross_attention_layers[i](
                 output, src[level_index],
-                memory_mask=attn_mask,
-                memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                # memory_mask=attn_mask,  # Remove masked attention
+                memory_mask=None,
+                memory_key_padding_mask=None,
                 pos=pos[level_index], query_pos=query_embed
             )
 
-            output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
-            )
+            # Remove self-attention between queries given we have a single query
+            # output = self.transformer_self_attention_layers[i](
+            #     output, tgt_mask=None,
+            #     tgt_key_padding_mask=None,
+            #     query_pos=query_embed
+            # )
 
             # FFN
             output = self.transformer_ffn_layers[i](
@@ -499,17 +518,18 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             )
 
             # The contextualized queries predict a mask
-            outputs_class, outputs_mask, attn_mask, ghost_points_mask = self.forward_prediction_heads(
-                output, mask_features, attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
-                ghost_points_feats=ghost_points_feats
+            outputs_class, img_mask, ghost_points_mask = self.forward_prediction_heads(
+                output, mask_features, ghost_points_feats
+                #attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],   # Remove masked attention
             )
+
             predictions_class.append(outputs_class)
-            predictions_img_masks.append(outputs_mask)
-            predictions_ghost_points_masks.append(ghost_points_masks)
+            predictions_img_masks.append(img_mask)
+            predictions_ghost_points_masks.append(ghost_points_mask)
 
             # print("output", output.shape)
             # print("mask_features", mask_features.shape)
-            # print("img_mask - predicted mask at layer i", outputs_mask.shape)
+            # print("img_mask - predicted mask at layer i", img_mask.shape)
             # print("ghost_points_mask - predicted mask at layer i", ghost_points_mask.shape)
 
         assert len(predictions_class) == self.num_layers + 1
@@ -525,37 +545,29 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         return out
 
-    def forward_prediction_heads(self, output, mask_features, attn_mask_target_size, ghost_points_feats):
+    def forward_prediction_heads(self, output, mask_features, ghost_points_feats):  #, attn_mask_target_size):
         decoder_output = self.decoder_norm(output)
         decoder_output = decoder_output.transpose(0, 1)
         outputs_class = self.class_embed(decoder_output)
         mask_embed = self.mask_embed(decoder_output)
-        outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
+        img_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
 
+        # Decode mask from ghost point features
         if ghost_points_feats is not None:
             ghost_points_masks = torch.einsum("bqc,bcn->bqn", mask_embed, ghost_points_feats)
         else:
             ghost_points_masks = None
 
-        # print()
-        # print("mask_embed", mask_embed.shape)
-        # print()
-        # print("mask_features", mask_features.shape)
-        # print("ghost_points_feats", ghost_points_feats.shape)
-        # print()
-        # print("outputs_mask", outputs_mask.shape)
-        # print("ghost_points_masks", ghost_points_masks.shape)
-        # print()
-
+        # Remove masked attention
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        # attn_mask = F.interpolate(img_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
-        attn_mask = (attn_mask.sigmoid().flatten(2).unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.5).bool()
-        attn_mask = attn_mask.detach()
+        # attn_mask = (attn_mask.sigmoid().flatten(2).unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.5).bool()
+        # attn_mask = attn_mask.detach()
 
-        return outputs_class, outputs_mask, attn_mask, ghost_points_masks
+        return outputs_class, img_mask, ghost_points_masks  #, attn_mask
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):

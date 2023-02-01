@@ -705,6 +705,7 @@ class Baseline(nn.Module):
             enc_feat,
             padding_mask,
             instruction,
+            gripper
         )
 
     def encoding(
@@ -756,6 +757,7 @@ class Baseline(nn.Module):
         enc_feat,
         padding_mask,
         instruction: torch.Tensor,
+        gripper: torch.Tensor
     ) -> Output:
 
         # print()
@@ -819,10 +821,12 @@ class Baseline(nn.Module):
         else:
             ghost_points_pcds = None
 
+        proprioception = einops.rearrange(gripper, "b n c -> (b n) c")[:, :3]
+
         # print("pcds", pcds.shape)
         # print("ghost_points_pcds", ghost_points_pcds.shape)
         img_attn_map, ghost_points_attn_map = self.mask2former(
-            imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds
+            imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds, proprioception=proprioception
         )
         # print("img_attn_map", img_attn_map.shape)
         # print("ghost_points_attn_map", ghost_points_attn_map.shape)
