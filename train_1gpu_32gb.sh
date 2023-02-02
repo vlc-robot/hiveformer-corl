@@ -7,5 +7,6 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:volta:1
 #SBATCH --mem=50gb
+#SBATCH --mem-per-gpu=32gb
 
 python train_without_rlbench.py "$@"
