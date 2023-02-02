@@ -51,7 +51,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --model develop \
      --batch_size 10 \
      --sample_ghost_points 1 \
-     --run_log_dir $task \
+     --run_log_dir $task-cross_entropy_loss \
      --train_iters 50000 \
      --exp_log_dir debug_overfitting_with_single_ghost_point_at_gt
 done
