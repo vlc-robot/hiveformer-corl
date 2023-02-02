@@ -758,8 +758,8 @@ class LossAndMetrics:
             # print("ground_truth", outputs[:, :3])
             # print("selected", selected_points)
 
-            # losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
-            losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
+            losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
+            # losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
             pred["position"] = pred["position"].detach()
 
         elif self.position_loss == "mse":
