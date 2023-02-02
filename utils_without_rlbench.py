@@ -750,7 +750,7 @@ class LossAndMetrics:
             # TODO Implement soft cross-entropy loss
 
             # Select closest point
-            # mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
+            mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
             # indices = mse.min(dim=-1).indices
 
             # DEBUG
