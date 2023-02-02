@@ -58,6 +58,7 @@ class Arguments(tap.Tap):
     # baseline
     sample_ghost_points: int = 1
     position_prediction_only: int = 1
+    use_ground_truth_position_for_sampling: int = 1
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -149,7 +150,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 max_episode_length=max_episode_length,
                 num_layers=args.num_layers,
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
-                sample_ghost_points=bool(args.sample_ghost_points)
+                sample_ghost_points=bool(args.sample_ghost_points),
+                use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling)
             ).to(device)
         else:
             raise NotImplementedError
