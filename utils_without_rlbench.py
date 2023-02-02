@@ -727,8 +727,11 @@ def load_instructions(
 class LossAndMetrics:
     def __init__(
         self,
-        position_prediction_only=False
+        position_loss,
+        position_prediction_only=False,
     ):
+        assert position_loss in ["ce", "mse"]
+        self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
@@ -742,7 +745,23 @@ class LossAndMetrics:
         outputs = sample["action"].to(device)[padding_mask]
 
         losses = {}
-        losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
+
+        if self.position_loss == "ce":
+            # TODO Implement soft cross-entropy loss
+
+            # Select closest point
+            mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
+            indices = mse.min(dim=-1).indices
+
+            # DEBUG
+            # selected_points = pred["points"][torch.arange(len(indices)), :, indices]
+            # print("ground_truth", outputs[:, :3])
+            # print("selected", selected_points)
+
+            losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
+
+        elif self.position_loss == "mse":
+            losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
 
         if not self.position_prediction_only:
             losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))

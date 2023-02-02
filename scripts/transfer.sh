@@ -1,11 +1,11 @@
 source_prefix=home/tgervet/hiveformer/xp
 #source_prefix=home/tgervet/hiveformer/vln-robot/alhistory/xp
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-exp=overfit
-#exp=debug_overfitting_with_single_ghost_point_at_gt
+#exp=overfit
+exp=debug_overfitting_with_single_ghost_point_at_gt
 #exp=debug_mask2former_exp1
 ckpt=best.pth
-#ckpt=model.step=22610-value=-1000.00000.pth
+#ckpt=model.step=23976-value=0.00000.pth
 #ckpt=checkpoints/epoch=0-step=50000.ckpt
 
 # Get Tensorboard from source

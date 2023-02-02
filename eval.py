@@ -56,8 +56,8 @@ class Arguments(tap.Tap):
     num_layers: Optional[int] = 1
 
     # baseline
-    sample_ghost_points: int = 0
-    position_prediction_only: bool = True
+    sample_ghost_points: int = 1
+    position_prediction_only: int = 1
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -149,7 +149,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 max_episode_length=max_episode_length,
                 num_layers=args.num_layers,
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
-                sample_ghost_points = bool(args.sample_ghost_points)
+                sample_ghost_points=bool(args.sample_ghost_points)
             ).to(device)
         else:
             raise NotImplementedError
@@ -229,7 +229,7 @@ if __name__ == "__main__":
                 max_tries=args.max_tries,
                 save_attn=args.attention,
                 record_videos=True,
-                position_prediction_only=args.position_prediction_only,
+                position_prediction_only=bool(args.position_prediction_only),
                 offline=bool(args.offline)
             )
 

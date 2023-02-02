@@ -69,7 +69,8 @@ class Arguments(tap.Tap):
 
     # baseline
     sample_ghost_points: int = 1
-    position_prediction_only: bool = True
+    position_loss: str = "ce"  # one of "ce", "mse"
+    position_prediction_only: int = 1
 
 
 def training(
@@ -453,7 +454,10 @@ if __name__ == "__main__":
     print("-" * 100)
     print()
 
-    loss_and_metrics = LossAndMetrics(args.position_prediction_only)
+    loss_and_metrics = LossAndMetrics(
+        position_prediction_only=bool(args.position_prediction_only),
+        position_loss=args.position_loss
+    )
 
     model_dict = {
         "weight": model.state_dict(),

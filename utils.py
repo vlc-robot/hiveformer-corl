@@ -515,7 +515,8 @@ class RLBenchEnv:
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
 
-                    output = actioner.predict(step_id, rgbs, pcds, grippers, gt_action=gt_keyframe_actions[step_id])
+                    output = actioner.predict(step_id, rgbs, pcds, grippers,
+                                              gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
 
                     if offline:
                         # Follow demo

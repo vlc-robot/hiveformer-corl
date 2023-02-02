@@ -825,8 +825,10 @@ class Baseline(nn.Module):
                 ghost_points_pcds = ghost_points_pcd.unsqueeze(0).repeat(bs, 1, 1)
 
             else:
+                # TODO Improve this for generalization at inference time
                 # Sample the ground-truth position as the single ghost point
                 ghost_points_pcds = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
+
         else:
             ghost_points_pcds = None
 
@@ -843,6 +845,7 @@ class Baseline(nn.Module):
         attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
         if self.sample_ghost_points:
             attn_map = torch.cat([attn_map, ghost_points_attn_map], dim=-1)
+        attn_map_pre_softmax = attn_map
         attn_map = torch.softmax(attn_map, dim=-1)
         # print("attn_map", attn_map.shape)
 
@@ -852,7 +855,9 @@ class Baseline(nn.Module):
             all_pcds = torch.cat([all_pcds, ghost_points_pcds], dim=-1)
         # print("all_pcds", all_pcds.shape)
 
-        # Compute top points for visualization (only last batch idx for now)
+        # Compute top points for visualization (only last batch idx = latest timestep
+        # at inference time)
+        # TODO Improve selection of points used to visualize attention
         top_attn_idxs = attn_map.topk(k=500, dim=-1).indices[-1, 0]
         top_points = all_pcds[-1, :, top_attn_idxs].transpose(1, 0)
 
@@ -890,7 +895,8 @@ class Baseline(nn.Module):
             "position": position,
             "rotation": rotation,
             "gripper": torch.sigmoid(xr[:, -1:]),
-            "attention": attn_map,
+            "attention": attn_map_pre_softmax,
+            "points": all_pcds,
             "task": task,
             "top_points": top_points
         }
