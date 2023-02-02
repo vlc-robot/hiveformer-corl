@@ -898,7 +898,7 @@ class Baseline(nn.Module):
             "rotation": rotation,
             "gripper": torch.sigmoid(xr[:, -1:]),
             "attention": attn_map_pre_softmax,
-            "points": all_pcds,
+            "points": all_pcds.detach(),
             "task": task,
             "top_points": top_points
         }
