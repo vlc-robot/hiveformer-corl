@@ -751,7 +751,7 @@ class LossAndMetrics:
 
             # Select closest point
             mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
-            # indices = mse.min(dim=-1).indices
+            indices = mse.min(dim=-1).indices
 
             # DEBUG
             # selected_points = pred["points"][torch.arange(len(indices)), :, indices]
