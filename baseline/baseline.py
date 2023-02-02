@@ -819,6 +819,7 @@ class Baseline(nn.Module):
 
         # Sample ghost points
         if self.sample_ghost_points:
+
             if self.use_ground_truth_position_for_sampling and gt_action is not None:
                 # Training time
 
@@ -832,14 +833,10 @@ class Baseline(nn.Module):
                 ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
 
                 ghost_points_pcds = torch.cat([grid_pcd, ground_truth_pcd], dim=1)
-                print()
-                print(ghost_points_pcds.shape)
-                print(grid_pcd.shape)
-                print(ground_truth_pcd.shape)
-                raise NotImplementedError
 
             else:
                 # Inference time
+
                 # Sample ghost points evenly across the workspace
                 grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
                 grid_pcd = torch.from_numpy(grid_pcd).float().to(pcds.device)
