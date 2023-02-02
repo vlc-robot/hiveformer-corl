@@ -49,7 +49,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --dataset /home/tgervet/datasets/hiveformer/packaged/1 \
      --checkpoint_period 2 \
      --model develop \
-     --batch_size 10 \
+     --batch_size 8 \
      --run_log_dir $task-cross_entropy_loss \
      --train_iters 50000 \
      --exp_log_dir overfit_cross_entropy \
