@@ -99,7 +99,10 @@ def training(
             if step_id % args.accumulate_grad_batches == 0:
                 optimizer.zero_grad()
 
-            if type(model) == Hiveformer:
+            model_type = type(model)
+            if model_type == nn.DataParallel:
+                model_type = type(model.module)
+            if model_type == Hiveformer:
                 pred = model(
                     sample["rgbs"],
                     sample["pcds"],
@@ -107,7 +110,7 @@ def training(
                     sample["instr"],
                     sample["gripper"]
                 )
-            elif type(model) == Baseline:
+            elif model_type == Baseline:
                 pred = model(
                     sample["rgbs"],
                     sample["pcds"],
