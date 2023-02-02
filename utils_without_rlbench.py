@@ -750,15 +750,16 @@ class LossAndMetrics:
             # TODO Implement soft cross-entropy loss
 
             # Select closest point
-            mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
-            indices = mse.min(dim=-1).indices
+            # mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
+            # indices = mse.min(dim=-1).indices
 
             # DEBUG
             # selected_points = pred["points"][torch.arange(len(indices)), :, indices]
             # print("ground_truth", outputs[:, :3])
             # print("selected", selected_points)
 
-            losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
+            # losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
+            losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
 
         elif self.position_loss == "mse":
             losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
