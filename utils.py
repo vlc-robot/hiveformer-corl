@@ -236,7 +236,8 @@ class Actioner:
                 padding_mask,
                 self._instr,
                 gripper,
-                gt_action
+                # DO NOT provide ground-truth action to sample ghost points at inference time
+                # gt_action
             )
 
         output["action"] = self._model.compute_action(pred)  # type: ignore

@@ -59,7 +59,7 @@ class Arguments(tap.Tap):
     output: Path = Path(__file__).parent / "records.txt"
 
     # model
-    model: str = "original"
+    model: str = "develop"
     depth: int = 4
     dim_feedforward: int = 64
     hidden_dim: int = 64
@@ -118,6 +118,7 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    # Provide ground-truth action to sample ghost points at training time
                     sample["action"]
                 )
 
@@ -251,7 +252,8 @@ def validation_step(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
-                    sample["action"]
+                    # DO NOT provide ground-truth action to sample ghost points at validation time
+                    # sample["action"]
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)

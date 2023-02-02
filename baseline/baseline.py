@@ -819,7 +819,7 @@ class Baseline(nn.Module):
 
         # Sample ghost points
         if self.sample_ghost_points:
-            if self.use_ground_truth_position_for_sampling:
+            if self.use_ground_truth_position_for_sampling and gt_action is not None:
                 # TODO Improve this for generalization at inference time
                 # Sample the ground-truth position as the single ghost point
                 ghost_points_pcds = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
