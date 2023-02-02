@@ -729,10 +729,12 @@ class LossAndMetrics:
         self,
         position_loss,
         position_prediction_only=False,
+        compute_loss_at_all_layers=True
     ):
         assert position_loss in ["ce", "mse"]
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
+        self.compute_loss_at_all_layers = compute_loss_at_all_layers
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -759,6 +761,12 @@ class LossAndMetrics:
             # print("selected", selected_points)
 
             losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
+
+            # Add loss at intermediate layers
+            if self.compute_loss_at_all_layers:
+                for m in pred["intermediate_attention"]:
+                    losses["position"] += F.cross_entropy(m.squeeze(1), indices)
+                losses["position"] /= len(pred["intermediate_attention"]) + 1
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss

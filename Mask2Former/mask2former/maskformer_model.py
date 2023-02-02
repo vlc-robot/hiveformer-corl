@@ -293,14 +293,29 @@ class MaskFormer(nn.Module):
             num_cameras=num_cameras
         )
 
-        img_attn_masks = F.interpolate(
-            outputs["img_attn_masks"],
+        final_img_attn_masks = F.interpolate(
+            outputs["final_img_attn_masks"],
             size=(height, width * num_cameras),
             mode="bilinear",
             align_corners=False,
         )
-        ghost_points_attn_masks = outputs.get("ghost_points_attn_masks")
-        return img_attn_masks, ghost_points_attn_masks
+        intermediate_img_attn_masks = [
+            F.interpolate(
+                img_attn_masks,
+                size=(height, width * num_cameras),
+                mode="bilinear",
+                align_corners=False,
+            )
+            for img_attn_masks in outputs["intermediate_img_attn_masks"]
+        ]
+        final_ghost_points_attn_masks = outputs.get("final_ghost_points_attn_masks")
+        intermediate_ghost_points_attn_masks = outputs.get("intermediate_ghost_points_attn_masks")
+        return (
+            final_img_attn_masks,
+            final_ghost_points_attn_masks,
+            intermediate_img_attn_masks,
+            intermediate_ghost_points_attn_masks,
+        )
 
     def prepare_targets(self, targets, images):
         h_pad, w_pad = images.tensor.shape[-2:]

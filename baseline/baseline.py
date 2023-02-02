@@ -851,7 +851,12 @@ class Baseline(nn.Module):
 
         # print("pcds", pcds.shape)
         # print("ghost_points_pcds", ghost_points_pcds.shape)
-        img_attn_map, ghost_points_attn_map = self.mask2former(
+        (
+            img_attn_map,
+            ghost_points_attn_map,
+            intermediate_img_attn_maps,
+            intermediate_ghost_points_attn_maps
+        ) = self.mask2former(
             imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds, proprioception=proprioception
         )
         # print("img_attn_map", img_attn_map.shape)
@@ -861,6 +866,16 @@ class Baseline(nn.Module):
         if self.sample_ghost_points:
             attn_map = torch.cat([attn_map, ghost_points_attn_map], dim=-1)
         attn_map_pre_softmax = attn_map
+
+        # Compute intermediate attn maps to apply loss at every layer of Transformer
+        # decoder - doing this quick and dirty, we'll clean up later
+        intermediate_attn_maps_pre_softmax = []
+        for i in range(len(intermediate_img_attn_maps)):
+            m = einops.rearrange(intermediate_img_attn_maps[i], "bt d h nw -> bt d (h nw)")
+            if self.sample_ghost_points:
+                m = torch.cat([m, intermediate_ghost_points_attn_maps[i]], dim=-1)
+            intermediate_attn_maps_pre_softmax.append(m)
+
         attn_map = torch.softmax(attn_map, dim=-1)
         # print("attn_map", attn_map.shape)
 
@@ -911,6 +926,7 @@ class Baseline(nn.Module):
             "rotation": rotation,
             "gripper": torch.sigmoid(xr[:, -1:]),
             "attention": attn_map_pre_softmax,
+            "intermediate_attention": intermediate_attn_maps_pre_softmax,
             "points": all_pcds.detach(),
             "task": task,
             "top_points": top_points

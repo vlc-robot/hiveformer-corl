@@ -72,6 +72,7 @@ class Arguments(tap.Tap):
     position_loss: str = "ce"  # one of "ce", "mse"
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 1
+    compute_loss_at_all_layers: int = 1
 
 
 def training(
@@ -463,7 +464,8 @@ if __name__ == "__main__":
 
     loss_and_metrics = LossAndMetrics(
         position_prediction_only=bool(args.position_prediction_only),
-        position_loss=args.position_loss
+        position_loss=args.position_loss,
+        compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers)
     )
 
     model_dict = {

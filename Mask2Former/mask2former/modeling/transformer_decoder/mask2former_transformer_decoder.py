@@ -556,8 +556,10 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         out = {
             'pred_logits': predictions_class[-1],
-            'img_attn_masks': predictions_img_masks[-1],
-            'ghost_points_attn_masks': predictions_ghost_points_masks[-1],
+            'final_img_attn_masks': predictions_img_masks[-1],
+            'final_ghost_points_attn_masks': predictions_ghost_points_masks[-1],
+            'intermediate_img_attn_masks': predictions_img_masks[:-1],
+            'intermediate_ghost_points_attn_masks': predictions_ghost_points_masks[:-1],
             'aux_outputs': self._set_aux_loss(
                 predictions_class if self.mask_classification else None, predictions_img_masks
             )
