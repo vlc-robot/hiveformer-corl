@@ -46,12 +46,9 @@ output_dir=$root/datasets/hiveformer/packaged
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb.sh \
      --tasks $task \
-     --dataset /home/tgervet/datasets/hiveformer/packaged/1 \
-     --checkpoint_period 2 \
-     --model develop \
-     --batch_size 8 \
-     --run_log_dir $task-cross_entropy_loss \
-     --train_iters 50000 \
-     --exp_log_dir overfit_cross_entropy \
-     --use_ground_truth_position_for_sampling 0
+     --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
+     --valset /home/tgervet/datasets/hiveformer/packaged/1 \
+     --batch_size 10 \
+     --exp_log_dir train_cross_entropy_loss \
+     --run_log_dir $task
 done
