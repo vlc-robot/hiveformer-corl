@@ -44,7 +44,7 @@ output_dir=$root/datasets/hiveformer/packaged
 #done
 
 for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu.sh \
+  sbatch train_1gpu_32gb.sh \
      --tasks $task \
      --dataset /home/tgervet/datasets/hiveformer/packaged/1 \
      --checkpoint_period 2 \
