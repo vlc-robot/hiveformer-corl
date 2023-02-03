@@ -230,15 +230,18 @@ class Actioner:
                 gripper
             )
         elif type(self._model) == Baseline:
-            pred = self._model(
-                rgbs,
-                pcds,
-                padding_mask,
-                self._instr,
-                gripper,
-                # DO NOT provide ground-truth action to sample ghost points at inference time
-                # gt_action
-            )
+            if self._model.use_ground_truth_position_for_sampling:
+                pred = self._model(
+                    rgbs,
+                    pcds,
+                    padding_mask,
+                    self._instr,
+                    gripper,
+                    # At inference time, provide ground-truth action to sample ghost
+                    # points at inference time only if use_ground_truth_position_for_sampling=True
+                    # => This is cheating but useful for debugging
+                    gt_action if self._model.use_ground_truth_position_for_sampling else None
+                )
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
         output["attention"] = pred["attention"]
