@@ -58,7 +58,7 @@ class Arguments(tap.Tap):
     # baseline
     sample_ghost_points: int = 1
     position_prediction_only: int = 1
-    use_ground_truth_position_for_sampling: int = 1
+    use_ground_truth_position_for_sampling: int = 0
 
 
 def get_log_dir(args: Arguments) -> Path:
