@@ -72,8 +72,8 @@ class Arguments(tap.Tap):
     position_loss: str = "ce"  # one of "ce", "mse"
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 1
-    compute_loss_at_all_layers: int = 1
-    non_supervised_ball_radius: float = 0.0
+    compute_loss_at_all_layers: int = 0
+    non_supervised_ball_radius: float = 0.03
 
 
 def training(
