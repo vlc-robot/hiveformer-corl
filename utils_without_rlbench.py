@@ -764,7 +764,10 @@ class LossAndMetrics:
                 # Don't supervise a ball around the proxy ground-truth
                 proxy = pred["points"][torch.arange(len(min_l2_gt.indices)), :, min_l2_gt.indices]
                 l2_proxy = ((pred["points"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
-                non_supervised_indices = (l2_proxy < self.non_supervised_ball_radius)
+                non_supervised_indices = torch.logical_and(
+                    l2_proxy > 0,
+                    l2_proxy < self.non_supervised_ball_radius
+                )
                 pred_attention[non_supervised_indices] = pred_attention[non_supervised_indices].detach()
 
                 # DEBUG
