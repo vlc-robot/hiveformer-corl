@@ -652,7 +652,7 @@ class Baseline(nn.Module):
         padding_mask,
         instruction: torch.Tensor,
         gripper: torch.Tensor,
-        gt_action: torch.Tensor
+        gt_action: Optional[torch.Tensor] = None
     ) -> Output:
         padding_mask2 = torch.ones_like(padding_mask)  # HACK
 
