@@ -728,6 +728,7 @@ class LossAndMetrics:
     def __init__(
         self,
         position_loss,
+        non_supervised_ball_radius,
         position_prediction_only=False,
         compute_loss_at_all_layers=True
     ):
@@ -735,6 +736,7 @@ class LossAndMetrics:
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
+        self.non_supervised_ball_radius = non_supervised_ball_radius
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -751,21 +753,31 @@ class LossAndMetrics:
         if self.position_loss == "ce":
             # TODO Implement soft cross-entropy loss
 
-            # Select closest point
-            mse = ((pred["points"] - outputs[:, :3].unsqueeze(-1)) ** 2).sum(1)
-            indices = mse.min(dim=-1).indices
+            # Select closest point to ground-truth as a proxy ground-truth label
+            gt = outputs[:, :3]
+            l2_gt = ((pred["points"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
+            min_l2_gt = l2_gt.min(dim=-1)
 
-            # DEBUG
-            # selected_points = pred["points"][torch.arange(len(indices)), :, indices]
-            # print("ground_truth", outputs[:, :3])
-            # print("selected", selected_points)
+            pred_attention = pred["attention"].squeeze(1)
 
-            losses["position"] = F.cross_entropy(pred["attention"].squeeze(1), indices)
+            if self.non_supervised_ball_radius > 0:
+                # Don't supervise a ball around the proxy ground-truth
+                proxy = pred["points"][torch.arange(len(min_l2_gt.indices)), :, min_l2_gt.indices]
+                l2_proxy = ((pred["points"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
+                non_supervised_indices = (l2_proxy < self.non_supervised_ball_radius)
+                pred_attention[non_supervised_indices] = pred_attention[non_supervised_indices].detach()
 
-            # Add loss at intermediate layers
+                # DEBUG
+                # print("gt", gt)
+                # print("proxy", proxy)
+                # print("non_supervised_indices.sum()", non_supervised_indices.sum())
+
+            losses["position"] = F.cross_entropy(pred_attention, min_l2_gt.indices)
+
+            # Compute loss at intermediate layers
             if self.compute_loss_at_all_layers:
                 for m in pred["intermediate_attention"]:
-                    losses["position"] += F.cross_entropy(m.squeeze(1), indices)
+                    losses["position"] += F.cross_entropy(m.squeeze(1), min_l2_gt.indices)
                 losses["position"] /= len(pred["intermediate_attention"]) + 1
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't

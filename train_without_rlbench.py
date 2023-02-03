@@ -73,6 +73,7 @@ class Arguments(tap.Tap):
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 1
     compute_loss_at_all_layers: int = 1
+    non_supervised_ball_radius: float = 0.0
 
 
 def training(
@@ -238,7 +239,10 @@ def validation_step(
             if i == val_iters:
                 break
 
-            if type(model) == Hiveformer:
+            model_type = type(model)
+            if model_type == nn.DataParallel:
+                model_type = type(model.module)
+            if model_type == Hiveformer:
                 pred = model(
                     sample["rgbs"],
                     sample["pcds"],
@@ -246,7 +250,7 @@ def validation_step(
                     sample["instr"],
                     sample["gripper"]
                 )
-            elif type(model) == Baseline:
+            elif model_type == Baseline:
                 pred = model(
                     sample["rgbs"],
                     sample["pcds"],
@@ -465,7 +469,8 @@ if __name__ == "__main__":
     loss_and_metrics = LossAndMetrics(
         position_prediction_only=bool(args.position_prediction_only),
         position_loss=args.position_loss,
-        compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers)
+        compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
+        non_supervised_ball_radius=args.non_supervised_ball_radius
     )
 
     model_dict = {
