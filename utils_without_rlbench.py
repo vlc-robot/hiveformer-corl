@@ -757,12 +757,13 @@ class LossAndMetrics:
             gt = outputs[:, :3]
             l2_gt = ((pred["points"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
             min_l2_gt = l2_gt.min(dim=-1)
+            proxy_indices = min_l2_gt.indices
 
             pred_attention = pred["attention"].squeeze(1)
 
             if self.non_supervised_ball_radius > 0:
                 # Don't supervise a ball around the proxy ground-truth
-                proxy = pred["points"][torch.arange(len(min_l2_gt.indices)), :, min_l2_gt.indices]
+                proxy = pred["points"][torch.arange(len(proxy_indices)), :, proxy_indices]
                 l2_proxy = ((pred["points"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
                 non_supervised_indices = torch.logical_and(
                     l2_proxy > 0,
@@ -771,16 +772,19 @@ class LossAndMetrics:
                 pred_attention[non_supervised_indices] = pred_attention[non_supervised_indices].detach()
 
                 # DEBUG
+                # print()
                 # print("gt", gt)
                 # print("proxy", proxy)
+                # print("(l2_proxy < self.non_supervised_ball_radius).sum()", (l2_proxy < self.non_supervised_ball_radius).sum())
                 # print("non_supervised_indices.sum()", non_supervised_indices.sum())
+                # print("len(proxy_indices)", len(proxy_indices))
 
-            losses["position"] = F.cross_entropy(pred_attention, min_l2_gt.indices)
+            losses["position"] = F.cross_entropy(pred_attention, proxy_indices)
 
             # Compute loss at intermediate layers
             if self.compute_loss_at_all_layers:
                 for m in pred["intermediate_attention"]:
-                    losses["position"] += F.cross_entropy(m.squeeze(1), min_l2_gt.indices)
+                    losses["position"] += F.cross_entropy(m.squeeze(1), proxy_indices)
                 losses["position"] /= len(pred["intermediate_attention"]) + 1
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
