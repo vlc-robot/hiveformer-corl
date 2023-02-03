@@ -1,6 +1,6 @@
 #!/bin/sh
 
-main_dir = TRAIN1
+main_dir = 02_01
 
 # Cross-entropy
 
