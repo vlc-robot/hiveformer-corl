@@ -208,7 +208,7 @@ class CheckpointCallback:
             return
 
         value = metrics.get(self._name, 0)
-        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value:.5f}.pth"
+        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value.item():.5f}.pth"
         torch.save(self._state_dict, dest)
 
         cond1 = self._name not in metrics
