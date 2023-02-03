@@ -242,6 +242,9 @@ class Actioner:
                     # => This is cheating but useful for debugging
                     gt_action if self._model.use_ground_truth_position_for_sampling else None
                 )
+        else:
+            print(type(self._model))
+            raise NotImplementedError
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
         output["attention"] = pred["attention"]
