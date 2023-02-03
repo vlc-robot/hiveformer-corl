@@ -47,7 +47,7 @@ class Arguments(tap.Tap):
     offline: int = 1
 
     # model
-    model: str = "original"
+    model: str = "develop"
     depth: Optional[int] = 4
     dim_feedforward: Optional[int] = 64
     hidden_dim: Optional[int] = 64
