@@ -1,19 +1,32 @@
 #!/bin/sh
 
-main_dir=02_03
+main_dir=02_04
 
 # Cross-entropy
 
-task_file=debugging_tasks.csv
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb.sh \
-     --tasks $task \
-     --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
-     --valset /home/tgervet/datasets/hiveformer/packaged/1 \
-     --exp_log_dir $main_dir/xentropy_non_supervised_ball_001 \
-     --run_log_dir $task \
-     --non_supervised_ball_radius 0.01
-done
+#task_file=debugging_tasks.csv
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_32gb.sh \
+#     --tasks $task \
+#     --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
+#     --valset /home/tgervet/datasets/hiveformer/packaged/1 \
+#     --exp_log_dir $main_dir/xentropy_non_supervised_ball_001 \
+#     --run_log_dir $task \
+#     --non_supervised_ball_radius 0.01
+#done
+#
+#task_file=debugging_tasks.csv
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_32gb.sh \
+#     --tasks $task \
+#     --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
+#     --valset /home/tgervet/datasets/hiveformer/packaged/1 \
+#     --exp_log_dir $main_dir/xentropy_non_supervised_ball_003 \
+#     --run_log_dir $task \
+#     --non_supervised_ball_radius 0.03
+#done
+
+# BCE
 
 task_file=debugging_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
@@ -21,14 +34,15 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --tasks $task \
      --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
      --valset /home/tgervet/datasets/hiveformer/packaged/1 \
-     --exp_log_dir $main_dir/xentropy_non_supervised_ball_003 \
+     --exp_log_dir $main_dir/binary_xentropy_non_supervised_ball_001 \
      --run_log_dir $task \
-     --non_supervised_ball_radius 0.03
+     --non_supervised_ball_radius 0.01 \
+     --position_loss bce
 done
 
 # MSE
 
-task_file=debugging_tasks.csv
+task_file=more_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb.sh \
      --tasks $task \
