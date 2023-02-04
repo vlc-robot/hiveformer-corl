@@ -56,7 +56,7 @@ done
 
 # CE
 
-task_file=more_tasks.csv
+task_file=debugging_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb.sh \
      --tasks $task \
@@ -69,7 +69,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --use_ground_truth_position_for_sampling 1
 done
 
-task_file=more_tasks.csv
+task_file=debugging_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb.sh \
      --tasks $task \
