@@ -256,6 +256,8 @@ class TaskRecorder(object):
         self._pcd_views = [*self._obs_cameras, "aggregate"]
         self._pcd_snaps = [[] for _ in range(len(self._pcd_views))]
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
+        self._latest_keyframe_metrics = {}
+        self._all_step_metrics = []
         self._gt_keyframe_gripper_matrices = None
         self._pred_keyframe_gripper_matrices = None
         self._pred_location_heatmap = None
@@ -284,14 +286,14 @@ class TaskRecorder(object):
             if i == 0:
                 left, top = 0, 0
             elif i == 1:
-                left, top = 640, 0
+                left, top = 480, 0
             elif i == 2:
                 left, top = 0, 480
             elif i == 3:
-                left, top = 640, 480
+                left, top = 480, 480
 
             vis = open3d.visualization.Visualizer()
-            vis.create_window(window_name=view, width=640, height=480, left=left, top=top)
+            vis.create_window(window_name=view, width=480, height=480, left=left, top=top)
             self._open3d_pcd_vis.append(vis)
 
             if self._custom_cam_params:
@@ -311,7 +313,8 @@ class TaskRecorder(object):
                   obs: Observation,
                   gt_keyframe_gripper_matrices: Optional[np.array] = None,
                   pred_keyframe_gripper_matrices: Optional[np.array] = None,
-                  pred_location_heatmap: Optional[np.array] = None):
+                  pred_location_heatmap: Optional[np.array] = None,
+                  debug=False):
         """
         Take observation snapshot.
 
@@ -322,12 +325,26 @@ class TaskRecorder(object):
             pred_keyframe_gripper_matrices: if not None, predicted keyframe gripper poses
              to record and display in all snapshots until save() is called
         """
+        if debug:
+            print(len(self._all_step_metrics))
+
         if gt_keyframe_gripper_matrices is not None:
             self._gt_keyframe_gripper_matrices = gt_keyframe_gripper_matrices
         if pred_keyframe_gripper_matrices is not None:
             self._pred_keyframe_gripper_matrices = pred_keyframe_gripper_matrices
         if pred_location_heatmap is not None:
             self._pred_location_heatmap = pred_location_heatmap
+
+        # Compute metrics
+        if gt_keyframe_gripper_matrices is not None and pred_keyframe_gripper_matrices is not None:
+            gt_pos = gt_keyframe_gripper_matrices[:, :3, -1]
+            pred_pos = pred_keyframe_gripper_matrices[:, :3, -1]
+            l2_pos = np.mean(np.sqrt(((gt_pos - pred_pos) ** 2).sum(1)))
+            self._latest_keyframe_metrics = {
+                "l2_pos": l2_pos
+            }
+        if len(self._latest_keyframe_metrics) > 0:
+            self._all_step_metrics.append(self._latest_keyframe_metrics)
 
         # Third-person snap
         self._cam_motion.step()
@@ -375,13 +392,18 @@ class TaskRecorder(object):
         for i, image in enumerate(self._3d_person_snaps):
             frame = image
             font = cv2.FONT_HERSHEY_DUPLEX
-            font_scale = (0.45 * image_size[0]) / 640
-            font_thickness = 2
+            font_scale = (0.45 * image_size[0]) / 480
+            font_thickness = 1
             lang_textsize = cv2.getTextSize(lang_goal, font, font_scale, font_thickness)[0]
             lang_textX = (image_size[0] - lang_textsize[0]) // 2
-            frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 35),
+            frame = cv2.putText(frame, lang_goal, org=(lang_textX, image_size[1] - 45),
                                 fontScale=font_scale, fontFace=font, color=(0, 0, 0),
                                 thickness=font_thickness, lineType=cv2.LINE_AA)
+            if len(self._all_step_metrics) > 0:
+                metrics_str = f"l2_pos = {self._all_step_metrics[i]['l2_pos']:.3f}"
+                frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
+                                    fontScale=font_scale, fontFace=font, color=(0, 0, 0),
+                                    thickness=font_thickness, lineType=cv2.LINE_AA)
             video.write(frame)
         video.release()
 
@@ -389,7 +411,7 @@ class TaskRecorder(object):
         # for (view, snaps) in zip(self._pcd_views, self._pcd_snaps):
         #     if len(snaps) == 0:
         #         continue
-        #     image_size = (640, 480)
+        #     image_size = (480, 480)
         #     video = cv2.VideoWriter(
         #         f"{path}/{view}_pcd_obs.mp4",
         #         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
@@ -414,22 +436,30 @@ class TaskRecorder(object):
         #         video.write(snap[:, :, ::-1])
         #     video.release()
 
-        # Visualize most informative views side by side
+        # Visualize most informative views together
         assert self._obs_record_freq == 1
-        side_by_side_visualizations = [
+        top_row_visualizations = [
             self._3d_person_snaps,
             self._pcd_snaps[0],
             self._pcd_snaps[1],
         ]
-        image_size = (640 * len(side_by_side_visualizations), 480)
+        bottom_row_visualizations = [
+            self._rgb_snaps[2],
+            self._rgb_snaps[0],
+            self._rgb_snaps[1],
+        ]
+        image_size = (480 * len(top_row_visualizations), 480 * 2)
         video = cv2.VideoWriter(
             f"{path}/pcd_obs.mp4",
             cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
             self._fps // self._obs_record_freq,
             tuple(image_size)
         )
-        for i in range(len(side_by_side_visualizations[0])):
-            snap = np.concatenate([snaps[i] for snaps in side_by_side_visualizations], axis=-2)
+        for i in range(len(top_row_visualizations[0])):
+            top_row = np.concatenate([snaps[i] for snaps in top_row_visualizations], axis=1)
+            bottom_row = np.concatenate([cv2.resize(snaps[i][:, :, ::-1], (480, 480))
+                                         for snaps in bottom_row_visualizations], axis=1)
+            snap = np.concatenate([top_row, bottom_row], axis=0)
             video.write(cv2.resize(snap, image_size))
         video.release()
 
@@ -439,3 +469,5 @@ class TaskRecorder(object):
         self._gt_keyframe_gripper_matrices = None
         self._pred_keyframe_gripper_matrices = None
         self._pred_location_heatmap = None
+        self._latest_keyframe_metrics = {}
+        self._all_step_metrics = []

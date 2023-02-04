@@ -444,7 +444,7 @@ class RLBenchEnv:
 
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
-            cam = VisionSensor.create([640, 480])
+            cam = VisionSensor.create([480, 480])
             cam.set_pose(cam_placeholder.get_pose())
             cam.set_parent(cam_placeholder)
             cam_motion = CircleCameraMotion(cam, Dummy('cam_cinematic_base'), 0.005)
@@ -522,12 +522,6 @@ class RLBenchEnv:
 
                     output = actioner.predict(step_id, rgbs, pcds, grippers,
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
-
-                    # DEBUG
-                    print()
-                    print(gt_keyframe_actions[step_id][0, :3])
-                    print(output["action"][-1, :3])
-                    print()
 
                     if offline:
                         # Follow demo
