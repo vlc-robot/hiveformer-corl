@@ -454,7 +454,8 @@ class Baseline(nn.Module):
         token_size: int = 19,
         gripper_loc_bounds=None,
         sample_ghost_points=True,
-        use_ground_truth_position_for_sampling=True
+        use_ground_truth_position_for_sampling=True,
+        position_loss="mse"
     ):
         super(Baseline, self).__init__()
 
@@ -462,6 +463,8 @@ class Baseline(nn.Module):
         self.gripper_loc_bounds = gripper_loc_bounds
         self.sample_ghost_points = sample_ghost_points
         self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
+        assert position_loss in ["mse", "ce", "bce"]
+        self.position_loss = position_loss
 
         self._instr_size = instr_size
         self._max_episode_length = max_episode_length
@@ -891,7 +894,13 @@ class Baseline(nn.Module):
         top_attn_idxs = attn_map.topk(k=500, dim=-1).indices[-1, 0]
         top_points = all_pcds[-1, :, top_attn_idxs].transpose(1, 0)
 
-        position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
+        if self.position_loss == "mse":
+            # Take weighted sum of all points
+            position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
+        elif self.position_loss in ["ce", "bce"]:
+            # Select top point
+            indices = attn_map.max(dim=-1).indices.squeeze(-1)
+            position = all_pcds[torch.arange(len(indices)), :, indices]
         # print("position", position.shape)
 
         g = instruction.mean(1)

@@ -732,7 +732,7 @@ class LossAndMetrics:
         position_prediction_only=False,
         compute_loss_at_all_layers=True
     ):
-        assert position_loss in ["ce", "mse"]
+        assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
@@ -750,7 +750,7 @@ class LossAndMetrics:
 
         losses = {}
 
-        if self.position_loss == "ce":
+        if self.position_loss in ["ce", "bce"]:
             # TODO Implement soft cross-entropy loss
 
             # Select closest point to ground-truth as a proxy ground-truth label
@@ -779,13 +779,20 @@ class LossAndMetrics:
                 # print("non_supervised_indices.sum()", non_supervised_indices.sum())
                 # print("len(proxy_indices)", len(proxy_indices))
 
-            losses["position"] = F.cross_entropy(pred_attention, proxy_indices)
+            if self.position_loss == "ce":
+                losses["position"] = F.cross_entropy(pred_attention, proxy_indices)
+
+            elif self.position_loss == "bce":
+                target = torch.zeros_like(pred_attention)
+                target[torch.arange(len(proxy_indices)), proxy_indices] = 1
+                losses["position"] = F.cross_entropy(torch.sigmoid(pred_attention), target)
 
             # Compute loss at intermediate layers
-            if self.compute_loss_at_all_layers:
-                for m in pred["intermediate_attention"]:
-                    losses["position"] += F.cross_entropy(m.squeeze(1), proxy_indices)
-                losses["position"] /= len(pred["intermediate_attention"]) + 1
+            # TODO Doesn't seem to help, try this again once get model working
+            # if self.compute_loss_at_all_layers:
+            #     for m in pred["intermediate_attention"]:
+            #         losses["position"] += F.cross_entropy(m.squeeze(1), proxy_indices)
+            #     losses["position"] /= len(pred["intermediate_attention"]) + 1
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss

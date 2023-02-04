@@ -69,11 +69,11 @@ class Arguments(tap.Tap):
 
     # baseline
     sample_ghost_points: int = 1
-    position_loss: str = "ce"  # one of "ce", "mse"
+    position_loss: str = "ce"  # one of "ce", "mse", "bce"
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 1
     compute_loss_at_all_layers: int = 0
-    non_supervised_ball_radius: float = 0.03
+    non_supervised_ball_radius: float = 0.01
 
 
 def training(
@@ -258,7 +258,7 @@ def validation_step(
                     sample["instr"],
                     sample["gripper"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
-                    sample["action"]   # TODO Providing gorund-truth action at val time to debug
+                    sample["action"]   # TODO Providing ground-truth action at val time to debug
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
@@ -402,7 +402,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 num_layers=args.num_layers,
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
                 sample_ghost_points=bool(args.sample_ghost_points),
-                use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling)
+                use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
+                position_loss=args.position_loss
             )
         else:
             raise NotImplementedError
