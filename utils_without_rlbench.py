@@ -787,7 +787,7 @@ class LossAndMetrics:
                 target[torch.arange(len(proxy_indices)), proxy_indices] = 1
                 num_points = pred_attention.shape[-1]
                 losses["position"] = F.binary_cross_entropy_with_logits(
-                    pred_attention, target, pos_weight=torch.tensor([num_points].to(device))
+                    pred_attention, target, pos_weight=torch.tensor([num_points]).to(device)
                 )
 
             # Compute loss at intermediate layers
