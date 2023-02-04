@@ -785,7 +785,7 @@ class LossAndMetrics:
             elif self.position_loss == "bce":
                 target = torch.zeros_like(pred_attention)
                 target[torch.arange(len(proxy_indices)), proxy_indices] = 1
-                losses["position"] = F.cross_entropy(torch.sigmoid(pred_attention), target)
+                losses["position"] = F.binary_cross_entropy(torch.sigmoid(pred_attention), target)
 
             # Compute loss at intermediate layers
             # TODO Doesn't seem to help, try this again once get model working
