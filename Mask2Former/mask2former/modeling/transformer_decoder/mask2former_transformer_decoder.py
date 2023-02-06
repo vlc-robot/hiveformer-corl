@@ -428,7 +428,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
                 num_points, bs, 1
             )
 
-            # print("ghost_points_feats - before contextualizaton", ghost_points_feats.shape)
+            # print("ghost_points_feats - before contextualization", ghost_points_feats.shape)
             # print("ghost_points_pos", ghost_points_pos.shape)
 
             # Let ghost points attend to all layers of pixel decoder visual features one by one
@@ -478,7 +478,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             pos[i] = torch.cat([pos[i], proprioception_pos], dim=0)
 
         # Add contextualized ghost points to the layers of the pixel decoder visual features
-        # used to contextualize queries (all except the last one used to decode the mask)
+        # used to contextualize queries (i.e., all except the last one used to decode the mask)
         if ghost_points_pcds is not None:
             for i in range(len(src)):
                 src[i] = torch.cat([src[i], ghost_points_feats_], dim=0)
