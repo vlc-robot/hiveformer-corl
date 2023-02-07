@@ -12,4 +12,5 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --exp_log_dir $main_dir \
        --run_log_dir $task \
        --position_loss $loss
+  done
 done

@@ -245,8 +245,15 @@ class Actioner:
             raise NotImplementedError
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
-        output["attention"] = pred["attention"]
-        output["top_points"] = pred["top_points"]
+
+        # output["top_points"] = pred["top_points"]
+
+        output["visible_rgb_mask"] = pred["visible_rgb_masks"][-1]
+        top_pcd_idxs = pred["all_masks"][-1].topk(k=500, dim=-1).indices[-1, 0]
+        top_pcd = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
+        output["top_pcd"] = top_pcd
+
+        raise NotImplementedError
 
         return output
 
@@ -542,7 +549,7 @@ class RLBenchEnv:
                             gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]],
                             pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
 
-                            pred_location_heatmap=output["top_points"].cpu().numpy()
+                            # pred_location_heatmap=output["top_points"].cpu().numpy()
                         )
 
                     if action is None:
