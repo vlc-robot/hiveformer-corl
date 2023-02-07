@@ -1,6 +1,6 @@
 #!/bin/sh
 
-main_dir=02_07
+main_dir=02_07_relative_pe
 
 task_file=debugging_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
@@ -11,6 +11,8 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --valset /home/tgervet/datasets/hiveformer/packaged/1 \
        --exp_log_dir $main_dir \
        --run_log_dir $task-$loss \
-       --position_loss $loss
+       --position_loss $loss \
+       --relative_attention 1 \
+       --embedding_dim 120
   done
 done
