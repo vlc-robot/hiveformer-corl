@@ -1,15 +1,15 @@
 #!/bin/sh
 
-main_dir=02_04_no_ghost_points
+main_dir=02_07
 
-task_file=10_autolambda_tasks.csv
+task_file=debugging_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu.sh \
-     --tasks $task \
-     --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
-     --valset /home/tgervet/datasets/hiveformer/packaged/1 \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task \
-     --position_loss mse \
-     --sample_ghost_points 0
+  for loss in mse bce ce; do
+    sbatch train_1gpu_32gb.sh \
+       --tasks $task \
+       --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
+       --valset /home/tgervet/datasets/hiveformer/packaged/1 \
+       --exp_log_dir $main_dir \
+       --run_log_dir $task \
+       --position_loss $loss
 done
