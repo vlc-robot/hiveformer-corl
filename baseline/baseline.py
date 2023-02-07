@@ -12,6 +12,7 @@ from utils_without_rlbench import Output
 
 from .load_mask2former import load_mask2former
 from .utils import sample_ghost_points
+from .position_prediction import PositionPrediction
 
 
 def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
@@ -455,16 +456,25 @@ class Baseline(nn.Module):
         gripper_loc_bounds=None,
         sample_ghost_points=True,
         use_ground_truth_position_for_sampling=True,
-        position_loss="mse"
+        position_loss="mse",
+        embedding_dim=128,
+        num_ghost_point_cross_attn_layers=4,
+        num_query_cross_attn_layers=4,
     ):
         super(Baseline, self).__init__()
 
-        self.mask2former = load_mask2former()
+        # self.mask2former = load_mask2former()
         self.gripper_loc_bounds = gripper_loc_bounds
         self.sample_ghost_points = sample_ghost_points
         self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
         assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
+        self.position_prediction = PositionPrediction(
+            loss=position_loss,
+            embedding_dim=embedding_dim,
+            num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=num_query_cross_attn_layers,
+        )
 
         self._instr_size = instr_size
         self._max_episode_length = max_episode_length
@@ -755,6 +765,192 @@ class Baseline(nn.Module):
 
         return ce
 
+    # def head(
+    #     self,
+    #     N: int,
+    #     pc_obs: torch.Tensor,
+    #     rgb_obs: torch.Tensor,
+    #     x,
+    #     enc_feat,
+    #     padding_mask,
+    #     instruction: torch.Tensor,
+    #     gripper: torch.Tensor,
+    #     gt_action
+    # ) -> Output:
+    #
+    #     # print()
+    #     # print()
+    #     # print("INPUTS:")
+    #     # print("pc_obs", pc_obs.shape)
+    #     # print("rgb_obs", rgb_obs.shape)
+    #     # print("enc_feat - contains features at different layers of a down-sampling UNet encoding RGB")
+    #     # print("(batch x history x cameras) x channels x height x width")
+    #     # for i in range(len(enc_feat)):
+    #     #     print("enc_feat[i]", enc_feat[i].shape)
+    #     # print("x - max downsampling, with point cloud info, contextualized with instruction and history")
+    #     # print("x", x.shape)
+    #     # print()
+    #
+    #     pc_obs = pc_obs[padding_mask]
+    #
+    #     # Position contact
+    #     # enc_feat.reverse()
+    #     # xtr = x
+    #     # print("ORIGINAL POSITION CONTACT:")
+    #     # print("heatmap (batch x history x cameras) x channels x height x width -", xtr.shape)
+    #     # for i, l in enumerate(self.trans_decoder):
+    #     #     if i == 0:
+    #     #         xtr = self.trans_decoder[0](x)
+    #     #     else:
+    #     #         xtr = l(torch.cat([xtr, enc_feat[i]], dim=1))
+    #     #     print("heatmap", xtr.shape)
+    #     # xt = xtr
+    #     # xt = self.maps_to_coord(xt)
+    #     # print("heatmap", xt.shape)
+    #     # xt = einops.rearrange(xt, "(b n) ch h w -> b (n ch h w)", n=N, ch=1)
+    #     # print("heatmap", xt.shape)
+    #     # print("heatmap.min(), heatmap.max()", xt.min(), xt.max())
+    #     # xt = torch.softmax(xt / 0.1, dim=1)
+    #     # print("heatmap.min(), heatmap.max()", xt.min(), xt.max())
+    #     # attn_map = einops.rearrange(
+    #     #     xt, "b (n ch h w) -> b n ch h w", n=N, ch=1, h=128, w=128
+    #     # )
+    #     # print("heatmap", attn_map.shape)
+    #     # position_contact = einops.reduce(pc_obs * attn_map, "b n ch h w -> b ch", "sum")
+    #     # print("position_contact", position_contact.shape)
+    #     # print()
+    #
+    #     # Position with Mask2Former - concatenate camera images side by side
+    #     # and sample ghost points
+    #     # print()
+    #     # print()
+    #     # print("MASK2FORMER POSITION")
+    #     imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
+    #     imgs = (imgs / 2 + 0.5) * 255.0  # Rescale to [0, 255]
+    #     imgs = imgs[:, :, :3, :, :]
+    #     pcds = pc_obs
+    #
+    #     # Sample ghost points
+    #     if self.sample_ghost_points:
+    #
+    #         if self.use_ground_truth_position_for_sampling and gt_action is not None:
+    #             # Training time
+    #
+    #             # Sample ghost points evenly across the workspace
+    #             grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
+    #             grid_pcd = torch.from_numpy(grid_pcd).float().to(pcds.device)
+    #             bs, num_points = pcds.shape[0], grid_pcd.shape[0]
+    #             grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
+    #
+    #             # Sample the ground-truth position as an additional ghost point
+    #             ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
+    #
+    #             ghost_points_pcds = torch.cat([grid_pcd, ground_truth_pcd], dim=1)
+    #
+    #         else:
+    #             # Inference time
+    #
+    #             # Sample ghost points evenly across the workspace
+    #             grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
+    #             grid_pcd = torch.from_numpy(grid_pcd).float().to(pcds.device)
+    #             bs, num_points = pcds.shape[0], grid_pcd.shape[0]
+    #             grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
+    #             ghost_points_pcds = grid_pcd
+    #
+    #     else:
+    #         ghost_points_pcds = None
+    #
+    #     proprioception = einops.rearrange(gripper, "b n c -> (b n) c")[:, :3]
+    #
+    #     # print("pcds", pcds.shape)
+    #     # print("ghost_points_pcds", ghost_points_pcds.shape)
+    #     (
+    #         img_attn_map,
+    #         ghost_points_attn_map,
+    #         intermediate_img_attn_maps,
+    #         intermediate_ghost_points_attn_maps
+    #     ) = self.mask2former(
+    #         imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds, proprioception=proprioception
+    #     )
+    #     # print("img_attn_map", img_attn_map.shape)
+    #     # print("ghost_points_attn_map", ghost_points_attn_map.shape)
+    #
+    #     attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
+    #     if self.sample_ghost_points:
+    #         attn_map = torch.cat([attn_map, ghost_points_attn_map], dim=-1)
+    #     attn_map_pre_softmax = attn_map
+    #
+    #     # Compute intermediate attn maps to apply loss at every layer of Transformer
+    #     # decoder - doing this quick and dirty, we'll clean up later
+    #     intermediate_attn_maps_pre_softmax = []
+    #     for i in range(len(intermediate_img_attn_maps)):
+    #         m = einops.rearrange(intermediate_img_attn_maps[i], "bt d h nw -> bt d (h nw)")
+    #         if self.sample_ghost_points:
+    #             m = torch.cat([m, intermediate_ghost_points_attn_maps[i]], dim=-1)
+    #         intermediate_attn_maps_pre_softmax.append(m)
+    #
+    #     attn_map = torch.softmax(attn_map, dim=-1)
+    #     # print("attn_map", attn_map.shape)
+    #
+    #     all_pcds = einops.rearrange(pcds, "bt n d h w -> bt d (h n w)")
+    #     if self.sample_ghost_points:
+    #         ghost_points_pcds = einops.rearrange(ghost_points_pcds, "bt num_points d -> bt d num_points")
+    #         all_pcds = torch.cat([all_pcds, ghost_points_pcds], dim=-1)
+    #     # print("all_pcds", all_pcds.shape)
+    #
+    #     # Compute top points for visualization (only last batch idx = latest timestep
+    #     # at inference time)
+    #     # TODO Improve selection of points used to visualize attention
+    #     top_attn_idxs = attn_map.topk(k=500, dim=-1).indices[-1, 0]
+    #     top_points = all_pcds[-1, :, top_attn_idxs].transpose(1, 0)
+    #
+    #     if self.position_loss == "mse":
+    #         # Take weighted sum of all points
+    #         position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
+    #     elif self.position_loss in ["ce", "bce"]:
+    #         # Select top point
+    #         indices = attn_map.max(dim=-1).indices.squeeze(-1)
+    #         position = all_pcds[torch.arange(len(indices)), :, indices]
+    #     # print("position", position.shape)
+    #
+    #     g = instruction.mean(1)
+    #     task = self.z_proj_instr(g)
+    #
+    #     # Position offset
+    #     if not self.sample_ghost_points:
+    #         B, T = padding_mask.shape
+    #         device = padding_mask.device
+    #         num_tasks = task.shape[1]
+    #         z_instr = task.softmax(1)
+    #         z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
+    #         z_instr = z_instr[padding_mask]
+    #         step_ids = torch.arange(T, dtype=torch.long, device=device)
+    #         z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
+    #         z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
+    #         z_pos = z_pos[padding_mask]
+    #         z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
+    #         position += z_offset
+    #
+    #     # Rotation
+    #     x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
+    #     xr = self.quat_decoder(x)
+    #     rotation = xr[:, :-1]
+    #     rotation = normalise_quat(rotation)
+    #
+    #     # DEBUG
+    #     # raise NotImplementedError
+    #
+    #     return {
+    #         "position": position,
+    #         "rotation": rotation,
+    #         "gripper": torch.sigmoid(xr[:, -1:]),
+    #         "attention": attn_map_pre_softmax,
+    #         "intermediate_attention": intermediate_attn_maps_pre_softmax,
+    #         "points": all_pcds.detach(),
+    #         "task": task,
+    #         "top_points": top_points
+    #     }
+
     def head(
         self,
         N: int,
@@ -768,158 +964,63 @@ class Baseline(nn.Module):
         gt_action
     ) -> Output:
 
-        # print()
-        # print()
-        # print("INPUTS:")
-        # print("pc_obs", pc_obs.shape)
-        # print("rgb_obs", rgb_obs.shape)
-        # print("enc_feat - contains features at different layers of a down-sampling UNet encoding RGB")
-        # print("(batch x history x cameras) x channels x height x width")
-        # for i in range(len(enc_feat)):
-        #     print("enc_feat[i]", enc_feat[i].shape)
-        # print("x - max downsampling, with point cloud info, contextualized with instruction and history")
-        # print("x", x.shape)
-        # print()
+        visible_pcd = pc_obs[padding_mask]
 
-        pc_obs = pc_obs[padding_mask]
+        visible_rgb = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
+        visible_rgb = (visible_rgb / 2 + 0.5) * 255  # From [-1, 1] to [0, 255]
+        visible_rgb = visible_rgb[:, :, :3, :, :]
 
-        # Position contact
-        # enc_feat.reverse()
-        # xtr = x
-        # print("ORIGINAL POSITION CONTACT:")
-        # print("heatmap (batch x history x cameras) x channels x height x width -", xtr.shape)
-        # for i, l in enumerate(self.trans_decoder):
-        #     if i == 0:
-        #         xtr = self.trans_decoder[0](x)
-        #     else:
-        #         xtr = l(torch.cat([xtr, enc_feat[i]], dim=1))
-        #     print("heatmap", xtr.shape)
-        # xt = xtr
-        # xt = self.maps_to_coord(xt)
-        # print("heatmap", xt.shape)
-        # xt = einops.rearrange(xt, "(b n) ch h w -> b (n ch h w)", n=N, ch=1)
-        # print("heatmap", xt.shape)
-        # print("heatmap.min(), heatmap.max()", xt.min(), xt.max())
-        # xt = torch.softmax(xt / 0.1, dim=1)
-        # print("heatmap.min(), heatmap.max()", xt.min(), xt.max())
-        # attn_map = einops.rearrange(
-        #     xt, "b (n ch h w) -> b n ch h w", n=N, ch=1, h=128, w=128
-        # )
-        # print("heatmap", attn_map.shape)
-        # position_contact = einops.reduce(pc_obs * attn_map, "b n ch h w -> b ch", "sum")
-        # print("position_contact", position_contact.shape)
-        # print()
+        if self.use_ground_truth_position_for_sampling and gt_action is not None:
+            # Training time
 
-        # Position with Mask2Former - concatenate camera images side by side
-        # and sample ghost points
-        # print()
-        # print()
-        # print("MASK2FORMER POSITION")
-        imgs = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
-        imgs = (imgs / 2 + 0.5) * 255.0  # Rescale to [0, 255]
-        imgs = imgs[:, :, :3, :, :]
-        pcds = pc_obs
+            # Sample ghost points evenly across the workspace
+            grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
+            grid_pcd = torch.from_numpy(grid_pcd).float().to(visible_pcd.device)
+            bs, num_points = visible_pcd.shape[0], grid_pcd.shape[0]
+            grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
 
-        # Sample ghost points
-        if self.sample_ghost_points:
+            # Sample the ground-truth position as an additional ghost point
+            ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
 
-            if self.use_ground_truth_position_for_sampling and gt_action is not None:
-                # Training time
-
-                # Sample ghost points evenly across the workspace
-                grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
-                grid_pcd = torch.from_numpy(grid_pcd).float().to(pcds.device)
-                bs, num_points = pcds.shape[0], grid_pcd.shape[0]
-                grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
-
-                # Sample the ground-truth position as an additional ghost point
-                ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
-
-                ghost_points_pcds = torch.cat([grid_pcd, ground_truth_pcd], dim=1)
-
-            else:
-                # Inference time
-
-                # Sample ghost points evenly across the workspace
-                grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
-                grid_pcd = torch.from_numpy(grid_pcd).float().to(pcds.device)
-                bs, num_points = pcds.shape[0], grid_pcd.shape[0]
-                grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
-                ghost_points_pcds = grid_pcd
+            ghost_pcd = torch.cat([grid_pcd, ground_truth_pcd], dim=1)
 
         else:
-            ghost_points_pcds = None
+            # Inference time
 
-        proprioception = einops.rearrange(gripper, "b n c -> (b n) c")[:, :3]
+            # Sample ghost points evenly across the workspace
+            grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
+            grid_pcd = torch.from_numpy(grid_pcd).float().to(visible_pcd.device)
+            bs, num_points = visible_pcd.shape[0], grid_pcd.shape[0]
+            grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
+            ghost_pcd = grid_pcd
 
-        # print("pcds", pcds.shape)
-        # print("ghost_points_pcds", ghost_points_pcds.shape)
-        (
-            img_attn_map,
-            ghost_points_attn_map,
-            intermediate_img_attn_maps,
-            intermediate_ghost_points_attn_maps
-        ) = self.mask2former(
-            imgs, pcds=pcds, ghost_points_pcds=ghost_points_pcds, proprioception=proprioception
+        curr_gripper_position = einops.rearrange(gripper, "b t c -> (b t) c")[:, :3]
+
+        # print()
+        # print("visible_rgb", visible_rgb.shape, visible_rgb.min(), visible_rgb.max())
+        # print("visible_pcd", visible_pcd.shape, visible_pcd.min(), visible_pcd.max())
+        # print("curr_gripper_pos", curr_gripper_position.shape, curr_gripper_position.min(), curr_gripper_position.max())
+        # print("ghost_pcd", ghost_pcd.shape, ghost_pcd.min(), ghost_pcd.max())
+
+        position_pred = self.position_prediction(
+            visible_rgb=visible_rgb,
+            visible_pcd=visible_pcd,
+            curr_gripper=curr_gripper_position,
+            ghost_pcd=ghost_pcd
         )
-        # print("img_attn_map", img_attn_map.shape)
-        # print("ghost_points_attn_map", ghost_points_attn_map.shape)
 
-        attn_map = einops.rearrange(img_attn_map, "bt d h nw -> bt d (h nw)")
-        if self.sample_ghost_points:
-            attn_map = torch.cat([attn_map, ghost_points_attn_map], dim=-1)
-        attn_map_pre_softmax = attn_map
-
-        # Compute intermediate attn maps to apply loss at every layer of Transformer
-        # decoder - doing this quick and dirty, we'll clean up later
-        intermediate_attn_maps_pre_softmax = []
-        for i in range(len(intermediate_img_attn_maps)):
-            m = einops.rearrange(intermediate_img_attn_maps[i], "bt d h nw -> bt d (h nw)")
-            if self.sample_ghost_points:
-                m = torch.cat([m, intermediate_ghost_points_attn_maps[i]], dim=-1)
-            intermediate_attn_maps_pre_softmax.append(m)
-
-        attn_map = torch.softmax(attn_map, dim=-1)
-        # print("attn_map", attn_map.shape)
-
-        all_pcds = einops.rearrange(pcds, "bt n d h w -> bt d (h n w)")
-        if self.sample_ghost_points:
-            ghost_points_pcds = einops.rearrange(ghost_points_pcds, "bt num_points d -> bt d num_points")
-            all_pcds = torch.cat([all_pcds, ghost_points_pcds], dim=-1)
-        # print("all_pcds", all_pcds.shape)
-
-        # Compute top points for visualization (only last batch idx = latest timestep
-        # at inference time)
-        # TODO Improve selection of points used to visualize attention
-        top_attn_idxs = attn_map.topk(k=500, dim=-1).indices[-1, 0]
-        top_points = all_pcds[-1, :, top_attn_idxs].transpose(1, 0)
-
-        if self.position_loss == "mse":
-            # Take weighted sum of all points
-            position = einops.reduce(attn_map * all_pcds, "bt d N -> bt d", "sum")
-        elif self.position_loss in ["ce", "bce"]:
-            # Select top point
-            indices = attn_map.max(dim=-1).indices.squeeze(-1)
-            position = all_pcds[torch.arange(len(indices)), :, indices]
-        # print("position", position.shape)
+        # print()
+        # print("pred['position']", position_pred["position"].shape, position_pred["position"].min(),
+        #       position_pred["position"].max())
+        # print("position_pred['visible_rgb_masks'][-1]", position_pred['visible_rgb_masks'][-1].shape,
+        #       position_pred['visible_rgb_masks'][-1].min(), position_pred['visible_rgb_masks'][-1].max())
+        # print("position_pred['ghost_pcd_masks'][-1]", position_pred['ghost_pcd_masks'][-1].shape,
+        #       position_pred['ghost_pcd_masks'][-1].min(), position_pred['ghost_pcd_masks'][-1].max())
+        # print("position_pred['all_masks'][-1]", position_pred['all_masks'][-1].shape,
+        #       position_pred['all_masks'][-1].min(), position_pred['all_masks'][-1].max())
 
         g = instruction.mean(1)
         task = self.z_proj_instr(g)
-
-        # Position offset
-        if not self.sample_ghost_points:
-            B, T = padding_mask.shape
-            device = padding_mask.device
-            num_tasks = task.shape[1]
-            z_instr = task.softmax(1)
-            z_instr = einops.repeat(z_instr, "b n -> b t 1 n", t=T)
-            z_instr = z_instr[padding_mask]
-            step_ids = torch.arange(T, dtype=torch.long, device=device)
-            z_pos = self.z_pos_instr(step_ids.unsqueeze(0)).squeeze(0)
-            z_pos = einops.repeat(z_pos, "t (n d) -> b t n d", b=B, n=num_tasks, d=3)
-            z_pos = z_pos[padding_mask]
-            z_offset = torch.bmm(z_instr, z_pos).squeeze(1)
-            position += z_offset
 
         # Rotation
         x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
@@ -927,16 +1028,13 @@ class Baseline(nn.Module):
         rotation = xr[:, :-1]
         rotation = normalise_quat(rotation)
 
-        # DEBUG
-        # raise NotImplementedError
-
         return {
-            "position": position,
+            "visible_rgb_masks": position_pred["visible_rgb_masks"],
+            "ghost_pcd_masks": position_pred["ghost_pcd_masks"],
+            "all_masks": position_pred["all_masks"],
+            "all_pcd": position_pred["all_pcd"],
+            "position": position_pred["position"],
             "rotation": rotation,
             "gripper": torch.sigmoid(xr[:, -1:]),
-            "attention": attn_map_pre_softmax,
-            "intermediate_attention": intermediate_attn_maps_pre_softmax,
-            "points": all_pcds.detach(),
             "task": task,
-            "top_points": top_points
         }

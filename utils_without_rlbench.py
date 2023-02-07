@@ -741,6 +741,78 @@ class LossAndMetrics:
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
 
+    # def compute_loss(
+    #     self, pred: Dict[str, torch.Tensor], sample: Sample
+    # ) -> Dict[str, torch.Tensor]:
+    #     device = pred["position"].device
+    #     padding_mask = sample["padding_mask"].to(device)
+    #     outputs = sample["action"].to(device)[padding_mask]
+    #
+    #     losses = {}
+    #
+    #     if self.position_loss in ["ce", "bce"]:
+    #         # TODO Implement soft cross-entropy loss
+    #
+    #         # Select closest point to ground-truth as a proxy ground-truth label
+    #         gt = outputs[:, :3]
+    #         l2_gt = ((pred["points"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
+    #         min_l2_gt = l2_gt.min(dim=-1)
+    #         proxy_indices = min_l2_gt.indices
+    #
+    #         pred_attention = pred["attention"].squeeze(1)
+    #
+    #         if self.non_supervised_ball_radius > 0:
+    #             # Don't supervise a ball around the proxy ground-truth
+    #             proxy = pred["points"][torch.arange(len(proxy_indices)), :, proxy_indices]
+    #             l2_proxy = ((pred["points"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
+    #             non_supervised_indices = torch.logical_and(
+    #                 l2_proxy > 0,
+    #                 l2_proxy < self.non_supervised_ball_radius
+    #             )
+    #             pred_attention[non_supervised_indices] = pred_attention[non_supervised_indices].detach()
+    #
+    #             # DEBUG
+    #             # print()
+    #             # print("gt", gt)
+    #             # print("proxy", proxy)
+    #             # print("(l2_proxy < self.non_supervised_ball_radius).sum()", (l2_proxy < self.non_supervised_ball_radius).sum())
+    #             # print("non_supervised_indices.sum()", non_supervised_indices.sum())
+    #             # print("len(proxy_indices)", len(proxy_indices))
+    #
+    #         if self.position_loss == "ce":
+    #             losses["position"] = F.cross_entropy(pred_attention, proxy_indices)
+    #
+    #         elif self.position_loss == "bce":
+    #             target = torch.zeros_like(pred_attention)
+    #             target[torch.arange(len(proxy_indices)), proxy_indices] = 1
+    #             num_points = pred_attention.shape[-1]
+    #             losses["position"] = F.binary_cross_entropy_with_logits(
+    #                 pred_attention, target, pos_weight=torch.tensor([num_points]).to(device)
+    #             )
+    #
+    #         # Compute loss at intermediate layers
+    #         # TODO Doesn't seem to help, try this again once get model working
+    #         # if self.compute_loss_at_all_layers:
+    #         #     for m in pred["intermediate_attention"]:
+    #         #         losses["position"] += F.cross_entropy(m.squeeze(1), proxy_indices)
+    #         #     losses["position"] /= len(pred["intermediate_attention"]) + 1
+    #
+    #         # Clear gradient on pred["position"] to avoid a memory leak since we don't
+    #         # use it in the loss
+    #         pred["position"] = pred["position"].detach()
+    #
+    #     elif self.position_loss == "mse":
+    #         losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
+    #
+    #     if not self.position_prediction_only:
+    #         losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
+    #         losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
+    #         if pred["task"] is not None:
+    #             task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+    #             task = task.to(device).long()
+    #             losses["task"] = F.cross_entropy(pred["task"], task)
+    #     return losses
+
     def compute_loss(
         self, pred: Dict[str, torch.Tensor], sample: Sample
     ) -> Dict[str, torch.Tensor]:
@@ -751,25 +823,24 @@ class LossAndMetrics:
         losses = {}
 
         if self.position_loss in ["ce", "bce"]:
-            # TODO Implement soft cross-entropy loss
-
             # Select closest point to ground-truth as a proxy ground-truth label
             gt = outputs[:, :3]
-            l2_gt = ((pred["points"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
+
+            l2_gt = ((pred["all_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
             min_l2_gt = l2_gt.min(dim=-1)
             proxy_indices = min_l2_gt.indices
 
-            pred_attention = pred["attention"].squeeze(1)
+            pred_masks = pred["all_masks"][-1]
 
             if self.non_supervised_ball_radius > 0:
                 # Don't supervise a ball around the proxy ground-truth
-                proxy = pred["points"][torch.arange(len(proxy_indices)), :, proxy_indices]
-                l2_proxy = ((pred["points"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
+                proxy = pred["all_pcd"][torch.arange(len(proxy_indices)), :, proxy_indices]
+                l2_proxy = ((pred["all_pcd"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
                 non_supervised_indices = torch.logical_and(
                     l2_proxy > 0,
                     l2_proxy < self.non_supervised_ball_radius
                 )
-                pred_attention[non_supervised_indices] = pred_attention[non_supervised_indices].detach()
+                pred_masks[non_supervised_indices] = pred_masks[non_supervised_indices].detach()
 
                 # DEBUG
                 # print()
@@ -780,22 +851,20 @@ class LossAndMetrics:
                 # print("len(proxy_indices)", len(proxy_indices))
 
             if self.position_loss == "ce":
-                losses["position"] = F.cross_entropy(pred_attention, proxy_indices)
+                losses["position"] = F.cross_entropy(pred_masks, proxy_indices)
 
             elif self.position_loss == "bce":
-                target = torch.zeros_like(pred_attention)
+                target = torch.zeros_like(pred_masks)
                 target[torch.arange(len(proxy_indices)), proxy_indices] = 1
-                num_points = pred_attention.shape[-1]
+                num_points = pred_masks.shape[-1]
                 losses["position"] = F.binary_cross_entropy_with_logits(
-                    pred_attention, target, pos_weight=torch.tensor([num_points]).to(device)
+                    pred_masks, target, pos_weight=torch.tensor([num_points]).to(device)
                 )
 
             # Compute loss at intermediate layers
             # TODO Doesn't seem to help, try this again once get model working
-            # if self.compute_loss_at_all_layers:
-            #     for m in pred["intermediate_attention"]:
-            #         losses["position"] += F.cross_entropy(m.squeeze(1), proxy_indices)
-            #     losses["position"] /= len(pred["intermediate_attention"]) + 1
+            if self.compute_loss_at_all_layers:
+                raise NotImplementedError
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss

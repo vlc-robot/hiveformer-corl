@@ -74,6 +74,9 @@ class Arguments(tap.Tap):
     use_ground_truth_position_for_sampling: int = 1
     compute_loss_at_all_layers: int = 0
     non_supervised_ball_radius: float = 0.01
+    embedding_dim: int = 128
+    num_ghost_point_cross_attn_layers: int = 4
+    num_query_cross_attn_layers: int = 4
 
 
 def training(
@@ -403,7 +406,10 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
                 sample_ghost_points=bool(args.sample_ghost_points),
                 use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
-                position_loss=args.position_loss
+                position_loss=args.position_loss,
+                embedding_dim=args.embedding_dim,
+                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=args.num_query_cross_attn_layers
             )
         else:
             raise NotImplementedError
