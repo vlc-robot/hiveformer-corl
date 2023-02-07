@@ -6,7 +6,7 @@ val_seed=1
 task_file=10-tasks.csv
 output_dir=$root/datasets/hiveformer/packaged
 
-experiment=uncleaned_code_exp3
+experiment=uncleaned_code_xian_exp
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu.sh \
     --name $experiment \
