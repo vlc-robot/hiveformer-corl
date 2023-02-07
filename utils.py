@@ -249,9 +249,10 @@ class Actioner:
         # output["top_points"] = pred["top_points"]
 
         output["visible_rgb_mask"] = pred["visible_rgb_masks"][-1]
-        top_pcd_idxs = pred["all_masks"][-1].topk(k=500, dim=-1).indices[-1, 0]
-        top_pcd = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
-        output["top_pcd"] = top_pcd
+        print(pred["all_masks"][-1].shape)
+        # top_pcd_idxs = pred["all_masks"][-1].topk(k=500, dim=-1).indices[-1, 0]
+        # top_pcd = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
+        # output["top_pcd"] = top_pcd
 
         raise NotImplementedError
 

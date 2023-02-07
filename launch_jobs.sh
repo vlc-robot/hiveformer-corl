@@ -10,7 +10,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
        --valset /home/tgervet/datasets/hiveformer/packaged/1 \
        --exp_log_dir $main_dir \
-       --run_log_dir $task \
+       --run_log_dir $task-$loss \
        --position_loss $loss
   done
 done
