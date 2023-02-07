@@ -103,7 +103,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            custom_cam_params: bool,
                            gt_keyframe_gripper_matrices: Optional[np.array] = None,
                            pred_keyframe_gripper_matrices: Optional[np.array] = None,
-                           pred_location_heatmap: Optional[np.array] = None,
+                           top_pcd_heatmap: Optional[np.array] = None,
                            gripper_loc_bounds: Optional[np.array] = None,
                            position_prediction_only: bool = False,
                            gt_color=(0.2, 0.8, 0.),
@@ -146,18 +146,18 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
     #     ghost_points_opcds.append(ghost_points_opcd)
     #     # all_geometries.append(ghost_points_opcd)
 
-    # Visualize location prediction heatmap
-    pred_location_heatmap_opcds = []
-    if pred_location_heatmap is not None:
-        pred_location_heatmap_opcd = open3d.geometry.PointCloud()
-        pred_location_heatmap_opcd.points = open3d.utility.Vector3dVector(pred_location_heatmap)
-        pred_location_heatmap_colors = np.zeros_like(pred_location_heatmap)
-        pred_location_heatmap_colors[:, 0] = pred_color[0]
-        pred_location_heatmap_colors[:, 1] = pred_color[1]
-        pred_location_heatmap_colors[:, 2] = pred_color[2]
-        pred_location_heatmap_opcd.colors = open3d.utility.Vector3dVector(pred_location_heatmap_colors)
-        pred_location_heatmap_opcds.append(pred_location_heatmap_opcd)
-        all_geometries.append(pred_location_heatmap_opcd)
+    # Visualize location prediction heatmap in the point cloud
+    top_pcd_heatmap_opcds = []
+    if top_pcd_heatmap is not None:
+        top_pcd_heatmap_opcd = open3d.geometry.PointCloud()
+        top_pcd_heatmap_opcd.points = open3d.utility.Vector3dVector(top_pcd_heatmap)
+        top_pcd_heatmap_colors = np.zeros_like(top_pcd_heatmap)
+        top_pcd_heatmap_colors[:, 0] = pred_color[0]
+        top_pcd_heatmap_colors[:, 1] = pred_color[1]
+        top_pcd_heatmap_colors[:, 2] = pred_color[2]
+        top_pcd_heatmap_opcd.colors = open3d.utility.Vector3dVector(top_pcd_heatmap_colors)
+        top_pcd_heatmap_opcds.append(top_pcd_heatmap_opcd)
+        all_geometries.append(top_pcd_heatmap_opcd)
 
     # Add gripper keyframe actions to point clouds for visualization
     keyframe_action_geometries = []
@@ -194,7 +194,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         all_geometries.append(opcd)
         window_name = vis[cam].get_window_name()
         if window_name in ["left_shoulder", "right_shoulder"]:
-            view_geometries = [opcd, *ghost_points_opcds, *pred_location_heatmap_opcds, *keyframe_action_geometries]
+            view_geometries = [opcd, *ghost_points_opcds, *top_pcd_heatmap_opcds, *keyframe_action_geometries]
         else:
             view_geometries = [opcd]
         imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
@@ -260,7 +260,8 @@ class TaskRecorder(object):
         self._all_step_metrics = []
         self._gt_keyframe_gripper_matrices = None
         self._pred_keyframe_gripper_matrices = None
-        self._pred_location_heatmap = None
+        self._top_pcd_heatmap = None
+        self._top_rgb_heatmap = None
         self._gripper_loc_bounds = json.load(open("location_bounds.json", "r"))[task_str]
         self._position_prediction_only = position_prediction_only
 
@@ -313,7 +314,8 @@ class TaskRecorder(object):
                   obs: Observation,
                   gt_keyframe_gripper_matrices: Optional[np.array] = None,
                   pred_keyframe_gripper_matrices: Optional[np.array] = None,
-                  pred_location_heatmap: Optional[np.array] = None,
+                  top_pcd_heatmap: Optional[np.array] = None,
+                  top_rgb_heatmap: Optional[np.array] = None,
                   debug=False):
         """
         Take observation snapshot.
@@ -332,8 +334,10 @@ class TaskRecorder(object):
             self._gt_keyframe_gripper_matrices = gt_keyframe_gripper_matrices
         if pred_keyframe_gripper_matrices is not None:
             self._pred_keyframe_gripper_matrices = pred_keyframe_gripper_matrices
-        if pred_location_heatmap is not None:
-            self._pred_location_heatmap = pred_location_heatmap
+        if top_pcd_heatmap is not None:
+            self._top_pcd_heatmap = top_pcd_heatmap
+        if top_rgb_heatmap is not None:
+            self._top_rgb_heatmap = top_rgb_heatmap
 
         # Compute metrics
         if gt_keyframe_gripper_matrices is not None and pred_keyframe_gripper_matrices is not None:
@@ -356,7 +360,10 @@ class TaskRecorder(object):
             rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
             pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
             for i in range(len(self._rgb_snaps)):
-                self._rgb_snaps[i].append(rgb_obs[i])
+                rgb = rgb_obs[i]
+                if self._top_rgb_heatmap is not None:
+                    rgb[self._top_rgb_heatmap[i] == 1] = (255.0, 0., 255.0)
+                self._rgb_snaps[i].append(rgb)
             rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
             # normalise to [-1, 1]
             rgb_obs = rgb_obs / 255.0
@@ -367,7 +374,7 @@ class TaskRecorder(object):
                 self._custom_cam_params,
                 self._gt_keyframe_gripper_matrices,
                 self._pred_keyframe_gripper_matrices,
-                self._pred_location_heatmap,
+                self._top_pcd_heatmap,
                 self._gripper_loc_bounds,
                 self._position_prediction_only
             )
@@ -468,6 +475,7 @@ class TaskRecorder(object):
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
         self._gt_keyframe_gripper_matrices = None
         self._pred_keyframe_gripper_matrices = None
-        self._pred_location_heatmap = None
+        self._top_pcd_heatmap = None
+        self._top_rgb_heatmap = None
         self._latest_keyframe_metrics = {}
         self._all_step_metrics = []

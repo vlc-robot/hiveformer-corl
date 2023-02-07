@@ -248,13 +248,11 @@ class Actioner:
 
         # output["top_points"] = pred["top_points"]
 
-        output["visible_rgb_mask"] = pred["visible_rgb_masks"][-1]
-        print(pred["all_masks"][-1].shape)
-        # top_pcd_idxs = pred["all_masks"][-1].topk(k=500, dim=-1).indices[-1, 0]
-        # top_pcd = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
-        # output["top_pcd"] = top_pcd
+        top_rgb_value = pred["visible_rgb_masks"][-1][-1].flatten().topk(k=500).values[-1]
+        output["top_rgb"] = pred["visible_rgb_masks"][-1][-1] >= top_rgb_value
 
-        raise NotImplementedError
+        top_pcd_idxs = pred["all_masks"][-1][-1].topk(k=500, dim=-1).indices
+        output["top_pcd"] = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
 
         return output
 
@@ -551,6 +549,8 @@ class RLBenchEnv:
                             pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
 
                             # pred_location_heatmap=output["top_points"].cpu().numpy()
+                            top_pcd_heatmap=output["top_pcd"].cpu().numpy(),
+                            top_rgb_heatmap=output["top_rgb"].cpu().numpy()
                         )
 
                     if action is None:
