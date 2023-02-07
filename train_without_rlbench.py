@@ -77,6 +77,7 @@ class Arguments(tap.Tap):
     embedding_dim: int = 128
     num_ghost_point_cross_attn_layers: int = 4
     num_query_cross_attn_layers: int = 4
+    relative_attention: int = 0
 
 
 def training(
@@ -409,7 +410,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-                num_query_cross_attn_layers=args.num_query_cross_attn_layers
+                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+                relative_attention=bool(args.relative_attention)
             )
         else:
             raise NotImplementedError

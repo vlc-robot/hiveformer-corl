@@ -60,6 +60,10 @@ class Arguments(tap.Tap):
     sample_ghost_points: int = 1
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 0
+    embedding_dim: int = 128
+    num_ghost_point_cross_attn_layers: int = 4
+    num_query_cross_attn_layers: int = 4
+    relative_attention: int = 0
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -153,7 +157,11 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
                 sample_ghost_points=bool(args.sample_ghost_points),
                 use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
-                position_loss=args.position_loss
+                position_loss=args.position_loss,
+                embedding_dim=args.embedding_dim,
+                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+                relative_attention=bool(args.relative_attention)
             ).to(device)
         else:
             raise NotImplementedError

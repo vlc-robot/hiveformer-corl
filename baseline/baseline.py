@@ -12,7 +12,7 @@ from utils_without_rlbench import Output
 
 from .load_mask2former import load_mask2former
 from .utils import sample_ghost_points
-from .position_prediction import PositionPrediction
+from .position_prediction import PositionPrediction, RelativePositionPrediction
 
 
 def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
@@ -460,6 +460,7 @@ class Baseline(nn.Module):
         embedding_dim=128,
         num_ghost_point_cross_attn_layers=4,
         num_query_cross_attn_layers=4,
+        relative_attention=False
     ):
         super(Baseline, self).__init__()
 
@@ -469,12 +470,20 @@ class Baseline(nn.Module):
         self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
         assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
-        self.position_prediction = PositionPrediction(
-            loss=position_loss,
-            embedding_dim=embedding_dim,
-            num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
-            num_query_cross_attn_layers=num_query_cross_attn_layers,
-        )
+        if relative_attention:
+            self.position_prediction = RelativePositionPrediction(
+                loss=position_loss,
+                embedding_dim=embedding_dim,
+                num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=num_query_cross_attn_layers,
+            )
+        else:
+            self.position_prediction = PositionPrediction(
+                loss=position_loss,
+                embedding_dim=embedding_dim,
+                num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=num_query_cross_attn_layers,
+            )
 
         self._instr_size = instr_size
         self._max_episode_length = max_episode_length
