@@ -73,7 +73,7 @@ class Arguments(tap.Tap):
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 1
     compute_loss_at_all_layers: int = 0
-    non_supervised_ball_radius: float = 0.01
+    ground_truth_ball_radius: float = 0.005
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
@@ -479,7 +479,7 @@ if __name__ == "__main__":
         position_prediction_only=bool(args.position_prediction_only),
         position_loss=args.position_loss,
         compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
-        non_supervised_ball_radius=args.non_supervised_ball_radius
+        ground_truth_ball_radius=args.ground_truth_ball_radius
     )
 
     model_dict = {

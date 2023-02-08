@@ -728,7 +728,7 @@ class LossAndMetrics:
     def __init__(
         self,
         position_loss,
-        non_supervised_ball_radius,
+        ground_truth_ball_radius,
         position_prediction_only=False,
         compute_loss_at_all_layers=True
     ):
@@ -736,7 +736,7 @@ class LossAndMetrics:
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
-        self.non_supervised_ball_radius = non_supervised_ball_radius
+        self.ground_truth_ball_radius = ground_truth_ball_radius
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -829,37 +829,39 @@ class LossAndMetrics:
             l2_gt = ((pred["all_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
             min_l2_gt = l2_gt.min(dim=-1)
             proxy_indices = min_l2_gt.indices
+            label = proxy_indices
 
             pred_masks = pred["all_masks"][-1]
 
-            if self.non_supervised_ball_radius > 0:
+            if self.ground_truth_ball_radius > 0:
                 # Don't supervise a ball around the proxy ground-truth
                 proxy = pred["all_pcd"][torch.arange(len(proxy_indices)), :, proxy_indices]
-                l2_proxy = ((pred["all_pcd"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt()
-                non_supervised_indices = torch.logical_and(
-                    l2_proxy > 0,
-                    l2_proxy < self.non_supervised_ball_radius
-                )
-                pred_masks[non_supervised_indices] = pred_masks[non_supervised_indices].detach()
+                l2_proxy = ((pred["all_pcd"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt().detach()
+                proxy_ball = l2_proxy < self.ground_truth_ball_radius
+
+                if self.position_loss == "bce":
+                    label = proxy_ball.to(torch.float)
+                elif self.position_loss == "ce":
+                    label = (proxy_ball / proxy_ball.sum(dim=-1, keepdim=True)).detach()
 
                 # DEBUG
                 # print()
                 # print("gt", gt)
                 # print("proxy", proxy)
-                # print("(l2_proxy < self.non_supervised_ball_radius).sum()", (l2_proxy < self.non_supervised_ball_radius).sum())
-                # print("non_supervised_indices.sum()", non_supervised_indices.sum())
-                # print("len(proxy_indices)", len(proxy_indices))
+                # print("proxy_ball", proxy_ball.shape, proxy_ball.sum())
+                # print("label", label.shape, label.sum())
 
             if self.position_loss == "ce":
-                losses["position"] = F.cross_entropy(pred_masks, proxy_indices)
+                losses["position"] = F.cross_entropy(pred_masks, label)
 
             elif self.position_loss == "bce":
-                target = torch.zeros_like(pred_masks)
-                target[torch.arange(len(proxy_indices)), proxy_indices] = 1
-                num_points = pred_masks.shape[-1]
+                if self.ground_truth_ball_radius == 0:
+                    label = torch.zeros_like(pred_masks)
+                    label[torch.arange(len(proxy_indices)), proxy_indices] = 1
+
+                pos_weight = label.numel() / label.sum()
                 losses["position"] = F.binary_cross_entropy_with_logits(
-                    pred_masks, target, pos_weight=torch.tensor([num_points]).to(device)
-                )
+                    pred_masks, label, pos_weight=pos_weight)
 
             # Compute loss at intermediate layers
             # TODO Doesn't seem to help, try this again once get model working
