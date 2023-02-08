@@ -66,11 +66,14 @@ if callable_each_step is not None:
 root=/home/theophile_gervet_gmail_com
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
-train_seed=0
+#train_seed=0
+train_seed=2
 val_seed=1
-train_episodes_per_task=100
+#train_episodes_per_task=100
+train_episodes_per_task=500
 val_episodes_per_task=5
-task_file=10_autolambda_tasks.csv
+#task_file=10_autolambda_tasks.csv
+task_file=debugging_tasks.csv
 
 nohup sudo X &
 export DISPLAY=:0.0
