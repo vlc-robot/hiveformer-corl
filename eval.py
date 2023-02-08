@@ -60,10 +60,10 @@ class Arguments(tap.Tap):
     sample_ghost_points: int = 1
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 0
-    embedding_dim: int = 128
-    num_ghost_point_cross_attn_layers: int = 4
-    num_query_cross_attn_layers: int = 4
-    relative_attention: int = 0
+    embedding_dim: int = 60
+    num_ghost_point_cross_attn_layers: int = 2
+    num_query_cross_attn_layers: int = 2
+    relative_attention: int = 1
 
 
 def get_log_dir(args: Arguments) -> Path:

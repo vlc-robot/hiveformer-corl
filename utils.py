@@ -248,11 +248,11 @@ class Actioner:
 
         # output["top_points"] = pred["top_points"]
 
-        top_rgb_value = pred["visible_rgb_masks"][-1][-1].flatten().topk(k=500).values[-1]
-        output["top_rgb"] = pred["visible_rgb_masks"][-1][-1] >= top_rgb_value
-
-        top_pcd_idxs = pred["all_masks"][-1][-1].topk(k=500, dim=-1).indices
+        topk = pred["all_masks"][-1][-1].topk(k=500)
+        top_value = topk.values[-1]
+        top_pcd_idxs = topk.indices
         output["top_pcd"] = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
+        output["top_rgb"] = pred["visible_rgb_masks"][-1][-1] >= top_value
 
         return output
 

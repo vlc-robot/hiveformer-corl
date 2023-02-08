@@ -74,10 +74,10 @@ class Arguments(tap.Tap):
     use_ground_truth_position_for_sampling: int = 1
     compute_loss_at_all_layers: int = 0
     non_supervised_ball_radius: float = 0.01
-    embedding_dim: int = 128
-    num_ghost_point_cross_attn_layers: int = 4
-    num_query_cross_attn_layers: int = 4
-    relative_attention: int = 0
+    embedding_dim: int = 60
+    num_ghost_point_cross_attn_layers: int = 2
+    num_query_cross_attn_layers: int = 2
+    relative_attention: int = 1
 
 
 def training(
