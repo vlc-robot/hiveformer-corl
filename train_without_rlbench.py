@@ -262,7 +262,7 @@ def validation_step(
                     sample["instr"],
                     sample["gripper"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
-                    sample["action"]   # TODO Providing ground-truth action at val time to debug
+                    # sample["action"]   # TODO Providing ground-truth action at val time to debug
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
