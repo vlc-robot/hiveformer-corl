@@ -69,12 +69,13 @@ class Arguments(tap.Tap):
 
     # baseline
     sample_ghost_points: int = 1
+    num_ghost_points: int = 1000
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
     position_prediction_only: int = 1
-    use_ground_truth_position_for_sampling: int = 1
+    use_ground_truth_position_for_sampling: int = 0
     compute_loss_at_all_layers: int = 0
     # ground_truth_ball_radius: float = 0.005
-    ground_truth_gaussian_spread: float = 0.001
+    ground_truth_gaussian_spread: float = 0.01
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
@@ -414,6 +415,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
                 relative_attention=bool(args.relative_attention),
+                num_ghost_points=args.num_ghost_points
             )
         else:
             raise NotImplementedError

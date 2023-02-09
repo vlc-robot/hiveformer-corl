@@ -11,7 +11,7 @@ from transformers.activations import ACT2FN
 from utils_without_rlbench import Output
 
 from .load_mask2former import load_mask2former
-from .utils import sample_ghost_points
+from .utils import sample_ghost_points_randomly
 from .position_prediction import PositionPrediction, RelativePositionPrediction
 
 
@@ -461,6 +461,7 @@ class Baseline(nn.Module):
         num_ghost_point_cross_attn_layers=4,
         num_query_cross_attn_layers=4,
         relative_attention=False,
+        num_ghost_points=1000,
     ):
         super(Baseline, self).__init__()
 
@@ -470,6 +471,7 @@ class Baseline(nn.Module):
         self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
         assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
+        self.num_ghost_points = num_ghost_points
         if relative_attention:
             self.position_prediction = RelativePositionPrediction(
                 loss=position_loss,
@@ -982,8 +984,8 @@ class Baseline(nn.Module):
         if self.use_ground_truth_position_for_sampling and gt_action is not None:
             # Training time
 
-            # Sample ghost points evenly across the workspace
-            grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
+            # Sample ghost points randomly across the workspace
+            grid_pcd = sample_ghost_points_randomly(self.gripper_loc_bounds, num_points=self.num_ghost_points)
             grid_pcd = torch.from_numpy(grid_pcd).float().to(visible_pcd.device)
             bs, num_points = visible_pcd.shape[0], grid_pcd.shape[0]
             grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
@@ -996,8 +998,8 @@ class Baseline(nn.Module):
         else:
             # Inference time
 
-            # Sample ghost points evenly across the workspace
-            grid_pcd = sample_ghost_points(self.gripper_loc_bounds)
+            # Sample ghost points randomly across the workspace
+            grid_pcd = sample_ghost_points_randomly(self.gripper_loc_bounds)
             grid_pcd = torch.from_numpy(grid_pcd).float().to(visible_pcd.device)
             bs, num_points = visible_pcd.shape[0], grid_pcd.shape[0]
             grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)

@@ -311,6 +311,8 @@ class RLBenchEnv:
             self.action_mode, str(data_path), self.obs_config, headless=headless
         )
 
+        self.gripper_loc_bounds = json.load(open("location_bounds.json", "r"))
+
     def get_obs_action(self, obs):
         """
         Fetch the desired state and action based on the provided demo.
@@ -480,6 +482,18 @@ class RLBenchEnv:
 
         device = actioner.device
 
+        gripper_loc_bounds = self.gripper_loc_bounds[task_str]
+        min_position = torch.tensor([
+            self.env._scene._workspace_minx + 0.01,
+            self.env._scene._workspace_miny + 0.01,
+            self.env._scene._workspace_minz + 0.01
+        ]).to(device)
+        max_position = torch.tensor([
+            self.env._scene._workspace_maxx - 0.01,
+            self.env._scene._workspace_maxy - 0.01,
+            self.env._scene._workspace_maxz - 0.01
+        ]).to(device)
+
         success_rate = 0.0
 
         fetch_list = [self.get_demo(task_str, variation, episode_index=i)[0]
@@ -538,7 +552,13 @@ class RLBenchEnv:
                         # Follow trained policy
                         action = output["action"]
 
-                    print(f"Step {step_id}, action: {action}")
+                        # Clamp position to workspace bounds
+                        action[:, :3] = torch.clamp(action[:, :3], min_position, max_position)
+
+                        if position_prediction_only:
+                            action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+
+                    print(f"Step id {step_id}, action {action}")
 
                     if record_videos and demo_id < num_videos:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))

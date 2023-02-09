@@ -40,6 +40,7 @@ if __name__ == "__main__":
     instruction = load_instructions(
         args.instructions, tasks=args.tasks, variations=args.variations
     )
+
     taskvar = [
         (task, var)
         for task, var_instr in instruction.items()
@@ -64,12 +65,12 @@ if __name__ == "__main__":
 
     for i in range(len(dataset)):
         ep = dataset[i]
-        bounds[ep["task"]].append(ep["action"][:, :3])
+        bounds[ep["task"]].append(ep["action"][ep["padding_mask"], :3])
 
     bounds = {
         task: [
-            torch.stack(gripper_locs, dim=0).min(dim=0).values.min(dim=0).values.tolist(),
-            torch.stack(gripper_locs, dim=0).max(dim=0).values.max(dim=0).values.tolist()
+            torch.cat(gripper_locs, dim=0).min(dim=0).values.tolist(),
+            torch.cat(gripper_locs, dim=0).max(dim=0).values.tolist()
         ]
         for task, gripper_locs in bounds.items()
         if len(gripper_locs) > 0

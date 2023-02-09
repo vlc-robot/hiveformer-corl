@@ -13,7 +13,6 @@ from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 from rlbench import Environment
 from rlbench.backend.observation import Observation
-from baseline.utils import sample_ghost_points
 
 
 def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2, 0.8, 0.)):
@@ -133,19 +132,6 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
     all_geometries = []
     imgs = []
 
-    # Visualize sampled gripper ghost points
-    ghost_points_opcds = []
-    # if gripper_loc_bounds is not None:
-    #     ghost_points = sample_ghost_points(gripper_loc_bounds)
-    #     ghost_points_colors = np.zeros_like(ghost_points)
-    #     ghost_points_colors[:, 0] = 0.2
-    #     ghost_points_colors[:, 1] = 0.8
-    #     ghost_points_opcd = open3d.geometry.PointCloud()
-    #     ghost_points_opcd.points = open3d.utility.Vector3dVector(ghost_points)
-    #     ghost_points_opcd.colors = open3d.utility.Vector3dVector(ghost_points_colors)
-    #     ghost_points_opcds.append(ghost_points_opcd)
-    #     # all_geometries.append(ghost_points_opcd)
-
     # Visualize location prediction heatmap in the point cloud
     top_pcd_heatmap_opcds = []
     if top_pcd_heatmap is not None:
@@ -194,7 +180,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         all_geometries.append(opcd)
         window_name = vis[cam].get_window_name()
         if window_name in ["left_shoulder", "right_shoulder"]:
-            view_geometries = [opcd, *ghost_points_opcds, *top_pcd_heatmap_opcds, *keyframe_action_geometries]
+            view_geometries = [opcd, *top_pcd_heatmap_opcds, *keyframe_action_geometries]
         else:
             view_geometries = [opcd]
         imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
