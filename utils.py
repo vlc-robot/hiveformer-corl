@@ -489,6 +489,8 @@ class RLBenchEnv:
 
         with torch.no_grad():
             for demo_id, demo in enumerate(tqdm(fetch_list)):
+                print()
+                print(f"Starting demo {demo_id}")
                 if record_videos and demo_id < num_videos:
                     task_recorder._cam_motion.save_pose()
 
@@ -535,6 +537,8 @@ class RLBenchEnv:
                     else:
                         # Follow trained policy
                         action = output["action"]
+
+                    print(f"Step {step_id}, action: {action}")
 
                     if record_videos and demo_id < num_videos:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))

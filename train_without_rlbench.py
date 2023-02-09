@@ -73,7 +73,8 @@ class Arguments(tap.Tap):
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 1
     compute_loss_at_all_layers: int = 0
-    ground_truth_ball_radius: float = 0.005
+    # ground_truth_ball_radius: float = 0.005
+    ground_truth_gaussian_spread: float = 0.001
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
@@ -263,7 +264,7 @@ def validation_step(
                     sample["instr"],
                     sample["gripper"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
-                    # sample["action"]   # TODO Providing ground-truth action at val time to debug
+                    # sample["action"]
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
@@ -480,7 +481,8 @@ if __name__ == "__main__":
         position_prediction_only=bool(args.position_prediction_only),
         position_loss=args.position_loss,
         compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
-        ground_truth_ball_radius=args.ground_truth_ball_radius,
+        # ground_truth_ball_radius=args.ground_truth_ball_radius,
+        ground_truth_gaussian_spread=args.ground_truth_gaussian_spread,
         label_smoothing=args.label_smoothing,
     )
 

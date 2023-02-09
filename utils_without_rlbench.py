@@ -728,7 +728,8 @@ class LossAndMetrics:
     def __init__(
         self,
         position_loss,
-        ground_truth_ball_radius,
+        # ground_truth_ball_radius,
+        ground_truth_gaussian_spread,
         position_prediction_only=False,
         compute_loss_at_all_layers=True,
         label_smoothing=0.0,
@@ -737,7 +738,8 @@ class LossAndMetrics:
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
-        self.ground_truth_ball_radius = ground_truth_ball_radius
+        # self.ground_truth_ball_radius = ground_truth_ball_radius
+        self.ground_truth_gaussian_spread = ground_truth_gaussian_spread
         self.label_smoothing = label_smoothing
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
@@ -815,6 +817,77 @@ class LossAndMetrics:
     #             losses["task"] = F.cross_entropy(pred["task"], task)
     #     return losses
 
+    # def compute_loss(
+    #     self, pred: Dict[str, torch.Tensor], sample: Sample
+    # ) -> Dict[str, torch.Tensor]:
+    #     device = pred["position"].device
+    #     padding_mask = sample["padding_mask"].to(device)
+    #     outputs = sample["action"].to(device)[padding_mask]
+    #
+    #     losses = {}
+    #
+    #     if self.position_loss in ["ce", "bce"]:
+    #         # Select closest point to ground-truth as a proxy ground-truth label
+    #         gt = outputs[:, :3]
+    #
+    #         l2_gt = ((pred["all_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
+    #         min_l2_gt = l2_gt.min(dim=-1)
+    #         proxy_indices = min_l2_gt.indices
+    #         label = proxy_indices
+    #
+    #         pred_masks = pred["all_masks"][-1]
+    #
+    #         if self.ground_truth_ball_radius > 0:
+    #             # Don't supervise a ball around the proxy ground-truth
+    #             proxy = pred["all_pcd"][torch.arange(len(proxy_indices)), :, proxy_indices]
+    #             l2_proxy = ((pred["all_pcd"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt().detach()
+    #             proxy_ball = l2_proxy < self.ground_truth_ball_radius
+    #
+    #             if self.position_loss == "bce":
+    #                 label = proxy_ball.to(torch.float)
+    #             elif self.position_loss == "ce":
+    #                 label = (proxy_ball / proxy_ball.sum(dim=-1, keepdim=True)).detach()
+    #
+    #             # DEBUG
+    #             # print()
+    #             # print("gt", gt)
+    #             # print("proxy", proxy)
+    #             # print("proxy_ball", proxy_ball.shape, proxy_ball.sum())
+    #             # print("label", label.shape, label.sum())
+    #
+    #         if self.position_loss == "ce":
+    #             losses["position"] = F.cross_entropy(pred_masks, label, label_smoothing=self.label_smoothing)
+    #
+    #         elif self.position_loss == "bce":
+    #             if self.ground_truth_ball_radius == 0:
+    #                 label = torch.zeros_like(pred_masks)
+    #                 label[torch.arange(len(proxy_indices)), proxy_indices] = 1
+    #
+    #             pos_weight = label.numel() / label.sum()
+    #             losses["position"] = F.binary_cross_entropy_with_logits(
+    #                 pred_masks, label, pos_weight=pos_weight)
+    #
+    #         # Compute loss at intermediate layers
+    #         # TODO Doesn't seem to help, try this again once get model working
+    #         if self.compute_loss_at_all_layers:
+    #             raise NotImplementedError
+    #
+    #         # Clear gradient on pred["position"] to avoid a memory leak since we don't
+    #         # use it in the loss
+    #         pred["position"] = pred["position"].detach()
+    #
+    #     elif self.position_loss == "mse":
+    #         losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
+    #
+    #     if not self.position_prediction_only:
+    #         losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
+    #         losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
+    #         if pred["task"] is not None:
+    #             task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+    #             task = task.to(device).long()
+    #             losses["task"] = F.cross_entropy(pred["task"], task)
+    #     return losses
+
     def compute_loss(
         self, pred: Dict[str, torch.Tensor], sample: Sample
     ) -> Dict[str, torch.Tensor]:
@@ -825,42 +898,19 @@ class LossAndMetrics:
         losses = {}
 
         if self.position_loss in ["ce", "bce"]:
-            # Select closest point to ground-truth as a proxy ground-truth label
+            # Select a normalized Gaussian ball around the ground-truth as a proxy label
             gt = outputs[:, :3]
 
             l2_gt = ((pred["all_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
-            min_l2_gt = l2_gt.min(dim=-1)
-            proxy_indices = min_l2_gt.indices
-            label = proxy_indices
+            label = torch.softmax(-l2_gt / self.ground_truth_gaussian_spread, dim=-1).detach()
 
             pred_masks = pred["all_masks"][-1]
 
-            if self.ground_truth_ball_radius > 0:
-                # Don't supervise a ball around the proxy ground-truth
-                proxy = pred["all_pcd"][torch.arange(len(proxy_indices)), :, proxy_indices]
-                l2_proxy = ((pred["all_pcd"] - proxy.unsqueeze(-1)) ** 2).sum(1).sqrt().detach()
-                proxy_ball = l2_proxy < self.ground_truth_ball_radius
-
-                if self.position_loss == "bce":
-                    label = proxy_ball.to(torch.float)
-                elif self.position_loss == "ce":
-                    label = (proxy_ball / proxy_ball.sum(dim=-1, keepdim=True)).detach()
-
-                # DEBUG
-                # print()
-                # print("gt", gt)
-                # print("proxy", proxy)
-                # print("proxy_ball", proxy_ball.shape, proxy_ball.sum())
-                # print("label", label.shape, label.sum())
-
             if self.position_loss == "ce":
-                losses["position"] = F.cross_entropy(pred_masks, label, label_smoothing=self.label_smoothing)
+                losses["position"] = F.cross_entropy(
+                    pred_masks, label, label_smoothing=self.label_smoothing)
 
             elif self.position_loss == "bce":
-                if self.ground_truth_ball_radius == 0:
-                    label = torch.zeros_like(pred_masks)
-                    label[torch.arange(len(proxy_indices)), proxy_indices] = 1
-
                 pos_weight = label.numel() / label.sum()
                 losses["position"] = F.binary_cross_entropy_with_logits(
                     pred_masks, label, pos_weight=pos_weight)
