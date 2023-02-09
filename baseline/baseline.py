@@ -999,7 +999,7 @@ class Baseline(nn.Module):
             # Inference time
 
             # Sample ghost points randomly across the workspace
-            grid_pcd = sample_ghost_points_randomly(self.gripper_loc_bounds)
+            grid_pcd = sample_ghost_points_randomly(self.gripper_loc_bounds, num_points=self.num_ghost_points)
             grid_pcd = torch.from_numpy(grid_pcd).float().to(visible_pcd.device)
             bs, num_points = visible_pcd.shape[0], grid_pcd.shape[0]
             grid_pcd = grid_pcd.unsqueeze(0).repeat(bs, 1, 1)
