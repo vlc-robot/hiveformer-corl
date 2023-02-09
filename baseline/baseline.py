@@ -10,7 +10,7 @@ from torch.distributions import Bernoulli
 from transformers.activations import ACT2FN
 from utils_without_rlbench import Output
 
-from .load_mask2former import load_mask2former
+# from .load_mask2former import load_mask2former
 from .utils import sample_ghost_points_randomly
 from .position_prediction import PositionPrediction, RelativePositionPrediction
 
