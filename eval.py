@@ -58,6 +58,7 @@ class Arguments(tap.Tap):
     # baseline
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
     sample_ghost_points: int = 1
+    num_ghost_points: int = 1000
     position_prediction_only: int = 1
     use_ground_truth_position_for_sampling: int = 0
     embedding_dim: int = 60
@@ -161,7 +162,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                relative_attention=bool(args.relative_attention)
+                relative_attention=bool(args.relative_attention),
+                num_ghost_points=args.num_ghost_points
             ).to(device)
         else:
             raise NotImplementedError
