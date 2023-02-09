@@ -18,7 +18,8 @@ main_dir=02_09_num_ghost_points
 #  done
 #done
 
-task_file=debugging_tasks.csv
+#task_file=debugging_tasks.csv
+task_file=more_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
   for n in 125 250 500 1000; do
     sbatch train_1gpu_32gb.sh \
