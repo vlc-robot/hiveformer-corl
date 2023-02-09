@@ -730,13 +730,15 @@ class LossAndMetrics:
         position_loss,
         ground_truth_ball_radius,
         position_prediction_only=False,
-        compute_loss_at_all_layers=True
+        compute_loss_at_all_layers=True,
+        label_smoothing=0.0,
     ):
         assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
         self.ground_truth_ball_radius = ground_truth_ball_radius
+        self.label_smoothing = label_smoothing
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -852,7 +854,7 @@ class LossAndMetrics:
                 # print("label", label.shape, label.sum())
 
             if self.position_loss == "ce":
-                losses["position"] = F.cross_entropy(pred_masks, label)
+                losses["position"] = F.cross_entropy(pred_masks, label, label_smoothing=self.label_smoothing)
 
             elif self.position_loss == "bce":
                 if self.ground_truth_ball_radius == 0:

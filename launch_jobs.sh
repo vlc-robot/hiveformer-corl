@@ -1,11 +1,10 @@
 #!/bin/sh
 
-main_dir=02_08_debugged
+main_dir=02_09
 
 task_file=debugging_tasks.csv
-#for task in $(cat $task_file | tr '\n' ' '); do
-for task in put_money_in_safe; do
-  for rad in 0 0.01; do
+for task in $(cat $task_file | tr '\n' ' '); do
+  for rad in 0.01 0.001; do
     for sample in 0 1; do
       sbatch train_1gpu_32gb.sh \
          --tasks $task \

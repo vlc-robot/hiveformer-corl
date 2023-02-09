@@ -460,7 +460,7 @@ class Baseline(nn.Module):
         embedding_dim=128,
         num_ghost_point_cross_attn_layers=4,
         num_query_cross_attn_layers=4,
-        relative_attention=False
+        relative_attention=False,
     ):
         super(Baseline, self).__init__()
 

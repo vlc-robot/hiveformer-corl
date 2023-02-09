@@ -78,6 +78,7 @@ class Arguments(tap.Tap):
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
     relative_attention: int = 1
+    label_smoothing: float = 0.1
 
 
 def training(
@@ -411,7 +412,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                relative_attention=bool(args.relative_attention)
+                relative_attention=bool(args.relative_attention),
             )
         else:
             raise NotImplementedError
@@ -479,7 +480,8 @@ if __name__ == "__main__":
         position_prediction_only=bool(args.position_prediction_only),
         position_loss=args.position_loss,
         compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
-        ground_truth_ball_radius=args.ground_truth_ball_radius
+        ground_truth_ball_radius=args.ground_truth_ball_radius,
+        label_smoothing=args.label_smoothing,
     )
 
     model_dict = {
