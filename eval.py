@@ -25,7 +25,7 @@ class Arguments(tap.Tap):
     seed: int = 2
     save_img: bool = True
     device: str = "cuda"
-    num_episodes: int = 2
+    num_episodes: int = 1
     headless: bool = False
     offset: int = 0
     name: str = "autol"
