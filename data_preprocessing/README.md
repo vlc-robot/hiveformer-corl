@@ -1,0 +1,63 @@
+## Data Preprocessing
+
+```
+root=/home/theophile_gervet_gmail_com
+data_dir=$root/datasets/hiveformer/raw
+output_dir=$root/datasets/hiveformer/packaged
+train_seed=0
+val_seed=1
+train_episodes_per_task=100
+val_episodes_per_task=5
+task_file=tasks/10_autolambda_tasks.csv
+
+nohup sudo X &
+export DISPLAY=:0.0
+```
+
+### 1 - Generate raw train and val data
+```
+cd $root/hiveformer/RLBench/tools
+
+python dataset_generator.py \
+    --save_path=$data_dir/$train_seed \
+    --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
+    --image_size=128,128 \
+    --renderer=opengl \
+    --episodes_per_task=$train_episodes_per_task \
+    --variations=1 \
+    --offset=0 \
+    --processes=1
+    
+python dataset_generator.py \
+    --save_path=$data_dir/$val_seed \
+    --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
+    --image_size=128,128 \
+    --renderer=opengl \
+    --episodes_per_task=$val_episodes_per_task \
+    --variations=1 \
+    --offset=0 \
+    --processes=1
+```
+
+### 2 - Preprocess train and val data
+```
+cd $root/hiveformer
+for task in $(cat $task_file | tr '\n' ' '); do
+    for seed in $train_seed $val_seed; do
+        python data_preprocessing/data_gen.py \
+            --data_dir=$data_dir/$seed \
+            --output=$output_dir/$seed \
+            --max_variations=1 \
+            --tasks=$task
+    done
+done
+```
+
+### 3 - Preprocess instructions
+```
+python data_preprocessing/preprocess_instructions.py \
+    --tasks $(cat $task_file | tr '\n' ' ') \
+    --output instructions.pkl \
+    --variations {0..199} \
+    --annotations data_preprocessing/annotations.json
+```

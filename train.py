@@ -1,8 +1,10 @@
 import random
 from typing import List, Tuple, Dict, Optional, Any
 import os
+from collections import defaultdict
 from pathlib import Path
 import torch
+import json
 from torch import nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
@@ -10,63 +12,86 @@ from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import tqdm, trange
-from filelock import FileLock
 import tap
-from network import Hiveformer
-from utils import (
+
+from utils.utils_without_rlbench import (
     LossAndMetrics,
     load_instructions,
-    RLBenchEnv,
     count_parameters,
-    load_episodes,
     get_max_episode_length,
-    Actioner,
 )
 from dataset import RLBenchDataset
-
-from baseline.baseline import Baseline
+from model.released_hiveformer.network import Hiveformer
+from model.non_analogical_baseline.baseline import Baseline
 
 
 class Arguments(tap.Tap):
-    accumulate_grad_batches: int = 1
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
-    checkpoint: Optional[Path] = None
-    checkpoint_period: int = 10
-    dataset: List[Path]
-    device: str = "cuda"
-    xp: Path = Path(__file__).parent / "xp"
-    valset: Optional[Tuple[Path, ...]] = None
-    name: str = "hiveformer"
-    arch: str = "mct"
-    num_workers: int = 5
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
-    instructions: Optional[Path] = None
+    instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
     seed: int = 2
-
     tasks: Tuple[str, ...]
     variations: Tuple[int, ...] = (0,)
+    checkpoint: Optional[Path] = None
+    accumulate_grad_batches: int = 1
+    val_freq: int = 500
+    checkpoint_freq: int = 10
 
-    # Train
-    batch_size: int = 32
-    lr: float = 0.001
-    val_freq: int = 200
-    val_batch_size: int = 100
-    train_iters: int = 100_000
-    jitter: bool = False
+    # Training and validation datasets
+    dataset: List[Path]
+    valset: Optional[Tuple[Path, ...]] = None
 
-    # tests
-    headless: bool = False
-    output: Path = Path(__file__).parent / "records.txt"
+    # Logging
+    base_log_dir: Path = Path(__file__).parent / "train_logs"
+    exp_log_dir: str = "exp"
+    run_log_dir: str = "run"
 
-    # model
+    # Main training parameters
+    devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    num_workers: int = 5 * len(devices)
+    batch_size: int = 10 * len(devices)
+    lr: float = 5e-5
+    train_iters: int = 200_000 // len(devices)
+
+    # Toggle to switch between original HiveFormer and our models
+    model: str = "develop"  # one of "original", "develop"
+
+    # ---------------------------------------------------------------
+    # Original HiveFormer parameters
+    # ---------------------------------------------------------------
+
     depth: int = 4
     dim_feedforward: int = 64
     hidden_dim: int = 64
     instr_size: int = 512
     mask_obs_prob: float = 0.0
     num_layers: int = 1
+
+    # ---------------------------------------------------------------
+    # Our non-analogical baseline parameters
+    # ---------------------------------------------------------------
+
+    # Loss
+    position_prediction_only: int = 1
+    position_loss: str = "ce"  # one of "ce", "mse", "bce"
+    ground_truth_gaussian_spread: float = 0.01
+    compute_loss_at_all_layers: int = 0
+    position_loss_coeff: float = 1.0
+    rotation_loss_coeff: float = 1.0
+    gripper_loss_coeff: float = 1.0
+    label_smoothing: float = 0.1
+
+    # Ghost points
+    num_ghost_points: int = 1000
+    use_ground_truth_position_for_sampling: int = 0
+
+    # Model
+    embedding_dim: int = 60
+    num_ghost_point_cross_attn_layers: int = 2
+    num_query_cross_attn_layers: int = 2
+    rotation_pooling_gaussian_spread: float = 0.01  # if 0, no pooling
 
 
 def training(
@@ -80,7 +105,9 @@ def training(
     writer: SummaryWriter,
 ):
     iter_loader = iter(train_loader)
-    device = next(model.parameters()).device
+
+    aggregated_losses = defaultdict(list)
+    aggregated_metrics = defaultdict(list)
 
     with trange(args.train_iters) as tbar:
         for step_id in tbar:
@@ -90,51 +117,60 @@ def training(
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
 
-            rgbs = sample["rgbs"].to(device)
-            pcds = sample["pcds"].to(device)
-            gripper = sample["gripper"].to(device)
-            outputs = sample["action"].to(device)
-            padding_mask = sample["padding_mask"].to(device)
-
-            instr = sample["instr"]
-            if instr is not None:
-                instr = instr.to(device)
-
-            frame_id = sample["frame_id"]
-            tasks = sample["task"]
-
             if step_id % args.accumulate_grad_batches == 0:
                 optimizer.zero_grad()
 
-            pred = model(
-                rgbs,
-                pcds,
-                padding_mask,
-                instr,
-                gripper,
-            )
+            model_type = type(model)
+            if model_type == nn.DataParallel:
+                model_type = type(model.module)
+            if model_type == Hiveformer:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"]
+                )
+            elif model_type == Baseline:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"],
+                    # Provide ground-truth action to sample ghost points at training time
+                    sample["action"]
+                )
 
-            # DEBUG
-            # raise NotImplementedError
-
-            train_losses = loss_and_metrics.compute_loss(pred, sample)
+            train_losses = loss_and_metrics.compute_loss(pred, sample, model)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
-
-            for n, l in train_losses.items():
-                writer.add_scalar(f"train-loss/{n}", l, step_id)
-
-            writer.add_scalar(f"lr/", args.lr, step_id)
+            train_losses["total"].backward()  # type: ignore
 
             metrics = loss_and_metrics.compute_metrics(pred, sample)
-            for n, l in metrics.items():
-                writer.add_scalar(f"train-metrics/{n}", l, step_id)
 
-            train_losses["total"].backward()  # type: ignore
+            for n, l in train_losses.items():
+                aggregated_losses[n].append(l)
+            for n, l in metrics.items():
+                aggregated_metrics[n].append(l)
 
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
             if (step_id + 1) % args.val_freq == 0:
+                writer.add_scalar(f"lr/", args.lr, step_id)
+
+                for n, l in aggregated_losses.items():
+                    writer.add_scalar(f"train-loss/{n}", torch.mean(torch.stack(l)), step_id)
+                for n, l in aggregated_metrics.items():
+                    writer.add_scalar(f"train-metrics/{n}", torch.mean(torch.stack(l)), step_id)
+                aggregated_losses = defaultdict(list)
+                aggregated_metrics = defaultdict(list)
+
+                for n, l in train_losses.items():
+                    aggregated_losses[n].append(l)
+                for n, l in metrics.items():
+                    aggregated_metrics[n].append(l)
+
                 if val_loaders is not None:
                     val_metrics = validation_step(
                         step_id,
@@ -152,11 +188,17 @@ def training(
 
 
 def get_log_dir(args: Arguments) -> Path:
-    log_dir = args.xp / args.name
+    log_dir = args.base_log_dir / args.exp_log_dir
+
+    def get_log_file(version):
+        log_file = f"{args.run_log_dir}_version{version}"
+        return log_file
+
     version = int(os.environ.get("SLURM_JOBID", 0))
-    while (log_dir / f"version{version}").is_dir():
+    while (log_dir / get_log_file(version)).is_dir():
         version += 1
-    return log_dir / f"version{version}"
+
+    return log_dir / get_log_file(version)
 
 
 class CheckpointCallback:
@@ -165,29 +207,32 @@ class CheckpointCallback:
         name: str,
         log_dir: Path,
         state_dict: Any,
+        val_freq: int,
         minimizing: bool = True,
-        checkpoint_period: int = 200,
+        checkpoint_freq: int = 10,
     ):
         self._name = name
         self._minimizing = minimizing
         self._best = float("inf") if minimizing else -float("inf")
         self._log_dir = log_dir
-        self._checkpoint_period = checkpoint_period
+        self._checkpoint_freq = checkpoint_freq
         self._step = 0
+        self._val_freq = val_freq
         self._state_dict = state_dict
 
     def __call__(self, metrics: Dict[str, torch.Tensor]):
         self._step += 1
-        if self._step % self._checkpoint_period != 0:
+        if self._step % self._checkpoint_freq != 0:
             return
 
-        value = int(metrics.get(self._name, 0))
-        dest = self._log_dir / f"model.step={self._step}-value={value}.pth"
+        value = metrics.get(self._name, 0)
+        dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value.item():.5f}.pth"
         torch.save(self._state_dict, dest)
 
-        if (self._minimizing and self._best > value) or (
-            not self._minimizing and self._best < value
-        ):
+        cond1 = self._name not in metrics
+        cond2 = self._name in metrics and ((self._minimizing and self._best > value) or (not self._minimizing and self._best < value))
+
+        if cond1 or cond2:
             best = self._log_dir / "best.pth"
             best.unlink(missing_ok=True)
             best.symlink_to(dest.resolve())
@@ -212,28 +257,29 @@ def validation_step(
             if i == val_iters:
                 break
 
-            rgbs = sample["rgbs"].to(device)
-            pcds = sample["pcds"].to(device)
-            gripper = sample["gripper"].to(device)
-            outputs = sample["action"].to(device)
-            padding_mask = sample["padding_mask"].to(device)
+            model_type = type(model)
+            if model_type == nn.DataParallel:
+                model_type = type(model.module)
+            if model_type == Hiveformer:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"]
+                )
+            elif model_type == Baseline:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"],
+                    # DO NOT provide ground-truth action to sample ghost points at validation time
+                    # sample["action"]
+                )
 
-            instr = sample["instr"]
-            if instr is not None:
-                instr = instr.to(device)
-
-            frame_id = sample["frame_id"]
-            tasks = sample["task"]
-
-            pred = model(
-                rgbs,
-                pcds,
-                padding_mask,
-                instr,
-                gripper,
-            )
-
-            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
+            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample, model)
             losses["total"] = torch.stack(list(losses.values())).sum()
 
             for n, l in losses.items():
@@ -253,10 +299,10 @@ def validation_step(
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-        key = f"val-loss-{val_id}/total"
-        print(f"Validation Loss {val_id}: {values[key].mean():.05f}")
-        key = f"val-metrics-{val_id}/position"
-        print(f"Validation Position {val_id}: {values[key].mean():.05f}")
+        print()
+        print(f"Step {step_id}:")
+        for key, value in values.items():
+            print(f"{key}: {value.mean():.03f}")
 
     return values
 
@@ -284,7 +330,6 @@ def get_train_loader(args: Arguments) -> DataLoader:
             for task, var_instr in instruction.items()
             for var in var_instr.keys()
         ]
-    print(f"Valset has {len(taskvar)} taskvars")
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
@@ -303,6 +348,7 @@ def get_train_loader(args: Arguments) -> DataLoader:
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
+        pin_memory=True,
         collate_fn=collate_fn,
     )
     return loader
@@ -324,7 +370,6 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
             for task, var_instr in instruction.items()
             for var in var_instr.keys()
         ]
-    print(f"Valset has {len(taskvar)} taskvars")
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
     loaders = []
@@ -348,32 +393,46 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
         )
         loaders.append(loader)
 
-    print(len(loaders), "validation loaders")
-
     return loaders
 
 
 def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
-    device = torch.device(args.device)
-
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
-    model = Hiveformer(
-        depth=args.depth,
-        dim_feedforward=args.dim_feedforward,
-        hidden_dim=args.hidden_dim,
-        instr_size=args.instr_size,
-        mask_obs_prob=args.mask_obs_prob,
-        max_episode_length=max_episode_length,
-        num_layers=args.num_layers,
-    ).to(device)
-    # model = Baseline().to(device)
+    if args.model == "original":
+        _model = Hiveformer(
+            depth=args.depth,
+            dim_feedforward=args.dim_feedforward,
+            hidden_dim=args.hidden_dim,
+            instr_size=args.instr_size,
+            mask_obs_prob=args.mask_obs_prob,
+            max_episode_length=max_episode_length,
+            num_layers=args.num_layers,
+        )
+    elif args.model == "develop":
+        if len(args.tasks) == 1:
+            _model = Baseline(
+                use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
+                position_loss=args.position_loss,
+                embedding_dim=args.embedding_dim,
+                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+                rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+            )
+        else:
+            raise NotImplementedError
+
+    devices = [torch.device(d) for d in args.devices]
+    model = _model.to(devices[0])
+    if args.devices[0] != "cpu":
+        assert all("cuda" in d for d in args.devices)
+        model = torch.nn.DataParallel(model, device_ids=devices)
 
     optimizer_grouped_parameters = [
         {"params": [], "weight_decay": 0.0, "lr": args.lr},
         {"params": [], "weight_decay": 5e-4, "lr": args.lr},
     ]
     no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in model.named_parameters():
+    for name, param in _model.named_parameters():
         if any(nd in name for nd in no_decay):
             optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
         else:
@@ -382,47 +441,68 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
 
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(model_dict["weight"])
+        _model.load_state_dict(model_dict["weight"])
         optimizer.load_state_dict(model_dict["optimizer"])
 
-    print("Number of parameters:")
-    model_params = count_parameters(model)
-    print("- model", model_params)
-    print("Total", model_params)
+    model_params = count_parameters(_model)
+    print("Model parameters:", model_params)
 
     return optimizer, model
 
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    print()
+    print("Arguments:")
     print(args)
+
+    print()
+    print("-" * 100)
+    print()
+
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
-    print("Logging:", log_dir)
     args.save(str(log_dir / "hparams.json"))
     writer = SummaryWriter(log_dir=log_dir)
+
+    print("Logging:", log_dir)
+    print("Args devices:", args.devices)
+    print("Available devices (CUDA_VISIBLE_DEVICES):", os.environ.get("CUDA_VISIBLE_DEVICES"))
+    print("Device count", torch.cuda.device_count())
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    device = torch.device(args.device)
-
     optimizer, model = get_model(args)
 
-    loss_and_metrics = LossAndMetrics()
+    print()
+    print("-" * 100)
+    print()
 
-    # training episode
+    loss_and_metrics = LossAndMetrics(
+        position_prediction_only=bool(args.position_prediction_only),
+        position_loss=args.position_loss,
+        compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
+        ground_truth_gaussian_spread=args.ground_truth_gaussian_spread,
+        label_smoothing=args.label_smoothing,
+        position_loss_coeff=args.position_loss_coeff,
+        rotation_loss_coeff=args.rotation_loss_coeff,
+        gripper_loss_coeff=args.gripper_loss_coeff,
+        rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+    )
+
     model_dict = {
         "weight": model.state_dict(),
         "optimizer": optimizer.state_dict(),
     }
     checkpointer = CheckpointCallback(
-        "val-metrics/position",
+        "val-metrics-0/position_l2",
         log_dir,
         model_dict,
-        minimizing=False,
-        checkpoint_period=args.checkpoint_period,
+        val_freq=args.val_freq,
+        minimizing=True,
+        checkpoint_freq=args.checkpoint_freq,
     )
     model.train()
 
@@ -430,7 +510,6 @@ if __name__ == "__main__":
 
     if args.train_iters > 0:
         train_loader = get_train_loader(args)
-
         training(
             model,
             optimizer,
@@ -452,45 +531,6 @@ if __name__ == "__main__":
             val_iters=-1,
         )
 
-    # last checkpoint
+    # Last checkpoint
     checkpoint = log_dir / f"mtl_{args.seed}_{args.lr}.pth"
     torch.save(model_dict, checkpoint)
-
-    # evaluation
-    model.eval()
-
-    env = RLBenchEnv(
-        data_path="",
-        apply_rgb=True,
-        apply_pc=True,
-        apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
-        headless=args.headless,
-    )
-
-    instruction = load_instructions(args.instructions)
-    if instruction is None:
-        raise NotImplementedError()
-
-    actioner = Actioner(model=model, instructions=instruction)
-    max_eps_dict = load_episodes()["max_episode_length"]
-    for task_str in args.tasks:
-        for variation in args.variations:
-            success_rate = env.evaluate(
-                task_str,
-                actioner=actioner,
-                max_episodes=max_eps_dict.get(task_str, 6),
-                variation=variation,
-                num_demos=1,
-                demos=None,
-                log_dir=log_dir,
-                max_tries=args.max_tries,
-                record_videos=True
-            )
-
-            print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
-
-            with FileLock(args.output.parent / f"{args.output.name}.lock"):
-                with open(args.output, "a") as oid:
-                    oid.write(
-                        f"{task_str}-{variation}, na, seed={args.seed}, {success_rate}\n"
-                    )

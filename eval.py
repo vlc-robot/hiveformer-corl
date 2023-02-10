@@ -28,12 +28,8 @@ class Arguments(tap.Tap):
     num_episodes: int = 1
     headless: bool = False
     offset: int = 0
-    name: str = "autol"
     max_tries: int = 10
     output: Path = Path(__file__).parent / "records.txt"
-    xp: Path = Path(__file__).parent / "xp"
-    test_xp: Path = Path(__file__).parent / "test-xp"
-    data_dir: Path = Path(__file__).parent / "demos"
     record_actions: bool = False
     replay_actions: Optional[Path] = None
     ground_truth_rotation: bool = False
@@ -43,38 +39,51 @@ class Arguments(tap.Tap):
     instructions: Optional[Path] = "instructions.pkl"
     arch: Optional[str] = None
     variations: Tuple[int, ...] = (0,)
-    attention: bool = False  # saving attention maps
+    data_dir: Path = Path(__file__).parent / "demos"
+    
+    # Logging
+    base_log_dir: Path = Path(__file__).parent / "eval_logs"
+    exp_log_dir: str = "exp"
+    run_log_dir: str = "run"
+    
+    # Toggle to switch between offline and online evaluation
     offline: int = 1
 
-    # model
-    model: str = "develop"
-    depth: Optional[int] = 4
-    dim_feedforward: Optional[int] = 64
-    hidden_dim: Optional[int] = 64
-    instr_size: Optional[int] = 512
-    mask_obs_prob: float = 0.0
-    num_layers: Optional[int] = 1
+    # Toggle to switch between original HiveFormer and our models
+    model: str = "develop"  # one of "original", "develop"
 
-    # baseline
-    position_loss: str = "ce"  # one of "ce", "mse", "bce"
-    sample_ghost_points: int = 1
-    num_ghost_points: int = 1000
+    # ---------------------------------------------------------------
+    # Original HiveFormer parameters
+    # ---------------------------------------------------------------
+
+    depth: int = 4
+    dim_feedforward: int = 64
+    hidden_dim: int = 64
+    instr_size: int = 512
+    mask_obs_prob: float = 0.0
+    num_layers: int = 1
+
+    # ---------------------------------------------------------------
+    # Our non-analogical baseline parameters
+    # ---------------------------------------------------------------
+
     position_prediction_only: int = 1
-    use_ground_truth_position_for_sampling: int = 0
+    position_loss: str = "ce"  # one of "ce", "mse", "bce"
+
+    # Ghost points
+    num_ghost_points: int = 1000
+
+    # Model
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
-    relative_attention: int = 1
 
 
 def get_log_dir(args: Arguments) -> Path:
-    log_dir = args.test_xp / args.name
+    log_dir = args.base_log_dir / args.exp_log_dir
 
     def get_log_file(version):
-        if len(args.tasks) == 1:
-            log_file = f"{args.tasks[0]}_version{version}"
-        else:
-            log_file = f"version{version}"
+        log_file = f"{args.run_log_dir}_version{version}"
         return log_file
 
     version = 0
@@ -86,12 +95,6 @@ def get_log_dir(args: Arguments) -> Path:
 
 def copy_args(checkpoint: Path, args: Arguments) -> Arguments:
     args = deepcopy(args)
-
-    if not checkpoint.is_file():
-        files = list((args.xp / checkpoint).rglob("mtl_*.pth"))
-        assert files != [], args.checkpoint
-        files = sorted(files, key=lambda x: x.stat().st_mtime)
-        checkpoint = files[0]
 
     print("Copying args from", checkpoint)
 
@@ -114,12 +117,6 @@ def copy_args(checkpoint: Path, args: Arguments) -> Arguments:
 def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     args = copy_args(checkpoint, args)
     device = torch.device(args.device)
-
-    if not checkpoint.is_file():
-        files = list((args.xp / checkpoint).rglob("mtl_*.pth"))
-        assert files != [], args.checkpoint
-        files = sorted(files, key=lambda x: x.stat().st_mtime)
-        checkpoint = files[0]
 
     print("Loading model from", checkpoint, flush=True)
 
@@ -157,7 +154,6 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 num_layers=args.num_layers,
                 gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
                 sample_ghost_points=bool(args.sample_ghost_points),
-                use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
                 position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
@@ -216,7 +212,6 @@ if __name__ == "__main__":
 
     # load RLBench environment
     env = RLBenchEnv(
-        # data_path="",
         data_path=args.data_dir,
         apply_rgb=True,
         apply_pc=True,
@@ -241,7 +236,7 @@ if __name__ == "__main__":
                 actioner=actioner,
                 log_dir=log_dir / task_str if args.save_img else None,
                 max_tries=args.max_tries,
-                save_attn=args.attention,
+                save_attn=False,
                 record_videos=True,
                 position_prediction_only=bool(args.position_prediction_only),
                 offline=bool(args.offline)
