@@ -12,6 +12,10 @@ from .multihead_custom_attention import MultiheadCustomAttention
 from .position_encodings import PositionEmbeddingLearned, RotaryPositionEncoding3D
 
 
+def normalise_quat(x: torch.Tensor):
+    return x / x.square().sum(dim=-1).sqrt().unsqueeze(-1)
+
+
 class CrossAttentionLayer(nn.Module):
     def __init__(self, embedding_dim, num_heads, dropout=0.0):
         super().__init__()
@@ -246,9 +250,11 @@ class RelativePositionPrediction(nn.Module):
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=4,
                  num_query_cross_attn_layers=4,
-                 loss="ce"):
+                 loss="ce",
+                 rotation_pooling_gaussian_spread=0.01):
         super().__init__()
         self.loss = loss
+        self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
 
         # Frozen ResNet50 backbone
         cfg = get_cfg()
@@ -288,6 +294,13 @@ class RelativePositionPrediction(nn.Module):
         for _ in range(num_query_cross_attn_layers):
             self.query_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
             self.query_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
+
+        # Gripper rotation prediction
+        self.gripper_state_predictor = nn.Sequential(
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.ReLU(),
+            nn.Linear(embedding_dim, 4 + 1)
+        )
 
     def forward(self, visible_rgb, visible_pcd, curr_gripper, ghost_pcd):
         """
@@ -393,10 +406,40 @@ class RelativePositionPrediction(nn.Module):
             top_idx = torch.max(all_masks[-1], dim=-1).indices
             position = all_pcd[torch.arange(batch_size), :, top_idx]
 
+        # Predict rotation and gripper opening from features at the predicted position
+        if self.loss in ["ce", "bce"]:
+            visible_rgb_features = einops.rearrange(visible_rgb_features, "b ncam c h w -> (b ncam) c h w")
+            visible_rgb_features = F.interpolate(
+                visible_rgb_features, size=(height, width), mode="bilinear", align_corners=False)
+            visible_rgb_features = einops.rearrange(
+                visible_rgb_features, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+            ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts b c -> b npts c")
+            all_features = torch.cat([visible_rgb_features, ghost_pcd_features], dim=1)
+
+            if self.rotation_pooling_gaussian_spread == 0:
+                features = all_features[torch.arange(batch_size), top_idx]
+            else:
+                # Pool features around predicted position
+                l2_pred_pos = ((position.unsqueeze(-1) - all_pcd) ** 2).sum(1).sqrt()
+                weights = torch.softmax(-l2_pred_pos / self.rotation_pooling_gaussian_spread, dim=-1).detach()
+                features = einops.einsum(all_features, weights, "b npts c, b npts -> b c")
+
+            pred = self.gripper_state_predictor(features)
+            rotation = normalise_quat(pred[:, :4])
+            gripper = torch.sigmoid(pred[:, 4:])
+
+        else:
+            raise NotImplementedError
+
         return {
+            # Action
             "position": position,
+            "rotation": rotation,
+            "gripper": gripper,
+            # Auxiliary outputs used to compute the loss
             "visible_rgb_masks": visible_rgb_masks,
             "ghost_pcd_masks":  ghost_pcd_masks,
             "all_masks": all_masks,
-            "all_pcd": all_pcd
+            "all_features": all_features,
+            "all_pcd": all_pcd,
         }

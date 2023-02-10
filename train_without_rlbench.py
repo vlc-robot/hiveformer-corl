@@ -71,7 +71,7 @@ class Arguments(tap.Tap):
     sample_ghost_points: int = 1
     num_ghost_points: int = 1000
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
-    position_prediction_only: int = 1
+    position_prediction_only: int = 0
     use_ground_truth_position_for_sampling: int = 0
     compute_loss_at_all_layers: int = 0
     # ground_truth_ball_radius: float = 0.005
@@ -81,6 +81,11 @@ class Arguments(tap.Tap):
     num_query_cross_attn_layers: int = 2
     relative_attention: int = 1
     label_smoothing: float = 0.1
+    position_loss_coeff: float = 1.0
+    rotation_loss_coeff: float = 1.0
+    gripper_loss_coeff: float = 1.0
+    rotation_pooling_gaussian_spread: float = 0.01  # if 0, no pooling
+    rotation_dagger: int = 0
 
 
 def training(
@@ -131,7 +136,7 @@ def training(
                     sample["action"]
                 )
 
-            train_losses = loss_and_metrics.compute_loss(pred, sample)
+            train_losses = loss_and_metrics.compute_loss(pred, sample, model)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
             train_losses["total"].backward()  # type: ignore
 
@@ -268,7 +273,7 @@ def validation_step(
                     # sample["action"]
                 )
 
-            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
+            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample, model)
             losses["total"] = torch.stack(list(losses.values())).sum()
 
             for n, l in losses.items():
@@ -415,7 +420,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
                 relative_attention=bool(args.relative_attention),
-                num_ghost_points=args.num_ghost_points
+                num_ghost_points=args.num_ghost_points,
+                rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
             )
         else:
             raise NotImplementedError
@@ -486,6 +492,11 @@ if __name__ == "__main__":
         # ground_truth_ball_radius=args.ground_truth_ball_radius,
         ground_truth_gaussian_spread=args.ground_truth_gaussian_spread,
         label_smoothing=args.label_smoothing,
+        position_loss_coeff=args.position_loss_coeff,
+        rotation_loss_coeff=args.rotation_loss_coeff,
+        gripper_loss_coeff=args.gripper_loss_coeff,
+        rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+        rotation_dagger=bool(args.rotation_dagger),
     )
 
     model_dict = {

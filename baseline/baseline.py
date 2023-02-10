@@ -462,6 +462,7 @@ class Baseline(nn.Module):
         num_query_cross_attn_layers=4,
         relative_attention=False,
         num_ghost_points=1000,
+        rotation_pooling_gaussian_spread=0.01
     ):
         super(Baseline, self).__init__()
 
@@ -478,6 +479,7 @@ class Baseline(nn.Module):
                 embedding_dim=embedding_dim,
                 num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=num_query_cross_attn_layers,
+                rotation_pooling_gaussian_spread=rotation_pooling_gaussian_spread
             )
         else:
             self.position_prediction = PositionPrediction(
@@ -1013,7 +1015,7 @@ class Baseline(nn.Module):
         # print("curr_gripper_pos", curr_gripper_position.shape, curr_gripper_position.min(), curr_gripper_position.max())
         # print("ghost_pcd", ghost_pcd.shape, ghost_pcd.min(), ghost_pcd.max())
 
-        position_pred = self.position_prediction(
+        pred = self.position_prediction(
             visible_rgb=visible_rgb,
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper_position,
@@ -1030,22 +1032,25 @@ class Baseline(nn.Module):
         # print("position_pred['all_masks'][-1]", position_pred['all_masks'][-1].shape,
         #       position_pred['all_masks'][-1].min(), position_pred['all_masks'][-1].max())
 
-        g = instruction.mean(1)
-        task = self.z_proj_instr(g)
+        # g = instruction.mean(1)
+        # task = self.z_proj_instr(g)
 
         # Rotation
-        x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
-        xr = self.quat_decoder(x)
-        rotation = xr[:, :-1]
-        rotation = normalise_quat(rotation)
+        # x = einops.rearrange(x, "(b n) ch h w -> b (n ch) h w", n=N)
+        # xr = self.quat_decoder(x)
+        # rotation = xr[:, :-1]
+        # rotation = normalise_quat(rotation)
 
         return {
-            "visible_rgb_masks": position_pred["visible_rgb_masks"],
-            "ghost_pcd_masks": position_pred["ghost_pcd_masks"],
-            "all_masks": position_pred["all_masks"],
-            "all_pcd": position_pred["all_pcd"],
-            "position": position_pred["position"],
-            "rotation": rotation,
-            "gripper": torch.sigmoid(xr[:, -1:]),
-            "task": task,
+            # Action
+            "position": pred["position"],
+            "rotation": pred["rotation"],
+            "gripper": pred["gripper"],
+            # Auxiliary outputs used to compute the loss
+            "visible_rgb_masks": pred["visible_rgb_masks"],
+            "ghost_pcd_masks": pred["ghost_pcd_masks"],
+            "all_masks": pred["all_masks"],
+            "all_features": pred["all_features"],
+            "all_pcd": pred["all_pcd"],
+            "task": None,
         }
