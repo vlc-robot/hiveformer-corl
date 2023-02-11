@@ -27,6 +27,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --tasks $task \
        --dataset $dataset \
        --valset $valset \
+       --image_size $image_size \
        --exp_log_dir $main_dir \
        --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
        --coarse_to_fine_sampling $c2f
@@ -43,6 +44,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --tasks $task \
        --dataset $dataset \
        --valset $valset \
+       --image_size $image_size \
        --exp_log_dir $main_dir \
        --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
        --coarse_to_fine_sampling $c2f
