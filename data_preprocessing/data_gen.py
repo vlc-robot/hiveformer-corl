@@ -79,7 +79,7 @@ class Dataset(torch.utils.data.Dataset):
             apply_cameras=args.cameras,
         )
 
-        with open("data_processing/episodes.json") as fid:
+        with open("data_preprocessing/episodes.json") as fid:
             episodes = json.load(fid)
         self.max_eps_dict = episodes["max_episode_length"]
         self.variable_lengths = set(episodes["variable_length"])
