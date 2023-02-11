@@ -122,9 +122,13 @@ class PredictionHead(nn.Module):
         query_features = self.query_embed.weight.unsqueeze(1).repeat(1, batch_size, 1)
 
         # Contextualize the query and predict masks over visual features and ghost points
+        # Given the query is not localized yet, we don't use positional embeddings
         query_context_features = torch.cat([ghost_pcd_context_features, ghost_pcd_features], dim=0)
+        query_context_pos = torch.cat([ghost_pcd_context_pos, ghost_pcd_pos], dim=1)
         query_features, visible_rgb_masks, ghost_pcd_masks, all_masks = self._decode_mask(
-            query_features, query_context_features, visible_rgb_features, ghost_pcd_features, height, width)
+            visible_rgb_features, ghost_pcd_features, height, width,
+            query_features, query_context_features, query_pos=None, context_pos=None
+        )
 
         all_pcd = torch.cat([
             einops.rearrange(visible_pcd, "b ncam c h w -> b c (ncam h w)"),
@@ -135,13 +139,14 @@ class PredictionHead(nn.Module):
         if self.coarse_to_fine_sampling:
             # Sample ghost points finely near the top scoring point
             top_idx = torch.max(all_masks[-1], dim=-1).indices
-            position = all_pcd[torch.arange(batch_size), :, top_idx].cpu().numpy()
+            position = all_pcd[torch.arange(batch_size), :, top_idx]
+            position_ = position.cpu().numpy()
             bounds_min = np.clip(
-                position - self.fine_sampling_cube_size / 2,
+                position_ - self.fine_sampling_cube_size / 2,
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds_max = np.clip(
-                position + self.fine_sampling_cube_size / 2,
+                position_ + self.fine_sampling_cube_size / 2,
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds = np.stack([bounds_min, bounds_max], axis=1)
@@ -152,10 +157,15 @@ class PredictionHead(nn.Module):
                 fine_ghost_pcd, ghost_pcd_context_features, ghost_pcd_context_pos, batch_size)
 
             # Contextualize the query and predict masks over visual features and all ghost points
+            # Now that the query is localized, we use positional embeddings
+            query_pos = self.pcd_pe_layer(position)
             query_context_features = torch.cat([query_context_features, fine_ghost_pcd_features], dim=0)
+            query_context_pos = torch.cat([query_context_pos, fine_ghost_pcd_pos], dim=1)
             ghost_pcd_features = torch.cat([ghost_pcd_features, fine_ghost_pcd_features], dim=0)
             query_features, visible_rgb_masks, ghost_pcd_masks, all_masks = self._decode_mask(
-                query_features, query_context_features, visible_rgb_features, ghost_pcd_features, height, width)
+                visible_rgb_features, ghost_pcd_features, height, width,
+                query_features, query_context_features, query_pos=query_pos, context_pos=query_context_pos
+            )
 
             all_pcd = torch.cat([all_pcd, einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")], dim=-1)
 
@@ -237,7 +247,11 @@ class PredictionHead(nn.Module):
 
         return ghost_pcd_features, ghost_pcd_pos
 
-    def _decode_mask(self, query_features, context_features, visible_rgb_features, ghost_pcd_features, height, width):
+    def _decode_mask(self,
+                     visible_rgb_features, ghost_pcd_features,
+                     rgb_height, rgb_width,
+                     query_features, context_features,
+                     query_pos, context_pos):
         """
         The query cross-attends to context features (visual features, ghost points, and the
         current gripper position) then decodes a mask over visual features (which we up-sample)
@@ -250,14 +264,14 @@ class PredictionHead(nn.Module):
         for i in range(len(self.query_cross_attn_layers)):
             query_features = self.query_cross_attn_layers[i](
                 query=query_features, value=context_features,
-                query_pos=None, value_pos=None  # TODO Do we want positional embeddings here?
+                query_pos=query_pos, value_pos=context_pos
             )
             query_features = self.query_ffw_layers[i](query_features)
 
             visible_rgb_mask = einops.einsum(
                 query_features.squeeze(0), visible_rgb_features, "b c, b ncam c h w -> b ncam h w")
             visible_rgb_mask = F.interpolate(
-                visible_rgb_mask, size=(height, width), mode="bilinear", align_corners=False)
+                visible_rgb_mask, size=(rgb_height, rgb_width), mode="bilinear", align_corners=False)
 
             ghost_pcd_mask = einops.einsum(
                 query_features.squeeze(0), ghost_pcd_features, "b c, npts b c -> b npts")
