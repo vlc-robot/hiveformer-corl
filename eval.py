@@ -42,6 +42,8 @@ class Arguments(tap.Tap):
     arch: Optional[str] = None
     variations: Tuple[int, ...] = (0,)
     data_dir: Path = Path(__file__).parent / "demos"
+    cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
+    image_size: str = "128,128"
     
     # Logging
     base_log_dir: Path = Path(__file__).parent / "eval_logs"
@@ -212,10 +214,11 @@ if __name__ == "__main__":
     # load RLBench environment
     env = RLBenchEnv(
         data_path=args.data_dir,
+        image_size=[int(x) for x in args.image_size.split(",")],
         apply_rgb=True,
         apply_pc=True,
         headless=args.headless,
-        apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
+        apply_cameras=args.cameras,
     )
 
     instruction = load_instructions(args.instructions)

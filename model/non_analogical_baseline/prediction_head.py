@@ -26,7 +26,7 @@ class PredictionHead(nn.Module):
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
-                 fine_sampling_cube_size=0.1):
+                 fine_sampling_cube_size=0.05):
         super().__init__()
         self.loss = loss
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
@@ -200,6 +200,7 @@ class PredictionHead(nn.Module):
         # Compute fine-grained semantic visual features and their positional embeddings
         visible_rgb_features = self.feature_pyramid(visible_rgb_features)
         visible_rgb_features = visible_rgb_features["res2"]
+
         visible_rgb_features = einops.rearrange(
             visible_rgb_features, "(b ncam) c h w -> b ncam c h w", ncam=num_cameras)
 

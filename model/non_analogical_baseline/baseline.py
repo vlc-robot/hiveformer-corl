@@ -17,7 +17,7 @@ class Baseline(nn.Module):
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
-                 fine_sampling_cube_size=0.1):
+                 fine_sampling_cube_size=0.05):
         super().__init__()
 
         self.prediction_head = PredictionHead(
