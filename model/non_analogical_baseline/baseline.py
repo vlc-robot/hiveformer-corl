@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from .prediction_head import PredictionHead
-from .utils import sample_ghost_points_randomly
+from .utils import sample_ghost_points_randomly, norm_tensor
 
 
 class Baseline(nn.Module):
@@ -13,16 +13,27 @@ class Baseline(nn.Module):
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
                  rotation_pooling_gaussian_spread=0.01,
-                 use_ground_truth_position_for_sampling=False):
+                 use_ground_truth_position_for_sampling=False,
+                 gripper_loc_bounds=None,
+                 num_ghost_points=1000):
         super().__init__()
         self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
+        self.gripper_loc_bounds = gripper_loc_bounds
+        self.num_ghost_points = num_ghost_points
 
         self.prediction_head = PredictionHead(
             loss=position_loss,
             embedding_dim=embedding_dim,
             num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
             num_query_cross_attn_layers=num_query_cross_attn_layers,
-            rotation_pooling_gaussian_spread=rotation_pooling_gaussian_spread
+            rotation_pooling_gaussian_spread=rotation_pooling_gaussian_spread,
+        )
+
+    def compute_action(self, pred) -> torch.Tensor:
+        rotation = norm_tensor(pred["rotation"])
+        return torch.cat(
+            [pred["position"], rotation, pred["gripper"]],
+            dim=1,
         )
 
     def forward(self,
@@ -55,7 +66,7 @@ class Baseline(nn.Module):
 
         curr_gripper = einops.rearrange(gripper, "b t c -> (b t) c")[:, :3]
 
-        pred = self.position_prediction(
+        pred = self.prediction_head(
             visible_rgb=visible_rgb,
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper,

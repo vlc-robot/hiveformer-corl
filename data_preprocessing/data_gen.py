@@ -1,5 +1,4 @@
 import random
-import math
 import itertools
 from typing import Tuple, Dict, List
 from pathlib import Path
@@ -7,14 +6,12 @@ import json
 from tqdm import tqdm
 import tap
 import torch
-from torch.nn import functional as F
 import numpy as np
 import einops
 from rlbench.demo import Demo
-from utils import (
+from utils.utils_with_rlbench import (
     RLBenchEnv,
     keypoint_discovery,
-    task_file_to_task_class,
     obs_to_attn,
     transform,
 )

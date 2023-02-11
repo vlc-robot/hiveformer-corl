@@ -1,21 +1,14 @@
-from abc import abstractmethod, ABC
 import os
 import random
-import itertools
-import pickle
 from typing import List, Dict, Optional, Tuple, Literal, TypedDict, Union, Any, Sequence
 from pathlib import Path
-import math
 import open3d
 import json
 from tqdm import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
-from PIL import Image
-from scipy.spatial.transform import Rotation as R
 import einops
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
@@ -31,41 +24,7 @@ from pyrep.const import RenderMode
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 
-from video_utils import CircleCameraMotion, TaskRecorder
-from network import Hiveformer
-from baseline.baseline import Baseline
-
-
-Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
-Instructions = Dict[str, Dict[int, torch.Tensor]]
-
-
-class Sample(TypedDict):
-    frame_id: torch.Tensor
-    task: Union[List[str], str]
-    variation: Union[List[int], int]
-    rgbs: torch.Tensor
-    pcds: torch.Tensor
-    action: torch.Tensor
-    padding_mask: torch.Tensor
-    instr: torch.Tensor
-    gripper: torch.Tensor
-
-
-def load_episodes() -> Dict[str, Any]:
-    with open(Path(__file__).parent / "episodes.json") as fid:
-        return json.load(fid)
-
-
-def get_max_episode_length(tasks: Tuple[str, ...], variations: Tuple[int, ...]) -> int:
-    max_episode_length = 0
-    max_eps_dict = load_episodes()["max_episode_length"]
-
-    for task, var in itertools.product(tasks, variations):
-        if max_eps_dict[task] > max_episode_length:
-            max_episode_length = max_eps_dict[task]
-
-    return max_episode_length
+from .video_utils import CircleCameraMotion, TaskRecorder
 
 
 def task_file_to_task_class(task_file):
@@ -221,38 +180,22 @@ class Actioner:
 
         self._instr = self._instr.to(rgbs.device)
 
-        if type(self._model) == Hiveformer:
-            pred = self._model(
-                rgbs,
-                pcds,
-                padding_mask,
-                self._instr,
-                gripper
-            )
-        elif type(self._model) == Baseline:
-            pred = self._model(
-                rgbs,
-                pcds,
-                padding_mask,
-                self._instr,
-                gripper,
-                # At inference time, provide ground-truth action to sample ghost
-                # points at inference time only if use_ground_truth_position_for_sampling=True
-                # => This is cheating but useful for debugging
-                gt_action if self._model.use_ground_truth_position_for_sampling else None
-            )
-        else:
-            raise NotImplementedError
+        pred = self._model(
+            rgbs,
+            pcds,
+            padding_mask,
+            self._instr,
+            gripper,
+        )
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
-        # output["top_points"] = pred["top_points"]
-
-        topk = pred["all_masks"][-1][-1].topk(k=500)
-        top_value = topk.values[-1]
-        top_pcd_idxs = topk.indices
-        output["top_pcd"] = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
-        output["top_rgb"] = pred["visible_rgb_masks"][-1][-1] >= top_value
+        if "all_masks" in pred:
+            topk = pred["all_masks"][-1][-1].topk(k=500)
+            top_value = topk.values[-1]
+            top_pcd_idxs = topk.indices
+            output["top_pcd"] = pred["all_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
+            output["top_rgb"] = pred["visible_rgb_masks"][-1][-1] >= top_value
 
         return output
 
@@ -278,9 +221,6 @@ def obs_to_attn(obs, camera: str) -> Tuple[int, int]:
     return u, v
 
 
-# --------------------------------------------------------------------------------
-# RLBench Environment & Related Functions
-# --------------------------------------------------------------------------------
 class RLBenchEnv:
     def __init__(
         self,
@@ -310,8 +250,7 @@ class RLBenchEnv:
         self.env = Environment(
             self.action_mode, str(data_path), self.obs_config, headless=headless
         )
-
-        self.gripper_loc_bounds = json.load(open("location_bounds.json", "r"))
+        self.gripper_loc_bounds = json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))
 
     def get_obs_action(self, obs):
         """
@@ -573,8 +512,8 @@ class RLBenchEnv:
                             pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
 
                             # pred_location_heatmap=output["top_points"].cpu().numpy()
-                            top_pcd_heatmap=output["top_pcd"].cpu().numpy(),
-                            top_rgb_heatmap=output["top_rgb"].cpu().numpy()
+                            top_pcd_heatmap=output["top_pcd"].cpu().numpy() if "top_pcd" in output else None,
+                            top_rgb_heatmap=output["top_rgb"].cpu().numpy() if "top_rgb" in output else None,
                         )
 
                     if action is None:
@@ -711,9 +650,6 @@ def keypoint_discovery(demo: Demo) -> List[int]:
     return episode_keypoints
 
 
-# --------------------------------------------------------------------------------
-# General Functions
-# --------------------------------------------------------------------------------
 def transform(obs_dict, scale_size=(0.75, 1.25), augmentation=False):
     apply_depth = len(obs_dict.get("depth", [])) > 0
     apply_pc = len(obs_dict["pc"]) > 0
@@ -747,122 +683,3 @@ def transform(obs_dict, scale_size=(0.75, 1.25), augmentation=False):
             obs_pc += [pc.float()]
     obs = obs_rgb + obs_depth + obs_pc
     return torch.cat(obs, dim=0)
-
-
-def count_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
-    return tensor / torch.linalg.norm(tensor, ord=2, dim=-1, keepdim=True)
-
-
-def compute_rotation_metrics(
-    pred: torch.Tensor,
-    true: torch.Tensor,
-    reduction: str = "mean",
-) -> Dict[str, torch.Tensor]:
-    pred = norm_tensor(pred)
-    acc = (pred - true).abs().max(1).values < 0.05
-    acc = acc.to(pred.dtype)
-
-    if reduction == "mean":
-        acc = acc.mean()
-    return {"rotation": acc}
-
-
-def compute_rotation_loss(logit: torch.Tensor, rot: torch.Tensor):
-    dtype = logit.dtype
-
-    rot_ = -rot.clone()
-
-    loss = F.mse_loss(logit, rot, reduction="none").to(dtype)
-    loss = loss.mean(1)
-
-    loss_ = F.mse_loss(logit, rot_, reduction="none").to(dtype)
-    loss_ = loss_.mean(1)
-
-    select_mask = (loss < loss_).float()
-
-    sym_loss = 4 * (select_mask * loss + (1 - select_mask) * loss_)
-
-    return {"rotation": sym_loss.mean()}
-
-
-def load_instructions(
-    instructions: Optional[Path],
-    tasks: Optional[Sequence[str]] = None,
-    variations: Optional[Sequence[int]] = None,
-) -> Optional[Instructions]:
-    if instructions is not None:
-        with open(instructions, "rb") as fid:
-            data: Instructions = pickle.load(fid)
-
-        if tasks is not None:
-            data = {task: var_instr for task, var_instr in data.items() if task in tasks}
-
-        if variations is not None:
-            data = {
-                task: {
-                    var: instr for var, instr in var_instr.items() if var in variations
-                }
-                for task, var_instr in data.items()
-            }
-
-        return data
-
-    return None
-
-
-class LossAndMetrics:
-    def __init__(
-        self,
-    ):
-        task_file = Path(__file__).parent / "tasks.csv"
-        with open(task_file) as fid:
-            self.tasks = [t.strip() for t in fid.readlines()]
-
-    def compute_loss(
-        self, pred: Dict[str, torch.Tensor], sample: Sample
-    ) -> Dict[str, torch.Tensor]:
-        device = pred["position"].device
-        padding_mask = sample["padding_mask"].to(device)
-        outputs = sample["action"].to(device)[padding_mask]
-
-        losses = {}
-        losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
-
-        losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
-        losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
-        if pred["task"] is not None:
-            task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-            task = task.to(device).long()
-            losses["task"] = F.cross_entropy(pred["task"], task)
-        return losses
-
-    def compute_metrics(
-        self, pred: Dict[str, torch.Tensor], sample: Sample
-    ) -> Dict[str, torch.Tensor]:
-        device = pred["position"].device
-        dtype = pred["position"].dtype
-        padding_mask = sample["padding_mask"].to(device)
-        outputs = sample["action"].to(device)[padding_mask]
-
-        metrics = {}
-
-        acc = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt() < 0.01
-        metrics["position"] = acc.to(dtype).mean()
-
-        pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
-        true_gripper = outputs[:, 7].bool()
-        acc = pred_gripper == true_gripper
-        metrics["gripper"] = acc.to(dtype).mean()
-
-        metrics.update(compute_rotation_metrics(pred["rotation"], outputs[:, 3:7]))
-
-        task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-        task = task.to(device).long()
-        acc = task == pred["task"].argmax(1)
-        metrics["task"] = acc.to(dtype).mean()
-
-        return metrics

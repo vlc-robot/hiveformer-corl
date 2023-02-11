@@ -7,6 +7,10 @@ def normalise_quat(x: torch.Tensor):
     return x / x.square().sum(dim=-1).sqrt().unsqueeze(-1)
 
 
+def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
+    return tensor / torch.linalg.norm(tensor, ord=2, dim=-1, keepdim=True)
+
+
 def sample_ghost_points_grid(gripper_loc_bounds, num_points_per_dim=10):
     x_ = np.linspace(gripper_loc_bounds[0][0], gripper_loc_bounds[1][0], num_points_per_dim)
     y_ = np.linspace(gripper_loc_bounds[0][1], gripper_loc_bounds[1][1], num_points_per_dim)

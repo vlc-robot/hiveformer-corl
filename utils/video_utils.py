@@ -1,9 +1,5 @@
 # Start from https://github.com/MohitShridhar/YARR/blob/peract/yarr/utils/video_utils.py
 import os
-import shutil
-import cv2
-import torch
-import json
 import open3d
 import einops
 import numpy as np
@@ -13,6 +9,10 @@ from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 from rlbench import Environment
 from rlbench.backend.observation import Observation
+
+
+GT_COLOR = (0.2, 0.8, 0.0)
+PRED_COLOR = (1.0, 0.0, 1.0)
 
 
 def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2, 0.8, 0.)):
@@ -88,7 +88,7 @@ def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2
 
         transform = np.matmul(align, transform)
         transform = np.matmul(grasp, transform)
-        finger_sweep_volume.paint_uniform_color([0, 0.2, 0.8])
+        finger_sweep_volume.paint_uniform_color(color)
         finger_sweep_volume.transform(transform)
         finger_sweep_volume.compute_vertex_normals()
 
@@ -103,10 +103,9 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            gt_keyframe_gripper_matrices: Optional[np.array] = None,
                            pred_keyframe_gripper_matrices: Optional[np.array] = None,
                            top_pcd_heatmap: Optional[np.array] = None,
-                           gripper_loc_bounds: Optional[np.array] = None,
                            position_prediction_only: bool = False,
-                           gt_color=(0.2, 0.8, 0.),
-                           pred_color=(1.0, 0., 1.0)):
+                           gt_color=GT_COLOR,
+                           pred_color=PRED_COLOR):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
@@ -248,7 +247,6 @@ class TaskRecorder(object):
         self._pred_keyframe_gripper_matrices = None
         self._top_pcd_heatmap = None
         self._top_rgb_heatmap = None
-        self._gripper_loc_bounds = json.load(open("location_bounds.json", "r"))[task_str]
         self._position_prediction_only = position_prediction_only
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
@@ -361,7 +359,6 @@ class TaskRecorder(object):
                 self._gt_keyframe_gripper_matrices,
                 self._pred_keyframe_gripper_matrices,
                 self._top_pcd_heatmap,
-                self._gripper_loc_bounds,
                 self._position_prediction_only
             )
             for i in range(len(self._pcd_snaps)):
@@ -399,35 +396,6 @@ class TaskRecorder(object):
                                     thickness=font_thickness, lineType=cv2.LINE_AA)
             video.write(frame)
         video.release()
-
-        # Obs point cloud and RGB videos
-        # for (view, snaps) in zip(self._pcd_views, self._pcd_snaps):
-        #     if len(snaps) == 0:
-        #         continue
-        #     image_size = (480, 480)
-        #     video = cv2.VideoWriter(
-        #         f"{path}/{view}_pcd_obs.mp4",
-        #         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-        #         self._fps // self._obs_record_freq,
-        #         tuple(image_size)
-        #     )
-        #     for i, snap in enumerate(snaps):
-        #         video.write(cv2.resize(snap, image_size))
-        #     video.release()
-
-        # for (view, snaps) in zip(self._obs_cameras, self._rgb_snaps):
-        #     if len(snaps) == 0:
-        #         continue
-        #     image_size = snaps[0].shape[:2]
-        #     video = cv2.VideoWriter(
-        #         f"{path}/{view}_rgb_obs.mp4",
-        #         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-        #         self._fps // self._obs_record_freq,
-        #         tuple(image_size)
-        #     )
-        #     for i, snap in enumerate(snaps):
-        #         video.write(snap[:, :, ::-1])
-        #     video.release()
 
         # Visualize most informative views together
         assert self._obs_record_freq == 1

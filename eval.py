@@ -7,17 +7,19 @@ import numpy as np
 import tap
 import json
 from filelock import FileLock
-from network import Hiveformer
-from utils import (
-    RLBenchEnv,
-    load_episodes,
-    get_max_episode_length,
-    Actioner,
-    load_instructions,
-)
-from train import Arguments as TrainArguments
 
-from baseline.baseline import Baseline
+from train import Arguments as TrainArguments
+from model.released_hiveformer.network import Hiveformer
+from model.non_analogical_baseline.baseline import Baseline
+from utils.utils_with_rlbench import (
+    RLBenchEnv,
+    Actioner,
+)
+from utils.utils_without_rlbench import (
+    load_episodes,
+    load_instructions,
+    get_max_episode_length
+)
 
 
 class Arguments(tap.Tap):
@@ -50,7 +52,7 @@ class Arguments(tap.Tap):
     offline: int = 1
 
     # Toggle to switch between original HiveFormer and our models
-    model: str = "develop"  # one of "original", "develop"
+    model: str = "develop"  # one of "original", "baseline"
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -77,6 +79,7 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
+    rotation_pooling_gaussian_spread: float = 0.01  # if 0, no pooling
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -142,24 +145,16 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             max_episode_length=max_episode_length,
             num_layers=args.num_layers,
         ).to(device)
-    elif args.model == "develop":
+    elif args.model == "baseline":
         if len(args.tasks) == 1:
             model = Baseline(
-                depth=args.depth,
-                dim_feedforward=args.dim_feedforward,
-                hidden_dim=args.hidden_dim,
-                instr_size=args.instr_size,
-                mask_obs_prob=args.mask_obs_prob,
-                max_episode_length=max_episode_length,
-                num_layers=args.num_layers,
-                gripper_loc_bounds=json.load(open("location_bounds.json", "r"))[args.tasks[0]],
-                sample_ghost_points=bool(args.sample_ghost_points),
                 position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                relative_attention=bool(args.relative_attention),
-                num_ghost_points=args.num_ghost_points
+                rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
+                num_ghost_points=args.num_ghost_points,
             ).to(device)
         else:
             raise NotImplementedError

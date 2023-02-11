@@ -9,4 +9,4 @@
 #SBATCH --mem=50gb
 #SBATCH --mem-per-gpu=32gb
 
-python train_without_rlbench.py "$@"
+python train.py "$@"

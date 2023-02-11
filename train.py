@@ -56,7 +56,7 @@ class Arguments(tap.Tap):
     train_iters: int = 200_000 // len(devices)
 
     # Toggle to switch between original HiveFormer and our models
-    model: str = "develop"  # one of "original", "develop"
+    model: str = "baseline"  # one of "original", "baseline"
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -408,7 +408,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             max_episode_length=max_episode_length,
             num_layers=args.num_layers,
         )
-    elif args.model == "develop":
+    elif args.model == "baseline":
         if len(args.tasks) == 1:
             _model = Baseline(
                 use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
@@ -417,6 +417,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
                 rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
+                num_ghost_points=args.num_ghost_points,
             )
         else:
             raise NotImplementedError
@@ -452,6 +454,13 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+
+    # Force original HiveFormer parameters
+    if args.model == "original":
+        args.position_loss = "mse"
+        args.position_loss_coeff = 3.0
+        args.rotation_loss_coeff = 4.0
+
     print()
     print("Arguments:")
     print(args)

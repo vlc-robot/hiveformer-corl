@@ -11,4 +11,4 @@
 #SBATCH --gres=gpu:4
 #SBATCH --mem=0
 
-python train_without_rlbench.py "$@"
+python train.py "$@"

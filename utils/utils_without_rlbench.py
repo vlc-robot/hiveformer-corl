@@ -1,6 +1,6 @@
 import itertools
 import pickle
-from typing import List, Dict, Optional, Tuple, TypedDict, Union, Any, Sequence
+from typing import List, Literal, Dict, Optional, Tuple, TypedDict, Union, Any, Sequence
 from pathlib import Path
 import json
 import torch
@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import einops
 
 
+Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
 Instructions = Dict[str, Dict[int, torch.Tensor]]
 
 
@@ -29,7 +30,7 @@ def normalise_quat(x: torch.Tensor):
 
 
 def load_episodes() -> Dict[str, Any]:
-    with open(Path(__file__).parent / "episodes.json") as fid:
+    with open(Path(__file__).parent.parent / "data_preprocessing/episodes.json") as fid:
         return json.load(fid)
 
 
@@ -116,7 +117,7 @@ class LossAndMetrics:
         self.rotation_loss_coeff = rotation_loss_coeff
         self.gripper_loss_coeff = gripper_loss_coeff
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
-        task_file = Path(__file__).parent / "tasks.csv"
+        task_file = Path(__file__).parent.parent / "tasks/106_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
 
@@ -163,7 +164,7 @@ class LossAndMetrics:
 
         if not self.position_prediction_only:
             # TODO Find a way not to require passing model to loss computation
-            #  It's easy if we don't pull local features but not straightforward otherwise
+            #  It's easy if we don't pool local features but not straightforward otherwise
 
             if self.position_loss in ["ce", "bce"] and model is not None:
                 if self.rotation_pooling_gaussian_spread == 0:
@@ -174,7 +175,7 @@ class LossAndMetrics:
                     features = einops.einsum(pred["all_features"], weights, "b npts c, b npts -> b c")
 
                 if type(model) == nn.DataParallel:
-                    gripper_state = model.module.position_prediction.gripper_state_predictor(features)
+                    gripper_state = model.module.prediction_head.gripper_state_predictor(features)
                 else:
                     gripper_state = model.position_prediction.gripper_state_predictor(features)
                 rotation = normalise_quat(gripper_state[:, :4])
@@ -184,7 +185,8 @@ class LossAndMetrics:
                 losses["gripper"] = F.mse_loss(gripper, outputs[:, 7:8])
 
             else:
-                raise NotImplementedError
+                losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
+                losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
 
             if pred["task"] is not None:
                 task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])

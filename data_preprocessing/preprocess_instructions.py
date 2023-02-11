@@ -6,14 +6,12 @@ import json
 from pathlib import Path
 import itertools
 from typing import List, Tuple, Literal, Dict, Optional
-from collections import defaultdict
 import pickle
 import tap
 import transformers
 from tqdm.auto import tqdm
 import torch
-from torch import nn
-from utils import RLBenchEnv, task_file_to_task_class
+from utils.utils_with_rlbench import RLBenchEnv, task_file_to_task_class
 
 
 Annotations = Dict[str, Dict[int, List[str]]]

@@ -10,7 +10,7 @@ import torch
 import pprint
 import json
 
-from utils import (
+from utils.utils_without_rlbench import (
     load_instructions,
     get_max_episode_length,
 )

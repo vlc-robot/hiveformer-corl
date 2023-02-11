@@ -44,7 +44,7 @@ python dataset_generator.py \
 cd $root/hiveformer
 for task in $(cat $task_file | tr '\n' ' '); do
     for seed in $train_seed $val_seed; do
-        python data_preprocessing/data_gen.py \
+        python -m data_preprocessing.data_gen \
             --data_dir=$data_dir/$seed \
             --output=$output_dir/$seed \
             --max_variations=1 \
@@ -55,9 +55,17 @@ done
 
 ### 3 - Preprocess instructions
 ```
-python data_preprocessing/preprocess_instructions.py \
+cd $root/hiveformer
+python -m data_preprocessing.preprocess_instructions \
     --tasks $(cat $task_file | tr '\n' ' ') \
     --output instructions.pkl \
     --variations {0..199} \
     --annotations data_preprocessing/annotations.json
+```
+
+### 4 - Compute workspace bounds
+```
+cd $root/hiveformer
+python -m data_preprocessing.compute_workspace_bounds \
+    --dataset $root/datasets/hiveformer/packaged/0
 ```
