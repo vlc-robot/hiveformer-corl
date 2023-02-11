@@ -73,6 +73,8 @@ class Arguments(tap.Tap):
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
 
     # Ghost points
+    coarse_to_fine_sampling: int = 1
+    fine_sampling_cube_size: float = 0.1
     num_ghost_points: int = 1000
 
     # Model
@@ -155,6 +157,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
                 gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
                 num_ghost_points=args.num_ghost_points,
+                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+                fine_sampling_cube_size=args.fine_sampling_cube_size,
             ).to(device)
         else:
             raise NotImplementedError
