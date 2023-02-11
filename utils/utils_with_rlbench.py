@@ -225,6 +225,7 @@ class RLBenchEnv:
     def __init__(
         self,
         data_path,
+        image_size=(128, 128),
         apply_rgb=False,
         apply_depth=False,
         apply_pc=False,
@@ -241,7 +242,7 @@ class RLBenchEnv:
 
         # setup RLBench environments
         self.obs_config = self.create_obs_config(
-            apply_rgb, apply_depth, apply_pc, apply_cameras
+            image_size, apply_rgb, apply_depth, apply_pc, apply_cameras
         )
         self.action_mode = MoveArmThenGripper(
             arm_action_mode=EndEffectorPoseViaPlanning(),
@@ -564,10 +565,11 @@ class RLBenchEnv:
         return success_rate
 
     def create_obs_config(
-        self, apply_rgb, apply_depth, apply_pc, apply_cameras, **kwargs
+        self, image_size, apply_rgb, apply_depth, apply_pc, apply_cameras, **kwargs
     ):
         """
         Set up observation config for RLBench environment.
+            :param image_size: Image size.
             :param apply_rgb: Applying RGB as inputs.
             :param apply_depth: Applying Depth as inputs.
             :param apply_pc: Applying Point Cloud as inputs.
@@ -581,6 +583,7 @@ class RLBenchEnv:
             point_cloud=apply_pc,
             depth=apply_depth,
             mask=False,
+            image_size=image_size,
             render_mode=RenderMode.OPENGL,
             **kwargs,
         )

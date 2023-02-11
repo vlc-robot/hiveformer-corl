@@ -22,6 +22,7 @@ class Arguments(tap.Tap):
     seed: int = 2
     tasks: Tuple[str, ...] = ("stack_wine",)
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
+    image_size: str = "128,128"
     output: Path = Path(__file__).parent / "datasets"
     max_variations: int = 1
     offset: int = 0
@@ -74,6 +75,7 @@ class Dataset(torch.utils.data.Dataset):
         # load RLBench environment
         self.env = RLBenchEnv(
             data_path=args.data_dir,
+            image_size=[int(x) for x in args.image_size.split(",")],
             apply_rgb=True,
             apply_pc=True,
             apply_cameras=args.cameras,
