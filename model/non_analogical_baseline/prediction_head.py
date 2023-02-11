@@ -158,7 +158,7 @@ class PredictionHead(nn.Module):
 
             # Contextualize the query and predict masks over visual features and all ghost points
             # Now that the query is localized, we use positional embeddings
-            query_pos = self.pcd_pe_layer(position)
+            query_pos = self.pcd_pe_layer(position.unsqueeze(1))
             query_context_features = torch.cat([query_context_features, fine_ghost_pcd_features], dim=0)
             query_context_pos = torch.cat([query_context_pos, fine_ghost_pcd_pos], dim=1)
             ghost_pcd_features = torch.cat([ghost_pcd_features, fine_ghost_pcd_features], dim=0)
