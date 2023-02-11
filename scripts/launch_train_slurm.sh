@@ -28,6 +28,22 @@
 
 main_dir=02_10_coarse_to_fine
 
+# TODO Check this
+#task_file=tasks/2_debugging_tasks.csv
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  for size in 0.05; do
+#    sbatch train_1gpu_32gb.sh \
+#       --tasks $task \
+#       --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
+#       --valset /home/tgervet/datasets/hiveformer/packaged/1 \
+#       --exp_log_dir $main_dir \
+#       --run_log_dir COARSE2FINE-WITH-PE-$task \
+#       --fine_sampling_cube_size $size \
+#       --coarse_to_fine_sampling 1
+#  done
+#done
+
+# TODO Check this
 task_file=tasks/2_debugging_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
   for size in 0.05; do
@@ -36,9 +52,9 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --dataset /home/tgervet/datasets/hiveformer/packaged/0 \
        --valset /home/tgervet/datasets/hiveformer/packaged/1 \
        --exp_log_dir $main_dir \
-       --run_log_dir COARSE2FINE-WITH-PE-$task \
+       --run_log_dir DECODE-ONLY-GHOST-$task \
        --fine_sampling_cube_size $size \
-       --coarse_to_fine_sampling 1
+       --coarse_to_fine_sampling 0
   done
 done
 

@@ -344,7 +344,7 @@ class TaskRecorder(object):
             rgb_obs = np.stack([getattr(obs, f"{cam}_rgb") for cam in self._obs_cameras])
             pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
             for i in range(len(self._rgb_snaps)):
-                rgb = rgb_obs[i]
+                rgb = rgb_obs[i].copy()
                 if self._top_rgb_heatmap is not None:
                     rgb[self._top_rgb_heatmap[i] == 1] = (255.0, 0., 255.0)
                 self._rgb_snaps[i].append(rgb)

@@ -134,10 +134,10 @@ class LossAndMetrics:
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
             gt = outputs[:, :3]
 
-            l2_gt = ((pred["all_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
+            l2_gt = ((pred["ghost_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
             label = torch.softmax(-l2_gt / self.ground_truth_gaussian_spread, dim=-1).detach()
 
-            pred_masks = pred["all_masks"][-1]
+            pred_masks = pred["ghost_pcd_masks"][-1]
 
             if self.position_loss == "ce":
                 losses["position"] = F.cross_entropy(
@@ -167,12 +167,14 @@ class LossAndMetrics:
             #  It's easy if we don't pool local features but not straightforward otherwise
 
             if self.position_loss in ["ce", "bce"] and model is not None:
+                ghost_pcd_features = einops.rearrange(pred["ghost_pcd_features"], "npts b c -> b npts c")
+
                 if self.rotation_pooling_gaussian_spread == 0:
                     gt_indices = l2_gt.min(dim=-1).indices
-                    features = pred["all_features"][torch.arange(len(gt_indices)), gt_indices]
+                    features = ghost_pcd_features[torch.arange(len(gt_indices)), gt_indices]
                 else:
                     weights = torch.softmax(-l2_gt / self.rotation_pooling_gaussian_spread, dim=-1).detach()
-                    features = einops.einsum(pred["all_features"], weights, "b npts c, b npts -> b c")
+                    features = einops.einsum(ghost_pcd_features, weights, "b npts c, b npts -> b c")
 
                 if type(model) == nn.DataParallel:
                     gripper_state = model.module.prediction_head.gripper_state_predictor(features)

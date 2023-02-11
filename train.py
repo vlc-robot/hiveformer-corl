@@ -228,7 +228,7 @@ class CheckpointCallback:
         if self._step % self._checkpoint_freq != 0:
             return
 
-        value = metrics.get(self._name, 0)
+        value = metrics.get(self._name, torch.tensor(0))
         dest = self._log_dir / f"model.step={self._step * self._val_freq}-value={value.item():.5f}.pth"
         torch.save(self._state_dict, dest)
 
@@ -416,6 +416,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     elif args.model == "baseline":
         if len(args.tasks) == 1:
             _model = Baseline(
+                image_size=tuple(int(x) for x in args.image_size.split(",")),
                 use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
                 position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
@@ -464,6 +465,7 @@ if __name__ == "__main__":
 
     # Force original HiveFormer parameters
     if args.model == "original":
+        assert args.image_size == "128,128"
         args.position_loss = "mse"
         args.position_loss_coeff = 3.0
         args.rotation_loss_coeff = 4.0

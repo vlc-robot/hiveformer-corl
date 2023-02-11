@@ -1,7 +1,7 @@
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-exp_src=reproduce_hiveformer
-exp_tgt=reproduce_hiveformer
+exp_src=02_10_coarse_to_fine
+exp_tgt=02_10_coarse_to_fine
 ckpt=best.pth
 
 # Get Tensorboard from source

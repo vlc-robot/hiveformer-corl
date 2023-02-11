@@ -8,6 +8,7 @@ from .utils import norm_tensor
 
 class Baseline(nn.Module):
     def __init__(self,
+                 image_size=(128, 128),
                  position_loss="ce",
                  embedding_dim=60,
                  num_ghost_point_cross_attn_layers=2,
@@ -21,6 +22,7 @@ class Baseline(nn.Module):
         super().__init__()
 
         self.prediction_head = PredictionHead(
+            image_size=image_size,
             loss=position_loss,
             embedding_dim=embedding_dim,
             num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
@@ -69,10 +71,9 @@ class Baseline(nn.Module):
             "rotation": pred["rotation"],
             "gripper": pred["gripper"],
             # Auxiliary outputs used to compute the loss
-            "visible_rgb_masks": pred["visible_rgb_masks"],
+            "visible_rgb_mask": pred["visible_rgb_mask"],
             "ghost_pcd_masks": pred["ghost_pcd_masks"],
-            "all_masks": pred["all_masks"],
-            "all_features": pred["all_features"],
-            "all_pcd": pred["all_pcd"],
+            "ghost_pcd": pred["ghost_pcd"],
+            "ghost_pcd_features": pred["ghost_pcd_features"],
             "task": None,
         }
