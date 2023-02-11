@@ -84,6 +84,8 @@ class Arguments(tap.Tap):
     label_smoothing: float = 0.1
 
     # Ghost points
+    coarse_to_fine_sampling: int = 1
+    fine_sampling_cube_size: float = 0.1
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling: int = 0
 
@@ -419,6 +421,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
                 gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
                 num_ghost_points=args.num_ghost_points,
+                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+                fine_sampling_cube_size=args.fine_sampling_cube_size,
             )
         else:
             raise NotImplementedError

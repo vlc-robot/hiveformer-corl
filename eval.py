@@ -52,7 +52,7 @@ class Arguments(tap.Tap):
     offline: int = 1
 
     # Toggle to switch between original HiveFormer and our models
-    model: str = "develop"  # one of "original", "baseline"
+    model: str = "baseline"  # one of "original", "baseline"
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
