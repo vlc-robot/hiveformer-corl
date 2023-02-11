@@ -184,12 +184,13 @@ class DataTransform(object):
 
 class RLBenchDataset(data.Dataset):
     """
-    RLBench dataset, 10 tasks
+    RLBench dataset.
     """
 
     def __init__(
         self,
         root: Union[Path, str, List[Path], List[str]],
+        image_size: Tuple[int, int],
         taskvar: List[Tuple[str, int]],
         instructions: Instructions,
         max_episode_length: int,
@@ -201,6 +202,7 @@ class RLBenchDataset(data.Dataset):
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
+        self._image_size = image_size
         self._max_episode_length = max_episode_length
         self._max_episodes_per_taskvar = max_episodes_per_taskvar
         self._num_iters = num_iters
@@ -248,7 +250,7 @@ class RLBenchDataset(data.Dataset):
         pad_len = max(0, self._max_episode_length - num_ind)
 
         states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
-        if states.shape[-1] != 128 or states.shape[-2] != 128:
+        if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
             raise ValueError(f"{states.shape} {self._episodes[episode_id]}")
         pad_vec = [0] * (2 * states.dim())
         pad_vec[-1] = pad_len
@@ -267,8 +269,8 @@ class RLBenchDataset(data.Dataset):
             attn_cams = torch.Tensor([])
             for cam in self._cameras:
                 u, v = episode[3][i][cam]
-                attn = torch.zeros((1, 1, 128, 128))
-                if not (u < 0 or u > 127 or v < 0 or v > 127):
+                attn = torch.zeros((1, 1, self._image_size[0], self._image_size[1]))
+                if not (u < 0 or u > self._image_size[1] - 1 or v < 0 or v > self._image_size[0] - 1):
                     attn[0, 0, v, u] = 1
                 attn_cams = torch.cat([attn_cams, attn])
             attns = torch.cat([attns, attn_cams.unsqueeze(0)])

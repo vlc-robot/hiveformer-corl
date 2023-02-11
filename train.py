@@ -27,6 +27,7 @@ from model.non_analogical_baseline.baseline import Baseline
 
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
+    image_size: str = "128,128"
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
@@ -337,6 +338,7 @@ def get_train_loader(args: Arguments) -> DataLoader:
 
     dataset = RLBenchDataset(
         root=args.dataset,
+        image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
         taskvar=taskvar,
         instructions=instruction,
         max_episode_length=max_episode_length,
@@ -379,6 +381,7 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
     for valset in args.valset:
         dataset = RLBenchDataset(
             root=valset,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
             taskvar=taskvar,
             instructions=instruction,
             max_episode_length=max_episode_length,

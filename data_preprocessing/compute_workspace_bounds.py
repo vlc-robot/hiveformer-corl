@@ -19,6 +19,7 @@ from dataset import RLBenchDataset
 
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
+    image_size: str = "128,128"
     dataset: List[Path]
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
@@ -55,6 +56,7 @@ if __name__ == "__main__":
 
     dataset = RLBenchDataset(
         root=args.dataset,
+        image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
         taskvar=taskvar,
         instructions=instruction,
         max_episode_length=max_episode_length,
