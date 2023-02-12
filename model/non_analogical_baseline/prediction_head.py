@@ -236,8 +236,8 @@ class PredictionHead(nn.Module):
         if self.use_ground_truth_position_for_sampling and gt_action is not None:
             # Sample the ground-truth position as an additional ghost point
             ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
-            # offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
-            # ground_truth_pcd += offset
+            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
+            ground_truth_pcd += offset
             ghost_pcd = torch.cat([uniform_pcd, ground_truth_pcd], dim=1)
         else:
             ghost_pcd = uniform_pcd

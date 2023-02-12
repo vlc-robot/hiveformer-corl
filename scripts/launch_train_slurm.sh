@@ -63,6 +63,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --dataset $dataset \
      --image_size $image_size \
      --exp_log_dir $main_dir \
-     --run_log_dir $task-PRECISE \
+     --run_log_dir $task-APPROX \
      --batch_size 20
 done
