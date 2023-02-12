@@ -88,7 +88,7 @@ class Arguments(tap.Tap):
     coarse_to_fine_sampling: int = 1
     fine_sampling_cube_size: float = 0.05
     num_ghost_points: int = 1000
-    use_ground_truth_position_for_sampling: int = 0
+    use_ground_truth_position_for_sampling: int = 1
 
     # Model
     embedding_dim: int = 60
