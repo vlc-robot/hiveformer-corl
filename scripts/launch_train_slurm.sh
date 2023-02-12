@@ -41,7 +41,7 @@ image_size="256,256"
 for task in $(cat $task_file | tr '\n' ' '); do
   for c2f in 1; do
     #sbatch train_1gpu_32gb.sh \
-    sbatch train_4gpu_12gb.sh \
+    sbatch train_4gpus_12gb.sh \
        --devices cuda:0,cuda:1,cuda:2,cuda:3 \
        --tasks $task \
        --dataset $dataset \
