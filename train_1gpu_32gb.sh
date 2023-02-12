@@ -8,5 +8,6 @@
 #SBATCH --gres=gpu:volta:1
 #SBATCH --mem=62gb
 #SBATCH --mem-per-gpu=32gb
+#SBATCH --exclude matrix-0-24
 
 python train.py "$@"
