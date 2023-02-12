@@ -14,7 +14,7 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_12_overfit_coarse_to_fine5
+main_dir=02_12_overfit_coarse_to_fine6
 
 task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -29,7 +29,9 @@ for task in $(cat $task_file | tr '\n' ' '); do
          --image_size $image_size \
          --exp_log_dir $main_dir \
          --run_log_dir $task-img-$image_size-rand-$randomize_ground_truth_ghost_point-sep-$separate_coarse_and_fine_losses \
-         --batch_size $batch_size
+         --batch_size $batch_size \
+         --randomize_ground_truth_ghost_point $randomize_ground_truth_ghost_point \
+         --separate_coarse_and_fine_losses $separate_coarse_and_fine_losses
     done
   done
 done
@@ -47,7 +49,9 @@ for task in $(cat $task_file | tr '\n' ' '); do
          --image_size $image_size \
          --exp_log_dir $main_dir \
          --run_log_dir $task-img-$image_size-rand-$randomize_ground_truth_ghost_point-sep-$separate_coarse_and_fine_losses \
-         --batch_size $batch_size
+         --batch_size $batch_size \
+         --randomize_ground_truth_ghost_point $randomize_ground_truth_ghost_point \
+         --separate_coarse_and_fine_losses $separate_coarse_and_fine_losses
     done
   done
 done
