@@ -85,7 +85,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
          --dataset $dataset \
          --image_size $image_size \
          --exp_log_dir $main_dir \
-         --run_log_dir $task-gtspread-$ground_truth_gaussian_spread-gtsample-$use_ground_truth_position_for_sampling-IMPERFECT \
+         --run_log_dir $task-gtspread-$ground_truth_gaussian_spread-gtsample-$use_ground_truth_position_for_sampling-IMPERFECT-256x256 \
          --coarse_to_fine_sampling 1 \
          --batch_size 25 \
          --ground_truth_gaussian_spread $ground_truth_gaussian_spread \
