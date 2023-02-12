@@ -6,7 +6,7 @@
 #SBATCH --error=slurm_logs/train-hiveformer-%j.err
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:volta:1
-#SBATCH --mem=62gb
+#SBATCH --mem=100gb
 #SBATCH --mem-per-gpu=32gb
 
 python train.py "$@"
