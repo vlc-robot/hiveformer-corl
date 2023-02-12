@@ -40,15 +40,14 @@ valset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 for task in $(cat $task_file | tr '\n' ' '); do
   for c2f in 1; do
-    #sbatch train_1gpu_32gb.sh \
-    sbatch train_4gpus_12gb.sh \
-       --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+    sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset $dataset \
        --valset $valset \
        --image_size $image_size \
        --exp_log_dir $main_dir \
        --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
-       --coarse_to_fine_sampling $c2f
+       --coarse_to_fine_sampling $c2f \
+       --num_workers 2
   done
 done
