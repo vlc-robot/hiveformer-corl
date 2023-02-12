@@ -81,7 +81,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
        --image_size $image_size \
        --exp_log_dir $main_dir \
        --run_log_dir $task-gtspread-$ground_truth_gaussian_spread-img-$image_size \
-       --batch_size 25 \
+       --batch_size 20 \
        --ground_truth_gaussian_spread $ground_truth_gaussian_spread
   done
 done
