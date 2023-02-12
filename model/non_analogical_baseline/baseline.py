@@ -64,16 +64,5 @@ class Baseline(nn.Module):
             curr_gripper=curr_gripper,
             gt_action=gt_action,
         )
-
-        return {
-            # Action
-            "position": pred["position"],
-            "rotation": pred["rotation"],
-            "gripper": pred["gripper"],
-            # Auxiliary outputs used to compute the loss
-            "visible_rgb_mask": pred["visible_rgb_mask"],
-            "ghost_pcd_masks": pred["ghost_pcd_masks"],
-            "ghost_pcd": pred["ghost_pcd"],
-            "ghost_pcd_features": pred["ghost_pcd_features"],
-            "task": None,
-        }
+        pred["task"] = None
+        return pred

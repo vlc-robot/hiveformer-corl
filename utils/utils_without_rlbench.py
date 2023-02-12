@@ -126,79 +126,103 @@ class LossAndMetrics:
     ) -> Dict[str, torch.Tensor]:
         device = pred["position"].device
         padding_mask = sample["padding_mask"].to(device)
-        outputs = sample["action"].to(device)[padding_mask]
+        gt_action = sample["action"].to(device)[padding_mask]
 
         losses = {}
 
-        if self.position_loss in ["ce", "bce"]:
+        self._compute_position_loss(pred, gt_action[:, :3], losses)
+
+        # TODO Clean this up when predicting rotation
+        # if not self.position_prediction_only:
+        #     # TODO Find a way not to require passing model to loss computation
+        #     #  It's easy if we don't pool local features but not straightforward otherwise
+        #
+        #     if self.position_loss in ["ce", "bce"] and model is not None:
+        #         ghost_pcd_features = einops.rearrange(pred["ghost_pcd_features"], "npts b c -> b npts c")
+        #
+        #         if self.rotation_pooling_gaussian_spread == 0:
+        #             gt_indices = l2_gt.min(dim=-1).indices
+        #             features = ghost_pcd_features[torch.arange(len(gt_indices)), gt_indices]
+        #         else:
+        #             weights = torch.softmax(-l2_gt / self.rotation_pooling_gaussian_spread, dim=-1).detach()
+        #             features = einops.einsum(ghost_pcd_features, weights, "b npts c, b npts -> b c")
+        #
+        #         if type(model) == nn.DataParallel:
+        #             gripper_state = model.module.prediction_head.gripper_state_predictor(features)
+        #         else:
+        #             gripper_state = model.position_prediction.gripper_state_predictor(features)
+        #         rotation = normalise_quat(gripper_state[:, :4])
+        #         gripper = torch.sigmoid(gripper_state[:, 4:])
+        #
+        #         losses.update(compute_rotation_loss(rotation, outputs[:, 3:7]))
+        #         losses["gripper"] = F.mse_loss(gripper, outputs[:, 7:8])
+        #
+        #     else:
+        #         losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
+        #         losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
+        #
+        #     if pred["task"] is not None:
+        #         task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+        #         task = task.to(device).long()
+        #         losses["task"] = F.cross_entropy(pred["task"], task)
+        #
+        #     losses["rotation"] *= self.rotation_loss_coeff
+        #     losses["gripper"] *= self.gripper_loss_coeff
+
+        return losses
+
+    def _compute_position_loss(self, pred, gt_position, losses):
+        if self.position_loss == "mse":
+            losses["position"] = F.mse_loss(pred["position"], gt_position)
+
+        elif self.position_loss in ["ce", "bce"]:
+            losses["position"] = []
+
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
-            gt = outputs[:, :3]
+            coarse_l2 = ((pred["coarse_ghost_pcd"] - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
+            coarse_label = torch.softmax(-coarse_l2 / self.ground_truth_gaussian_spread, dim=-1).detach()
 
-            l2_gt = ((pred["ghost_pcd"] - gt.unsqueeze(-1)) ** 2).sum(1).sqrt()
-            label = torch.softmax(-l2_gt / self.ground_truth_gaussian_spread, dim=-1).detach()
+            coarse_loss_layers = range(
+                len(pred["coarse_ghost_pcd_masks"])) if self.compute_loss_at_all_layers else [-1]
 
-            pred_masks = pred["ghost_pcd_masks"][-1]
+            for i in coarse_loss_layers:
+                coarse_pred = pred["coarse_ghost_pcd_masks"][i]
 
-            if self.position_loss == "ce":
-                losses["position"] = F.cross_entropy(
-                    pred_masks, label, label_smoothing=self.label_smoothing)
+                if self.position_loss == "ce":
+                    losses["position"].append(F.cross_entropy(
+                        coarse_pred, coarse_label, label_smoothing=self.label_smoothing))
 
-            elif self.position_loss == "bce":
-                pos_weight = label.numel() / label.sum()
-                losses["position"] = F.binary_cross_entropy_with_logits(
-                    pred_masks, label, pos_weight=pos_weight)
+                elif self.position_loss == "bce":
+                    pos_weight = coarse_label.numel() / coarse_label.sum()
+                    losses["position"].append(F.binary_cross_entropy_with_logits(
+                        coarse_pred, coarse_label, pos_weight=pos_weight))
 
-            # Compute loss at intermediate layers
-            # TODO Doesn't seem to help, try this again once get model working
-            if self.compute_loss_at_all_layers:
-                raise NotImplementedError
+            if "fine_ghost_pcd" in pred:
+                fine_l2 = ((pred["fine_ghost_pcd"] - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
+                fine_label = torch.softmax(-fine_l2 / self.ground_truth_gaussian_spread, dim=-1).detach()
+
+                fine_loss_layers = range(
+                    len(pred["fine_ghost_pcd_masks"])) if self.compute_loss_at_all_layers else [-1]
+
+                for i in fine_loss_layers:
+                    fine_pred = pred["fine_ghost_pcd_masks"][i]
+
+                    if self.position_loss == "ce":
+                        losses["position"].append(F.cross_entropy(
+                            fine_pred, fine_label, label_smoothing=self.label_smoothing))
+
+                    elif self.position_loss == "bce":
+                        pos_weight = fine_label.numel() / fine_label.sum()
+                        losses["position"].append(F.binary_cross_entropy_with_logits(
+                            fine_pred, fine_label, pos_weight=pos_weight))
+
+            losses["position"] = torch.stack(losses["position"]).mean()
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss
             pred["position"] = pred["position"].detach()
 
-        elif self.position_loss == "mse":
-            losses["position"] = F.mse_loss(pred["position"], outputs[:, :3])
-
         losses["position"] *= self.position_loss_coeff
-
-        if not self.position_prediction_only:
-            # TODO Find a way not to require passing model to loss computation
-            #  It's easy if we don't pool local features but not straightforward otherwise
-
-            if self.position_loss in ["ce", "bce"] and model is not None:
-                ghost_pcd_features = einops.rearrange(pred["ghost_pcd_features"], "npts b c -> b npts c")
-
-                if self.rotation_pooling_gaussian_spread == 0:
-                    gt_indices = l2_gt.min(dim=-1).indices
-                    features = ghost_pcd_features[torch.arange(len(gt_indices)), gt_indices]
-                else:
-                    weights = torch.softmax(-l2_gt / self.rotation_pooling_gaussian_spread, dim=-1).detach()
-                    features = einops.einsum(ghost_pcd_features, weights, "b npts c, b npts -> b c")
-
-                if type(model) == nn.DataParallel:
-                    gripper_state = model.module.prediction_head.gripper_state_predictor(features)
-                else:
-                    gripper_state = model.position_prediction.gripper_state_predictor(features)
-                rotation = normalise_quat(gripper_state[:, :4])
-                gripper = torch.sigmoid(gripper_state[:, 4:])
-
-                losses.update(compute_rotation_loss(rotation, outputs[:, 3:7]))
-                losses["gripper"] = F.mse_loss(gripper, outputs[:, 7:8])
-
-            else:
-                losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
-                losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
-
-            if pred["task"] is not None:
-                task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-                task = task.to(device).long()
-                losses["task"] = F.cross_entropy(pred["task"], task)
-
-            losses["rotation"] *= self.rotation_loss_coeff
-            losses["gripper"] *= self.gripper_loss_coeff
-
-        return losses
 
     def compute_metrics(
         self, pred: Dict[str, torch.Tensor], sample: Sample

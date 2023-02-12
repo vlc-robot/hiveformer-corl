@@ -138,18 +138,24 @@ class PredictionHead(nn.Module):
         ghost_pcd = coarse_ghost_pcd
         ghost_pcd_masks = coarse_ghost_pcd_masks
         ghost_pcd_features = coarse_ghost_pcd_features
-        visible_rgb_mask = coarse_visible_rgb_mask
 
         if self.coarse_to_fine_sampling:
+            top_idx = torch.max(coarse_ghost_pcd_masks[-1], dim=-1).indices
+            coarse_position = coarse_ghost_pcd[torch.arange(batch_size), :, top_idx]
+
             (
-                visible_rgb_mask, ghost_pcd_masks, ghost_pcd, ghost_pcd_features
+                fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd, fine_ghost_pcd_features
             ) = self._coarse_to_fine(
-                query_features,
-                coarse_ghost_pcd_features, coarse_ghost_pcd, coarse_ghost_pcd_masks[-1],
+                coarse_position, query_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                 curr_gripper_features, curr_gripper_pos,
                 batch_size, num_cameras, height, width, device, gt_action
             )
+
+            fine_ghost_pcd = einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")
+            ghost_pcd = fine_ghost_pcd
+            ghost_pcd_masks = fine_ghost_pcd_masks
+            ghost_pcd_features = fine_ghost_pcd_features
 
         # Predict the next gripper action (position, rotation, gripper opening)
         position, rotation, gripper = self._predict_action(
@@ -161,10 +167,14 @@ class PredictionHead(nn.Module):
             "rotation": rotation,
             "gripper": gripper,
             # Auxiliary outputs used to compute the loss or for visualization
-            "visible_rgb_mask": visible_rgb_mask,
-            "ghost_pcd_masks":  ghost_pcd_masks,
-            "ghost_pcd": ghost_pcd,
-            "ghost_pcd_features": ghost_pcd_features,
+            "coarse_visible_rgb_mask": coarse_visible_rgb_mask,
+            "coarse_ghost_pcd_masks":  coarse_ghost_pcd_masks,
+            "coarse_ghost_pcd": coarse_ghost_pcd,
+            "coarse_ghost_pcd_features": coarse_ghost_pcd_features,
+            "fine_visible_rgb_mask": fine_visible_rgb_mask if self.coarse_to_fine_sampling else None,
+            "fine_ghost_pcd_masks": fine_ghost_pcd_masks if self.coarse_to_fine_sampling else None,
+            "fine_ghost_pcd": fine_ghost_pcd if self.coarse_to_fine_sampling else None,
+            "fine_ghost_pcd_features": fine_ghost_pcd_features if self.coarse_to_fine_sampling else None,
         }
 
     def _compute_visual_features(self, visible_rgb, visible_pcd, device, num_cameras):
@@ -319,32 +329,29 @@ class PredictionHead(nn.Module):
         return position, rotation, gripper
 
     def _coarse_to_fine(self,
-                        query_features,
-                        coarse_ghost_pcd_features, coarse_ghost_pcd, coarse_ghost_pcd_mask,
+                        coarse_position, query_features,
                         fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                         curr_gripper_features, curr_gripper_pos,
                         batch_size, num_cameras, height, width, device, gt_action):
         """
-        Refine the predicted position by sampling fine ghost points nearby local RGB features
-        to predict a mask over the fine ghost points.
+        Refine the predicted position by sampling fine ghost points that attend to local
+        RGB features.
         """
         # Sample ghost points finely near the top scoring point
-        top_idx = torch.max(coarse_ghost_pcd_mask, dim=-1).indices
-        position = coarse_ghost_pcd[torch.arange(batch_size), :, top_idx]
-        position_ = position.cpu().numpy()
+        coarse_position_ = coarse_position.cpu().numpy()
         bounds_min = np.clip(
-            position_ - self.fine_sampling_cube_size / 2,
+            coarse_position_ - self.fine_sampling_cube_size / 2,
             a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
         )
         bounds_max = np.clip(
-            position_ + self.fine_sampling_cube_size / 2,
+            coarse_position_ + self.fine_sampling_cube_size / 2,
             a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
         )
         bounds = np.stack([bounds_min, bounds_max], axis=1)
         fine_ghost_pcd = self._sample_ghost_points(bounds, batch_size, device, gt_action)
 
         # Select local fine RGB features
-        l2_pred_pos = ((position.unsqueeze(1) - fine_visible_pcd) ** 2).sum(-1).sqrt()
+        l2_pred_pos = ((coarse_position.unsqueeze(1) - fine_visible_pcd) ** 2).sum(-1).sqrt()
         indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
         local_fine_visible_rgb_features = einops.rearrange(
@@ -364,19 +371,14 @@ class PredictionHead(nn.Module):
         fine_ghost_pcd_features, fine_ghost_pcd_pos = self._compute_ghost_point_features(
             fine_ghost_pcd, fine_ghost_pcd_context_features, fine_ghost_pcd_context_pos, batch_size)
 
-        # Contextualize the query and predict masks over all (coarse + fine) ghost points
+        # Contextualize the query and predict masks over fine ghost points
         # Now that the query is localized, we use positional embeddings
-        query_pos = self.pcd_pe_layer(position.unsqueeze(1))
+        query_pos = self.pcd_pe_layer(coarse_position.unsqueeze(1))
         fine_query_context_features = torch.cat([fine_ghost_pcd_context_features, fine_ghost_pcd_features], dim=0)
         fine_query_context_pos = torch.cat([fine_ghost_pcd_context_pos, fine_ghost_pcd_pos], dim=1)
-        ghost_pcd_features = torch.cat([coarse_ghost_pcd_features, fine_ghost_pcd_features], dim=0)
-        query_features, ghost_pcd_masks, fine_visible_rgb_mask = self._decode_mask(
-            fine_visible_rgb_features, ghost_pcd_features, height, width,
+        query_features, fine_ghost_pcd_masks, fine_visible_rgb_mask = self._decode_mask(
+            fine_visible_rgb_features, fine_ghost_pcd_features, height, width,
             query_features, fine_query_context_features, query_pos=query_pos, context_pos=fine_query_context_pos
         )
 
-        fine_ghost_pcd = einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")
-        ghost_pcd = torch.cat([coarse_ghost_pcd, fine_ghost_pcd], dim=-1)
-        visible_rgb_mask = fine_visible_rgb_mask
-
-        return visible_rgb_mask, ghost_pcd_masks, ghost_pcd, ghost_pcd_features
+        return fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd, fine_ghost_pcd_features

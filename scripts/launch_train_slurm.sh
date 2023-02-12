@@ -52,36 +52,18 @@
 #  done
 #done
 
-main_dir=02_12_overfit_coarse_to_fine3
-
-task_file=tasks/2_debugging_tasks.csv
-dataset=/home/tgervet/datasets/hiveformer/packaged/1
-image_size="128,128"
-for task in $(cat $task_file | tr '\n' ' '); do
-  for ground_truth_gaussian_spread in 0.01 0.001; do
-    sbatch train_1gpu_32gb.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --image_size $image_size \
-       --exp_log_dir $main_dir \
-       --run_log_dir $task-gtspread-$ground_truth_gaussian_spread-img-$image_size \
-       --batch_size 25 \
-       --ground_truth_gaussian_spread $ground_truth_gaussian_spread
-  done
-done
+main_dir=02_12_overfit_coarse_to_fine4
 
 task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 for task in $(cat $task_file | tr '\n' ' '); do
-  for ground_truth_gaussian_spread in 0.01 0.001; do
     sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset $dataset \
        --image_size $image_size \
        --exp_log_dir $main_dir \
-       --run_log_dir $task-gtspread-$ground_truth_gaussian_spread-img-$image_size \
+       --run_log_dir $task-PRECISE \
        --batch_size 20 \
-       --ground_truth_gaussian_spread $ground_truth_gaussian_spread
   done
 done
