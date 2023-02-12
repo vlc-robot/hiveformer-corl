@@ -1,7 +1,7 @@
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-exp_src=02_12_overfit_coarse_to_fine3
-exp_tgt=02_12_overfit_coarse_to_fine3
+exp_src=02_12_overfit_coarse_to_fine4
+exp_tgt=02_12_overfit_coarse_to_fine4
 ckpt=best.pth
 
 # Get Tensorboard from source

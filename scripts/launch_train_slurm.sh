@@ -1,7 +1,6 @@
 #!/bin/sh
 
 #main_dir=reproduce_hiveformer
-#
 #task_file=tasks/10_autolambda_tasks.csv
 #for task in $(cat $task_file | tr '\n' ' '); do
 #  sbatch train_1gpu_12gb.sh \
@@ -15,55 +14,40 @@
 #     --train_iters 100_000
 #done
 
-#main_dir=02_11_coarse_to_fine
-
-#task_file=tasks/2_debugging_tasks.csv
-#dataset=/home/tgervet/datasets/hiveformer/packaged/0
-#valset=/home/tgervet/datasets/hiveformer/packaged/1
-#image_size="128,128"
-#for task in $(cat $task_file | tr '\n' ' '); do
-#  for c2f in 0 1; do
-#    sbatch train_1gpu_32gb.sh \
-#       --tasks $task \
-#       --dataset $dataset \
-#       --valset $valset \
-#       --image_size $image_size \
-#       --exp_log_dir $main_dir \
-#       --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
-#       --coarse_to_fine_sampling $c2f
-#  done
-#done
-
-#task_file=tasks/2_debugging_tasks.csv
-#dataset=/home/tgervet/datasets/hiveformer/packaged/2
-#valset=/home/tgervet/datasets/hiveformer/packaged/3
-#image_size="256,256"
-#for task in $(cat $task_file | tr '\n' ' '); do
-#  for c2f in 1; do
-#    sbatch train_1gpu_32gb.sh \
-#       --tasks $task \
-#       --dataset $dataset \
-#       --valset $valset \
-#       --image_size $image_size \
-#       --exp_log_dir $main_dir \
-#       --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
-#       --coarse_to_fine_sampling $c2f \
-#       --num_workers 2
-#  done
-#done
-
-main_dir=02_12_overfit_coarse_to_fine4
+main_dir=02_12_overfit_coarse_to_fine5
 
 task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
-#for task in $(cat $task_file | tr '\n' ' '); do
-for task in put_money_in_safe; do
-  sbatch train_1gpu_32gb.sh \
-     --tasks $task \
-     --dataset $dataset \
-     --image_size $image_size \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task-APPROX \
-     --batch_size 20
+batch_size=20
+for task in $(cat $task_file | tr '\n' ' '); do
+  for randomize_ground_truth_ghost_point in 0; do
+    for separate_coarse_and_fine_losses in 0 1; do
+      sbatch train_1gpu_32gb.sh \
+         --tasks $task \
+         --dataset $dataset \
+         --image_size $image_size \
+         --exp_log_dir $main_dir \
+         --run_log_dir $task-img-$image_size-rand-$randomize_ground_truth_ghost_point-sep-$separate_coarse_and_fine_losses \
+         --batch_size $batch_size
+    done
+  done
+done
+
+task_file=tasks/2_debugging_tasks.csv
+dataset=/home/tgervet/datasets/hiveformer/packaged/1
+image_size="128,128"
+batch_size=25
+for task in $(cat $task_file | tr '\n' ' '); do
+  for randomize_ground_truth_ghost_point in 0; do
+    for separate_coarse_and_fine_losses in 0 1; do
+      sbatch train_1gpu_32gb.sh \
+         --tasks $task \
+         --dataset $dataset \
+         --image_size $image_size \
+         --exp_log_dir $main_dir \
+         --run_log_dir $task-img-$image_size-rand-$randomize_ground_truth_ghost_point-sep-$separate_coarse_and_fine_losses \
+         --batch_size $batch_size
+    done
+  done
 done

@@ -83,12 +83,14 @@ class Arguments(tap.Tap):
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.1
+    separate_coarse_and_fine_losses: int = 0
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
     fine_sampling_cube_size: float = 0.05
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling: int = 1
+    randomize_ground_truth_ghost_point: int = 1
 
     # Model
     embedding_dim: int = 60
@@ -418,6 +420,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             _model = Baseline(
                 image_size=tuple(int(x) for x in args.image_size.split(",")),
                 use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
+                randomize_ground_truth_ghost_point=bool(args.randomize_ground_truth_ghost_point),
                 position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
@@ -508,6 +511,7 @@ if __name__ == "__main__":
         rotation_loss_coeff=args.rotation_loss_coeff,
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+        separate_coarse_and_fine_losses=bool(args.separate_coarse_and_fine_losses),
     )
 
     model_dict = {

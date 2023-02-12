@@ -23,7 +23,8 @@ class PredictionHead(nn.Module):
                  num_query_cross_attn_layers=2,
                  loss="ce",
                  rotation_pooling_gaussian_spread=0.01,
-                 use_ground_truth_position_for_sampling=False,
+                 use_ground_truth_position_for_sampling=True,
+                 randomize_ground_truth_ghost_point=True,
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
@@ -34,6 +35,7 @@ class PredictionHead(nn.Module):
         self.loss = loss
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
         self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
+        self.randomize_ground_truth_ghost_point = randomize_ground_truth_ghost_point
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
         self.fine_sampling_cube_size = fine_sampling_cube_size
@@ -236,8 +238,9 @@ class PredictionHead(nn.Module):
         if self.use_ground_truth_position_for_sampling and gt_action is not None:
             # Sample the ground-truth position as an additional ghost point
             ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
-            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
-            ground_truth_pcd += offset
+            if self.randomize_ground_truth_ghost_point:
+                offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
+                ground_truth_pcd += offset
             ghost_pcd = torch.cat([uniform_pcd, ground_truth_pcd], dim=1)
         else:
             ghost_pcd = uniform_pcd
