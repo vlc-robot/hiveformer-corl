@@ -58,7 +58,7 @@ task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/1
 image_size="128,128"
 for task in $(cat $task_file | tr '\n' ' '); do
-  for ground_truth_gaussian_spread in 0.01; do
+  for ground_truth_gaussian_spread in 0.01 0.001; do
     sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset $dataset \
@@ -74,7 +74,7 @@ task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 for task in $(cat $task_file | tr '\n' ' '); do
-  for ground_truth_gaussian_spread in 0.01; do
+  for ground_truth_gaussian_spread in 0.01 0.001; do
     sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset $dataset \
