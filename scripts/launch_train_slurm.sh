@@ -58,12 +58,11 @@ task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 for task in $(cat $task_file | tr '\n' ' '); do
-    sbatch train_1gpu_32gb.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --image_size $image_size \
-       --exp_log_dir $main_dir \
-       --run_log_dir $task-PRECISE \
-       --batch_size 20 \
-  done
+  sbatch train_1gpu_32gb.sh \
+     --tasks $task \
+     --dataset $dataset \
+     --image_size $image_size \
+     --exp_log_dir $main_dir \
+     --run_log_dir $task-PRECISE \
+     --batch_size 20
 done
