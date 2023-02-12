@@ -239,8 +239,10 @@ class PredictionHead(nn.Module):
         """
         # Initialize ghost point features and positional embeddings
         ghost_pcd_pos = self.pcd_pe_layer(ghost_pcd)
+
+        num_ghost_points = ghost_pcd.shape[1]
         ghost_pcd_features = self.ghost_points_embed.weight.unsqueeze(0).repeat(
-            self.num_ghost_points, batch_size, 1)
+            num_ghost_points, batch_size, 1)
 
         # Ghost points cross-attend to visual features and current gripper position
         for i in range(len(self.ghost_point_cross_attn_layers)):
