@@ -15,7 +15,7 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_11_coarse_to_fine
+#main_dir=02_11_coarse_to_fine
 
 #task_file=tasks/2_debugging_tasks.csv
 #dataset=/home/tgervet/datasets/hiveformer/packaged/0
@@ -34,20 +34,39 @@ main_dir=02_11_coarse_to_fine
 #  done
 #done
 
+#task_file=tasks/2_debugging_tasks.csv
+#dataset=/home/tgervet/datasets/hiveformer/packaged/2
+#valset=/home/tgervet/datasets/hiveformer/packaged/3
+#image_size="256,256"
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  for c2f in 1; do
+#    sbatch train_1gpu_32gb.sh \
+#       --tasks $task \
+#       --dataset $dataset \
+#       --valset $valset \
+#       --image_size $image_size \
+#       --exp_log_dir $main_dir \
+#       --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
+#       --coarse_to_fine_sampling $c2f \
+#       --num_workers 2
+#  done
+#done
+
+main_dir=02_12_overfit_coarse_to_fine
+
 task_file=tasks/2_debugging_tasks.csv
-dataset=/home/tgervet/datasets/hiveformer/packaged/2
-valset=/home/tgervet/datasets/hiveformer/packaged/3
-image_size="256,256"
+dataset=/home/tgervet/datasets/hiveformer/packaged/1
+image_size="128,128"
 for task in $(cat $task_file | tr '\n' ' '); do
-  for c2f in 1; do
-    sbatch train_1gpu_32gb.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --valset $valset \
-       --image_size $image_size \
-       --exp_log_dir $main_dir \
-       --run_log_dir IMAGE-$image_size-C2F-$c2f-$task \
-       --coarse_to_fine_sampling $c2f \
-       --num_workers 2
+  for batch_size in 10 25; do
+    for ground_truth_gaussian_spread in 0.01 0.001; do
+      sbatch train_1gpu_32gb.sh \
+         --tasks $task \
+         --dataset $dataset \
+         --image_size $image_size \
+         --exp_log_dir $main_dir \
+         --run_log_dir $task \
+         --coarse_to_fine_sampling 1
+    done
   done
 done
