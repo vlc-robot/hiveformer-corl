@@ -44,7 +44,7 @@ class PredictionHead(nn.Module):
         cfg.merge_from_file(str(Path(__file__).resolve().parent / "resnet50.yaml"))
         model = build_model(cfg)
         self.backbone = model.backbone
-        self.pixel_mean = model.pixel_mean.to()
+        self.pixel_mean = model.pixel_mean
         self.pixel_std = model.pixel_std
         for p in self.backbone.parameters():
             p.requires_grad = False
@@ -92,9 +92,6 @@ class PredictionHead(nn.Module):
             visible_pcd: (batch x history, num_cameras, 3, height, width) in world coordinates
             curr_gripper: (batch x history, 3)
             gt_action: (batch x history, 8) in world coordinates
-
-        Returns:
-            next_gripper: (batch x history, 3)
         """
         batch_size, num_cameras, _, height, width = visible_rgb.shape
         device = visible_rgb.device
@@ -344,8 +341,8 @@ class PredictionHead(nn.Module):
 
         # Select local fine RGB features
         l2_pred_pos = ((position.unsqueeze(1) - fine_visible_pcd) ** 2).sum(-1).sqrt()
-        topk_l2 = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).values[:, [-1]]
-        indices = l2_pred_pos <= topk_l2
+        indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
+
         local_fine_visible_rgb_features = einops.rearrange(
             fine_visible_rgb_features, "b ncam c h w -> b (ncam h w) c")
         local_fine_visible_rgb_features = torch.stack([
@@ -354,7 +351,8 @@ class PredictionHead(nn.Module):
             f[i] for (f, i) in zip(fine_visible_rgb_pos, indices)])
 
         # Compute fine ghost point features by attending to the local fine RGB features
-        fine_ghost_pcd_context_features = einops.rearrange(local_fine_visible_rgb_features, "b npts c -> npts b c")
+        fine_ghost_pcd_context_features = einops.rearrange(
+            local_fine_visible_rgb_features, "b npts c -> npts b c")
         fine_ghost_pcd_context_features = torch.cat(
             [fine_ghost_pcd_context_features, curr_gripper_features], dim=0)
         fine_ghost_pcd_context_pos = torch.cat(
