@@ -95,6 +95,7 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
+    separate_coarse_and_fine_layers: int = 1
     rotation_pooling_gaussian_spread: float = 0.01  # if 0, no pooling
 
 
@@ -429,6 +430,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 num_ghost_points=args.num_ghost_points,
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
                 fine_sampling_cube_size=args.fine_sampling_cube_size,
+                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             )
         else:
             raise NotImplementedError
