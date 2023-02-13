@@ -106,7 +106,6 @@ class LossAndMetrics:
         rotation_loss_coeff=1.0,
         gripper_loss_coeff=1.0,
         rotation_pooling_gaussian_spread=0.01,
-        separate_coarse_and_fine_losses=False,
     ):
         assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
@@ -118,7 +117,6 @@ class LossAndMetrics:
         self.rotation_loss_coeff = rotation_loss_coeff
         self.gripper_loss_coeff = gripper_loss_coeff
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
-        self.separate_coarse_and_fine_losses = separate_coarse_and_fine_losses
         task_file = Path(__file__).parent.parent / "tasks/106_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -195,39 +193,21 @@ class LossAndMetrics:
                 if "fine_ghost_pcd" in pred:
                     fine_pred = pred["fine_ghost_pcd_masks"][i]
 
-                if self.separate_coarse_and_fine_losses:
-                    if self.position_loss == "ce":
-                        losses["position"].append(F.cross_entropy(
-                            coarse_pred, coarse_label, label_smoothing=self.label_smoothing))
-                        if "fine_ghost_pcd" in pred:
-                            losses["position"].append(F.cross_entropy(
-                                fine_pred, fine_label, label_smoothing=self.label_smoothing))
-
-                    elif self.position_loss == "bce":
-                        pos_weight = coarse_label.numel() / coarse_label.sum()
-                        losses["position"].append(F.binary_cross_entropy_with_logits(
-                            coarse_pred, coarse_label, pos_weight=pos_weight))
-                        if "fine_ghost_pcd" in pred:
-                            pos_weight = fine_label.numel() / fine_label.sum()
-                            losses["position"].append(F.binary_cross_entropy_with_logits(
-                                fine_pred, fine_label, pos_weight=pos_weight))
-
-                else:
+                if self.position_loss == "ce":
+                    losses["position"].append(F.cross_entropy(
+                        coarse_pred, coarse_label, label_smoothing=self.label_smoothing))
                     if "fine_ghost_pcd" in pred:
-                        all_pred = torch.cat([coarse_pred, fine_pred], dim=-1)
-                        all_label = torch.cat([coarse_label, fine_label], dim=-1)
-                    else:
-                        all_pred = coarse_pred
-                        all_label = coarse_label
-
-                    if self.position_loss == "ce":
                         losses["position"].append(F.cross_entropy(
-                            all_pred, all_label, label_smoothing=self.label_smoothing))
+                            fine_pred, fine_label, label_smoothing=self.label_smoothing))
 
-                    elif self.position_loss == "bce":
-                        pos_weight = all_label.numel() / all_label.sum()
+                elif self.position_loss == "bce":
+                    pos_weight = coarse_label.numel() / coarse_label.sum()
+                    losses["position"].append(F.binary_cross_entropy_with_logits(
+                        coarse_pred, coarse_label, pos_weight=pos_weight))
+                    if "fine_ghost_pcd" in pred:
+                        pos_weight = fine_label.numel() / fine_label.sum()
                         losses["position"].append(F.binary_cross_entropy_with_logits(
-                            all_pred, all_label, pos_weight=pos_weight))
+                            fine_pred, fine_label, pos_weight=pos_weight))
 
             losses["position"] = torch.stack(losses["position"]).mean()
 

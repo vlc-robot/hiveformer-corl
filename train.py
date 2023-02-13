@@ -83,7 +83,6 @@ class Arguments(tap.Tap):
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.1
-    separate_coarse_and_fine_losses: int = 0
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
@@ -511,7 +510,6 @@ if __name__ == "__main__":
         rotation_loss_coeff=args.rotation_loss_coeff,
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
-        separate_coarse_and_fine_losses=bool(args.separate_coarse_and_fine_losses),
     )
 
     model_dict = {
