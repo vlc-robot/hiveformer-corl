@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=generate
+#SBATCH --job-name=c2farm
 #SBATCH --ntasks=1          
 # #SBATCH --ntasks-per-node=1
 # #SBATCH --cpus-per-task=1
@@ -17,11 +17,14 @@
  
 
 # This script generates fresh samples
+# OOM errors with CPU
 
+# go into the submission directory
 set -x
 set -e
 
   
+
 cd ${SLURM_SUBMIT_DIR}
 export XDG_RUNTIME_DIR=$SCRATCH/tmp/runtime-$SLURM_JOBID
 mkdir $XDG_RUNTIME_DIR
@@ -47,13 +50,11 @@ else
   offset=${seed:-$seed_gen}
 fi
 
-hf_dir=$HOME/src/hiveformer
-rlbench_dir=$hf_dir/RLBench
-log_dir=$SCRATCH/logs/hiveformer
-data_dir=$SCRATCH/datasets/hiveformer/raw/seed$seed/
-store_dir=$STORE/datasets/hiveformer/raw/seed$seed/
-output_dir=${output_dir:-$SCRATCH/datasets/pkg/seed-${seed_gen}}
-tar_file=$output_dir/${task}+${variation}.tar.gz
+alh_dir=$HOME/src/vln-robot/alhistory
+log_dir=$HOME/src/vln-robot/alhistory/logs
+data_dir=$SCRATCH/datasets/vln-robot/c2farm2/$num_episodes/seed$seed/
+store_dir=$STORE/datasets/vln-robot/c2farm2/$num_episodes/seed$seed/
+output_dir=${output_dir:-$SCRATCH/datasets/vln-robot/alhistory/dataset2-${seed_gen}}
 
 mkdir -p $data_dir
 mkdir -p $log_dir
@@ -67,31 +68,29 @@ if [ -d $data_dir/$task/variation$variation ]; then
   rm -r $data_dir/$task/variation$variation
 fi
 
-# Quit if the task is broken
 is_broken=$(python -c "import json; ep=json.load(open('$alh_dir/episodes.json')); print('$task' in ep['broken']);")
+
 if [ $is_broken = True ]; then
 	echo "Broken task" $task
 	exit 1
 fi
 
-# Quit if the task is already stored
-if [ ! -z ${quit_if_exists+x} ] && [ "$quit_if_exists" = true ] && [ -f "$tar_file" ];then
-	echo "The tar_file folder already exists"
+dest=$output_dir/${task}+${variation}
+if [ ! -z ${quit_if_exists+x} ] && [ "$quit_if_exists" = true ] && [ -f "$dest" ];then
+	echo "The dest folder already exists"
 	exit 0
 fi
 
-# Uncompress an existing stored file
-if [ -f $tar_file ]; then
+if [ -f $store_dir/$task-$variation.tar.gz ]; then
   echo "Untar $task/$variation"
-  tar -xzf $tar_file -C $data_dir
+  tar -xzf $store_dir/$task-$variation.tar.gz -C $data_dir
 fi
 
-# Generate samples
-pushd $rlbench_dir/tools/
+pushd $HOME/src/vln-robot/RLBench/tools/
 srun --export=ALL,XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
 	singularity exec \
 	--bind $WORK:$WORK,$SCRATCH:$SCRATCH,$STORE:$STORE \
-	$SINGULARITY_ALLOWED_DIR/hiveformer.sif \
+	$SINGULARITY_ALLOWED_DIR/vln-robot.sif \
 	xvfb-run -a -e $log_dir/$SLURM_JOBID.err \
 	    /usr/bin/python3.9 dataset_generator.py \
 		--save_path=$data_dir \
@@ -104,12 +103,12 @@ srun --export=ALL,XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
 		--processes=1
 popd
 
-# Package samples
-pushd $hf_dir
+
+pushd $HOME/src/vln-robot/alhistory/
 srun --export=ALL,XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
 	singularity exec \
 	--bind $WORK:$WORK,$SCRATCH:$SCRATCH,$STORE:$STORE \
-	$SINGULARITY_ALLOWED_DIR/hiveformer.sif \
+	$SINGULARITY_ALLOWED_DIR/vln-robot.sif \
 	xvfb-run -a -e $log_dir/$SLURM_JOBID.err \
 	    /usr/bin/python3.9 data_gen.py \
 		--data_dir=$data_dir \
@@ -122,8 +121,8 @@ srun --export=ALL,XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
 		$pack_args
 popd
 
-# Store samples
 pushd $data_dir 
+  tar_file=$store_dir/$task-$variation.tar.gz
   if [ -f $tar_file ]; then
     echo "Remove old tar $tar_file"
     rm $tar_file

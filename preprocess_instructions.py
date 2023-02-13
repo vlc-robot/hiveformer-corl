@@ -1,5 +1,5 @@
 """
-Precompute embeddings of instructions
+Generate BERT hidden states for instructions
 """
 import re
 import json
@@ -25,7 +25,7 @@ class Arguments(tap.Tap):
     output: Path
     batch_size: int = 10
     encoder: TextEncoder = "clip"
-    model_max_length: int = 53
+    model_max_length: int = 52
     variations: Tuple[int, ...] = (1,)
     device: str = "cuda"
     annotations: Tuple[Path, ...] = ()
@@ -130,7 +130,8 @@ if __name__ == "__main__":
 
         instructions[task] = {}
 
-        variations = [v for v in args.variations if v < task_inst.variation_count()]
+        # variations = [v for v in args.variations if v < task_inst.variation_count()]
+        variations = [v for v in args.variations]
         print("Num available var", task_inst.variation_count())
         print("Num var", len(variations))
         for variation in variations:

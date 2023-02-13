@@ -1,54 +1,95 @@
-import random
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Dict, Optional
+import itertools
+import subprocess
 import os
 from pathlib import Path
+import random
 import torch
 from torch import nn
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
-import numpy as np
-from tqdm import tqdm, trange
 from filelock import FileLock
 import tap
-from network import Hiveformer
+
+# If pl is imported after np, the gpu usage is divided by 5
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import (
+    DeviceStatsMonitor,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
+from pytorch_lightning.plugins import DDPPlugin
+import numpy as np
+from structures import (
+    BackboneOp,
+    GripperPose,
+    PointCloudToken,
+    Position,
+    PosMode,
+    RotMode,
+    RotType,
+    TransformerToken,
+    Workspace,
+    ZMode,
+)
 from utils import (
     LossAndMetrics,
     load_instructions,
+    load_rotation,
     RLBenchEnv,
-    count_parameters,
     load_episodes,
     get_max_episode_length,
     Actioner,
 )
-from dataset import RLBenchDataset
+from create_data import RLBench, Sample
+from network import (
+    PlainUNet,
+    TransformerUNet,
+)
 
 
 class Arguments(tap.Tap):
+    # PyTorch Lightning
+    gpus: int = 1
+    num_nodes: int = 1
+    use_half: bool = False
+    log_every_n_steps: int = 20
     accumulate_grad_batches: int = 1
-    cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
-    checkpoint: Optional[Path] = None
-    checkpoint_period: int = 10
-    dataset: List[Path]
-    device: str = "cuda"
+    eval_only: bool = False
+
+    dataset: Path
+    seed: int = 2
     xp: Path = Path(__file__).parent / "xp"
-    valset: Optional[Tuple[Path, ...]] = None
-    name: str = "hiveformer"
+    valset: Optional[Path] = None
+    name: str = "multitask"
     arch: str = "mct"
     num_workers: int = 5
+    variations: Tuple[int, ...] = (0,)
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = None
     cache_size: int = 100
-    seed: int = 2
+    checkpoint: Optional[Path] = None
+    checkpoint_period: int = 10
 
-    tasks: Tuple[str, ...]
-    variations: Tuple[int, ...] = (0,)
-
+    tasks: Tuple[str, ...] = (
+        "reach_target",
+        "push_button",
+        "pick_and_lift",
+        "pick_up_cup",
+        "put_knife_on_chopping_board",
+        "take_money_out_safe",
+        "put_money_in_safe",
+        "take_umbrella_out_of_umbrella_stand",
+        "stack_wine",
+        "slide_block_to_target",
+    )
     # Train
     batch_size: int = 32
     lr: float = 0.001
+    lr_rotation: float = 0.001
+    lr_transformer: float = 0.001
     val_freq: int = 200
     val_batch_size: int = 100
     train_iters: int = 100_000
@@ -58,202 +99,301 @@ class Arguments(tap.Tap):
     headless: bool = False
     output: Path = Path(__file__).parent / "records.txt"
 
+    workspace: Workspace = ((-0.325, 0.325, -0.455), (0.455, 0.0, 0.0))
+
     # model
+    gripper_pose: GripperPose = "none"
+    z_mode: ZMode = "embed"
+    backbone: BackboneOp = "cat"
+    cond: bool = False
     depth: int = 4
     dim_feedforward: int = 64
+    embed_only: bool = False
+    film: bool = False
+    film_mlp: bool = False
+    film_residual: bool = False
     hidden_dim: int = 64
     instr_size: int = 512
     mask_obs_prob: float = 0.0
+    no_residual: bool = False
     num_layers: int = 1
+    pcd_token: PointCloudToken = "none"
+    taskvar_token: bool = False
+    pos: PosMode = "mse"
+    rot: RotMode = "mse"
+    rot_type: RotType = "quat"
+    stateless: bool = False
+    tr_token: TransformerToken = "tnc"
+    temp_len: int = 64
+    attn_weights: bool = False
 
 
-def training(
-    model: nn.Module,
-    optimizer,
-    train_loader,
-    val_loaders,
-    checkpointer,
-    loss_and_metrics,
-    args: Arguments,
-    writer: SummaryWriter,
-):
-    iter_loader = iter(train_loader)
-    device = next(model.parameters()).device
+def get_git_patch():
+    current_file = os.path.dirname(os.path.abspath(__file__))
+    describe = subprocess.check_output(["git", "diff"], cwd=current_file)
+    return describe.strip().decode()
 
-    with trange(args.train_iters) as tbar:
-        for step_id in tbar:
-            try:
-                sample = next(iter_loader)
-            except StopIteration:
-                iter_loader = iter(train_loader)
-                sample = next(iter_loader)
 
-            rgbs = sample["rgbs"].to(device)
-            pcds = sample["pcds"].to(device)
-            gripper = sample["gripper"].to(device)
-            outputs = sample["action"].to(device)
-            padding_mask = sample["padding_mask"].to(device)
+def get_dec_len(args: Arguments) -> int:
+    if args.arch == "mct":
+        dec_len = 0
+        if args.backbone == "cat":
+            dec_len += args.temp_len
+            if "tnc" == args.tr_token:
+                dec_len += 16
+                if args.pcd_token != "none":
+                    dec_len += 3
+            elif "tnhw_cm_sa" == args.tr_token:
+                dec_len += 2 * args.hidden_dim
+            else:
+                dec_len += args.hidden_dim
 
-            instr = sample["instr"]
-            if instr is not None:
-                instr = instr.to(device)
+            if not args.no_residual:
+                dec_len += 16
 
-            frame_id = sample["frame_id"]
-            tasks = sample["task"]
+        else:
+            dec_len = 16
 
-            if step_id % args.accumulate_grad_batches == 0:
-                optimizer.zero_grad()
+    elif args.arch == "plain":
+        dec_len = 16
+        if args.backbone == "cat":
+            dec_len += args.temp_len
 
-            pred = model(
-                rgbs,
-                pcds,
-                padding_mask,
-                instr,
-                gripper,
+    else:
+        raise RuntimeError()
+
+    return dec_len
+
+
+class Module(pl.LightningModule):
+    def __init__(self, args: Arguments):
+        super().__init__()
+        self._args = args
+        self._rotation = load_rotation(self._args.rot, self._args.rot_type)
+        self._position = Position(args.pos, args.workspace)
+        self._loss_and_metrics = LossAndMetrics(self._rotation, self._position)
+
+        max_eps_dict = load_episodes()["max_episode_length"]
+        self.t_dict = nn.ParameterDict()
+        self.z_dict = nn.ParameterDict()
+
+        for task_str, max_eps in max_eps_dict.items():
+            values = torch.rand(max_eps, self._args.temp_len, requires_grad=True)
+            self.t_dict[task_str] = nn.Parameter(values)  # type: ignore
+            self.z_dict[task_str] = nn.Parameter(  # type: ignore
+                torch.zeros(max_eps, 3, requires_grad=True)
             )
 
-            train_losses = loss_and_metrics.compute_loss(pred, sample)
-            train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
+        dec_len = get_dec_len(args)
 
-            for n, l in train_losses.items():
-                writer.add_scalar(f"train-loss/{n}", l, step_id)
+        if self._args.arch == "mct":
+            max_episode_length = get_max_episode_length(
+                self._args.tasks, self._args.variations
+            )
+            self.model: PlainUNet = TransformerUNet(
+                gripper_pose=self._args.gripper_pose,
+                attn_weights=self._args.attn_weights,
+                backbone_op=self._args.backbone,
+                cond=self._args.cond,
+                depth=self._args.depth,
+                dim_feedforward=self._args.dim_feedforward,
+                dec_len=dec_len,
+                embed_only=self._args.embed_only,
+                film=self._args.film,
+                film_mlp=self._args.film_mlp,
+                film_residual=self._args.film_residual,
+                hidden_dim=self._args.hidden_dim,
+                instr_size=self._args.instr_size,
+                instruction=self._args.instructions is not None,
+                mask_obs_prob=self._args.mask_obs_prob,
+                max_episode_length=max_episode_length,
+                no_residual=self._args.no_residual,
+                num_layers=args.num_layers,
+                pcd_token=self._args.pcd_token,
+                taskvar_token=self._args.taskvar_token,
+                rot=self._rotation,
+                stateless=self._args.stateless,
+                temp_len=self._args.temp_len,
+                tr_token=self._args.tr_token,
+                z_mode=self._args.z_mode,
+            )
+        elif self._args.arch == "plain":
+            self.model = PlainUNet(
+                gripper_pose=self._args.gripper_pose,
+                attn_weights=self._args.attn_weights,
+                backbone_op=self._args.backbone,
+                cond=self._args.cond,
+                dec_len=dec_len,
+                depth=self._args.depth,
+                film=self._args.film,
+                film_mlp=self._args.film_mlp,
+                film_residual=self._args.film_residual,
+                instruction=self._args.instructions is not None,
+                instr_size=self._args.instr_size,
+                rot=self._rotation,
+                temp_len=self._args.temp_len,
+                z_mode=self._args.z_mode,
+            )
+        else:
+            raise RuntimeError(f"Unexpected arch {args.arch}")
 
-            writer.add_scalar(f"lr/", args.lr, step_id)
-
-            metrics = loss_and_metrics.compute_metrics(pred, sample)
-            for n, l in metrics.items():
-                writer.add_scalar(f"train-metrics/{n}", l, step_id)
-
-            train_losses["total"].backward()  # type: ignore
-
-            if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
-                optimizer.step()
-
-            if (step_id + 1) % args.val_freq == 0:
-                if val_loaders is not None:
-                    val_metrics = validation_step(
-                        step_id,
-                        val_loaders,
-                        model,
-                        writer,
-                        loss_and_metrics,
-                    )
-                    model.train()
+    def configure_optimizers(self):
+        if self._args.arch == "mct":
+            optimizer_grouped_parameters = [
+                {
+                    "params": list(self.t_dict.values()),
+                    "weight_decay": 0.0,
+                    "lr": self._args.lr,
+                },
+                {
+                    "params": list(self.z_dict.values()),
+                    "weight_decay": 5e-4,
+                    "lr": self._args.lr,
+                },
+                {"params": [], "weight_decay": 5e-4, "lr": self._args.lr_transformer},
+                {"params": [], "weight_decay": 0.0, "lr": self._args.lr_rotation},
+            ]
+            no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
+            transformer_modules = ["encoder"]
+            zinstr = ["z_pos_instr", "z_proj_instr"]
+            rotation_modules = ["quat_decoder"]
+            for name, param in self.model.named_parameters():
+                if any(nd in name for nd in no_decay):
+                    optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
+                elif any(nd in name for nd in zinstr):
+                    optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
+                elif any(nd in name for nd in transformer_modules):
+                    optimizer_grouped_parameters[2]["params"].append(param)  # type: ignore
+                elif any(nd in name for nd in rotation_modules):
+                    optimizer_grouped_parameters[3]["params"].append(param)  # type: ignore
                 else:
-                    val_metrics = {}
-                checkpointer(val_metrics)
+                    optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
+            optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
+            return optimizer
 
-            tbar.set_postfix(l=float(train_losses["total"]))
-
-
-def get_log_dir(args: Arguments) -> Path:
-    log_dir = args.xp / args.name
-    version = int(os.environ.get("SLURM_JOBID", 0))
-    while (log_dir / f"version{version}").is_dir():
-        version += 1
-    return log_dir / f"version{version}"
-
-
-class CheckpointCallback:
-    def __init__(
-        self,
-        name: str,
-        log_dir: Path,
-        state_dict: Any,
-        minimizing: bool = True,
-        checkpoint_period: int = 200,
-    ):
-        self._name = name
-        self._minimizing = minimizing
-        self._best = float("inf") if minimizing else -float("inf")
-        self._log_dir = log_dir
-        self._checkpoint_period = checkpoint_period
-        self._step = 0
-        self._state_dict = state_dict
-
-    def __call__(self, metrics: Dict[str, torch.Tensor]):
-        self._step += 1
-        if self._step % self._checkpoint_period != 0:
-            return
-
-        value = int(metrics.get(self._name, 0))
-        dest = self._log_dir / f"model.step={self._step}-value={value}.pth"
-        torch.save(self._state_dict, dest)
-
-        if (self._minimizing and self._best > value) or (
-            not self._minimizing and self._best < value
-        ):
-            best = self._log_dir / "best.pth"
-            best.unlink(missing_ok=True)
-            best.symlink_to(dest.resolve())
-            self._best = value
-
-
-@torch.no_grad()
-def validation_step(
-    step_id: int,
-    val_loaders: List[DataLoader],
-    model,
-    writer,
-    loss_and_metrics,
-    val_iters: int = 5,
-):
-    values = {}
-    device = next(model.parameters()).device
-    model.eval()
-
-    for val_id, val_loader in enumerate(val_loaders):
-        for i, sample in enumerate(val_loader):
-            if i == val_iters:
-                break
-
-            rgbs = sample["rgbs"].to(device)
-            pcds = sample["pcds"].to(device)
-            gripper = sample["gripper"].to(device)
-            outputs = sample["action"].to(device)
-            padding_mask = sample["padding_mask"].to(device)
-
-            instr = sample["instr"]
-            if instr is not None:
-                instr = instr.to(device)
-
-            frame_id = sample["frame_id"]
-            tasks = sample["task"]
-
-            pred = model(
-                rgbs,
-                pcds,
-                padding_mask,
-                instr,
-                gripper,
+        elif self._args.arch == "plain":
+            optimizer = optim.Adam(
+                [
+                    {"params": list(self.model.parameters()) + list(self.t_dict.values())},  # type: ignore
+                    {"params": list(self.z_dict.values()), "weight_decay": 5e-4},
+                ],
+                lr=self._args.lr,
             )
+            return optimizer
 
-            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
-            losses["total"] = torch.stack(list(losses.values())).sum()
+        else:
+            raise RuntimeError(f"Unexpected arch {args.arch}")
 
-            for n, l in losses.items():
-                key = f"val-loss-{val_id}/{n}"
-                writer.add_scalar(key, l, step_id + i)
-                if key not in values:
-                    values[key] = torch.Tensor([]).to(device)
-                values[key] = torch.cat([values[key], l.unsqueeze(0)])
+    @property
+    def log_dir(self):
+        log_dir = (
+            Path(self.logger._save_dir)
+            / self.logger._name
+            / f"version_{self.logger._version}"
+        )
+        log_dir.mkdir(exist_ok=True, parents=True)
+        return log_dir
 
-            writer.add_scalar(f"lr/", args.lr, step_id + i)
+    def on_fit_start(self):
+        self
+        self._args.save(str(self.log_dir / "hparams.json"))
 
-            metrics = loss_and_metrics.compute_metrics(pred, sample)
-            for n, l in metrics.items():
-                key = f"val-metrics-{val_id}/{n}"
-                writer.add_scalar(key, l, step_id + i)
-                if key not in metrics:
-                    values[key] = torch.Tensor([]).to(device)
-                values[key] = torch.cat([values[key], l.unsqueeze(0)])
+        log_dir = Path(self.logger.log_dir)
+        log_dir.mkdir(exist_ok=True, parents=True)
+        with open(log_dir / "hamt.patch", "w") as fid:
+            fid.write(get_git_patch())
 
-        key = f"val-loss-{val_id}/total"
-        print(f"Validation Loss {val_id}: {values[key].mean():.05f}")
-        key = f"val-metrics-{val_id}/position"
-        print(f"Validation Position {val_id}: {values[key].mean():.05f}")
+    def forward(self, batch: Sample):  # type: ignore
+        return self.model(batch)
 
-    return values
+    def training_step(self, sample: Sample, *_):  # type: ignore
+        rgbs = sample["rgbs"]
+        pcds = sample["pcds"]
+        gripper = sample["gripper"]
+        outputs = sample["action"]
+        padding_mask = sample["padding_mask"]
+        instr = sample["instr"]
+        taskvar = sample["taskvar"]
+        frame_id = sample["frame_id"]
+        tasks = sample["task"]
+        t = torch.stack([self.t_dict[task][fid] for task, fid in zip(tasks, frame_id)])
+        z = torch.stack([self.z_dict[task][fid] for task, fid in zip(tasks, frame_id)])
+
+        pred = self.model(
+            rgbs,
+            pcds,
+            padding_mask,
+            t,
+            z,
+            instr,
+            gripper,
+            taskvar,
+        )
+
+        train_losses = loss_and_metrics.compute_loss(pred, sample)
+        train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
+
+        # Compute loss per task
+        # for task in set(train_batch.task):
+        #     mask = (
+        #         torch.Tensor([t == task for t in train_batch.task])
+        #         .bool()
+        #         .to(loss.device)
+        #     )
+        #     self.log(
+        #         f"train-loss/{task}", loss[mask].mean(), on_step=False, on_epoch=True
+        #     )
+
+        self.log_dict(
+            {f"train/{key}/loss": v for key, v in train_losses.items()},
+            batch_size=len(tasks),
+        )
+
+        train_metrics = loss_and_metrics.compute_metrics(pred, sample)
+        self.log_dict(
+            {f"train/{key}/metrics": v for key, v in train_metrics.items()},
+            batch_size=len(tasks),
+        )
+
+        return {"loss": train_losses["total"]}
+
+    @torch.no_grad()
+    def validation_step(self, sample, *_):
+        rgbs = sample["rgbs"]
+        pcds = sample["pcds"]
+        gripper = sample["gripper"]
+        outputs = sample["action"]
+        padding_mask = sample["padding_mask"]
+        instr = sample["instr"]
+        taskvar = sample["taskvar"]
+        frame_id = sample["frame_id"]
+        tasks = sample["task"]
+        t = torch.stack([self.t_dict[task][fid] for task, fid in zip(tasks, frame_id)])
+        z = torch.stack([self.z_dict[task][fid] for task, fid in zip(tasks, frame_id)])
+
+        pred = self.model(
+            rgbs,
+            pcds,
+            padding_mask,
+            t,
+            z,
+            instr,
+            gripper,
+            taskvar,
+        )
+
+        val_losses = loss_and_metrics.compute_loss(pred, sample)
+        val_losses["total"] = sum(list(val_losses.values()))  # type: ignore
+
+        self.log_dict(
+            {f"val/{key}/loss": v for key, v in val_losses.items()}, batch_size=len(tasks)
+        )
+
+        val_metrics = self._loss_and_metrics.compute_metrics(pred, sample)
+        self.log_dict(
+            {f"val/{key}/metrics": v for key, v in val_metrics.items()},
+            batch_size=len(tasks),
+        )
 
 
 def collate_fn(batch: List[Dict]):
@@ -266,213 +406,181 @@ def collate_fn(batch: List[Dict]):
     }
 
 
-def get_train_loader(args: Arguments) -> DataLoader:
-    instruction = load_instructions(
-        args.instructions, tasks=args.tasks, variations=args.variations
-    )
+class DataModule(pl.LightningDataModule):
+    def __init__(self, args: Arguments):
+        super().__init__()
+        self._args = args
 
-    if instruction is None:
-        raise NotImplementedError()
-    else:
-        taskvar = [
-            (task, var)
-            for task, var_instr in instruction.items()
-            for var in var_instr.keys()
-        ]
-    print(f"Valset has {len(taskvar)} taskvars")
-
-    max_episode_length = get_max_episode_length(args.tasks, args.variations)
-
-    dataset = RLBenchDataset(
-        root=args.dataset,
-        taskvar=taskvar,
-        instructions=instruction,
-        max_episode_length=max_episode_length,
-        max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-        cache_size=args.cache_size,
-        num_iters=args.train_iters,
-        cameras=args.cameras,  # type: ignore
-    )
-    loader = DataLoader(
-        dataset=dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-        collate_fn=collate_fn,
-    )
-    return loader
-
-
-def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
-    if args.valset is None:
-        return None
-
-    instruction = load_instructions(
-        args.instructions, tasks=args.tasks, variations=args.variations
-    )
-
-    if instruction is None:
-        raise NotImplementedError()
-    else:
-        taskvar = [
-            (task, var)
-            for task, var_instr in instruction.items()
-            for var in var_instr.keys()
-        ]
-    print(f"Valset has {len(taskvar)} taskvars")
-
-    max_episode_length = get_max_episode_length(args.tasks, args.variations)
-    loaders = []
-
-    for valset in args.valset:
-        dataset = RLBenchDataset(
-            root=valset,
+    def train_dataloader(self) -> DataLoader:
+        taskvar = list(itertools.product(self._args.tasks, self._args.variations))
+        instruction = load_instructions(self._args.instructions)
+        max_episode_length = get_max_episode_length(
+            self._args.tasks, self._args.variations
+        )
+        num_iters = (
+            self._args.train_iters
+            * self._args.batch_size
+            * self._args.num_nodes
+            * self._args.gpus
+        )
+        dataset = RLBench(
+            root=self._args.dataset,
             taskvar=taskvar,
             instructions=instruction,
+            num_iters=num_iters,
+            gripper_pose=self._args.gripper_pose,
+            taskvar_token=self._args.taskvar_token,
             max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-            cache_size=args.cache_size,
-            training=False,
+            max_episodes_per_taskvar=self._args.max_episodes_per_taskvar,
+            cache_size=self._args.cache_size,
+            jitter=self._args.jitter,
         )
         loader = DataLoader(
             dataset=dataset,
-            batch_size=args.batch_size,
+            batch_size=self._args.batch_size,
+            shuffle=True,
+            num_workers=self._args.num_workers,
+            collate_fn=collate_fn,
+            persistent_workers=self._args.num_workers > 0,
+        )
+        # return AutoReloadLoader(loader)
+        return loader
+
+    def val_dataloader(self) -> Optional[DataLoader]:
+        if self._args.valset is None:
+            return None
+
+        instruction = load_instructions(self._args.instructions)
+        taskvar = list(itertools.product(self._args.tasks, self._args.variations))
+        max_episode_length = get_max_episode_length(
+            self._args.tasks, self._args.variations
+        )
+
+        dataset = RLBench(
+            root=self._args.valset,
+            taskvar=taskvar,
+            instructions=instruction,
+            gripper_pose=self._args.gripper_pose,
+            taskvar_token=self._args.taskvar_token,
+            max_episode_length=max_episode_length,
+            max_episodes_per_taskvar=self._args.max_episodes_per_taskvar,
+            cache_size=0,
+        )
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=self._args.batch_size,
             shuffle=False,
             num_workers=0,
             collate_fn=collate_fn,
+            persistent_workers=False,
         )
-        loaders.append(loader)
-
-    print(len(loaders), "validation loaders")
-
-    return loaders
+        return loader
 
 
-def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
-    device = torch.device(args.device)
+class AutoReloadLoader:
+    def __init__(self, loader: DataLoader):
+        self._loader = loader
+        self._iter = iter(self._loader)
 
-    max_episode_length = get_max_episode_length(args.tasks, args.variations)
-    model = Hiveformer(
-        depth=args.depth,
-        dim_feedforward=args.dim_feedforward,
-        hidden_dim=args.hidden_dim,
-        instr_size=args.instr_size,
-        mask_obs_prob=args.mask_obs_prob,
-        max_episode_length=max_episode_length,
-        num_layers=args.num_layers,
-    ).to(device)
+    def __next__(self):
+        try:
+            return next(self._iter)
+        except StopIteration:
+            self._iter = iter(self._loader)
+            return next(self._iter)
 
-    optimizer_grouped_parameters = [
-        {"params": [], "weight_decay": 0.0, "lr": args.lr},
-        {"params": [], "weight_decay": 5e-4, "lr": args.lr},
-    ]
-    no_decay = ["bias", "LayerNorm.weight", "LayerNorm.bias"]
-    for name, param in model.named_parameters():
-        if any(nd in name for nd in no_decay):
-            optimizer_grouped_parameters[0]["params"].append(param)  # type: ignore
-        else:
-            optimizer_grouped_parameters[1]["params"].append(param)  # type: ignore
-    optimizer: optim.Optimizer = optim.AdamW(optimizer_grouped_parameters)
 
-    if args.checkpoint is not None:
-        model_dict = torch.load(args.checkpoint, map_location="cpu")
-        model.load_state_dict(model_dict["weight"])
-        optimizer.load_state_dict(model_dict["optimizer"])
-
-    print("Number of parameters:")
-    model_params = count_parameters(model)
-    print("- model", model_params)
-    print("Total", model_params)
-
-    return optimizer, model
+def get_log_dir(args: Arguments) -> Path:
+    log_dir = args.xp / args.name
+    version = int(os.environ.get("SLURM_JOBID", 0))
+    while (log_dir / f"version{version}").is_dir():
+        version += 1
+    return log_dir / f"version{version}"
 
 
 if __name__ == "__main__":
+    random.seed(0)
+    np.random.seed(0)
+    torch.random.manual_seed(0)
+
     args = Arguments().parse_args()
     print(args)
-    log_dir = get_log_dir(args)
-    log_dir.mkdir(exist_ok=True, parents=True)
-    print("Logging:", log_dir)
-    args.save(str(log_dir / "hparams.json"))
-    writer = SummaryWriter(log_dir=log_dir)
 
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    dm = DataModule(args)
 
-    device = torch.device(args.device)
+    if args.checkpoint is None:
+        model = Module(args)
+    else:
+        model = Module.load_from_checkpoint(args.checkpoint, args=args)
 
-    optimizer, model = get_model(args)
-
-    loss_and_metrics = LossAndMetrics()
-
-    # training episode
-    model_dict = {
-        "weight": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-    }
-    checkpointer = CheckpointCallback(
-        "val-metrics/position",
-        log_dir,
-        model_dict,
-        minimizing=False,
-        checkpoint_period=args.checkpoint_period,
+    # callbacks
+    checkpoint_period = args.val_freq
+    if args.checkpoint_period > 0:
+        save_top_k = -1
+        checkpoint_period *= args.checkpoint_period
+    else:
+        save_top_k = 5
+    checkpoint_callback = ModelCheckpoint(
+        monitor="train/position/metrics",
+        save_top_k=save_top_k,
+        every_n_train_steps=checkpoint_period,
+        mode="max",
     )
-    model.train()
+    device_stats = DeviceStatsMonitor()
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+    callbacks = [lr_monitor, checkpoint_callback]
 
-    val_loaders = get_val_loaders(args)
+    default_root_dir = f"{args.xp}/{args.name}" if args.name != "" else None
 
-    if args.train_iters > 0:
-        train_loader = get_train_loader(args)
-        training(
-            model,
-            optimizer,
-            train_loader,
-            val_loaders,
-            checkpointer,
-            loss_and_metrics,
-            args,
-            writer,
-        )
+    trainer = pl.Trainer(
+        gpus=args.gpus,
+        num_nodes=args.num_nodes,
+        precision=16 if args.use_half else 32,
+        callbacks=callbacks,
+        gradient_clip_val=20.0,
+        log_every_n_steps=args.log_every_n_steps,
+        limit_train_batches=0 if args.eval_only else 1.0,
+        limit_val_batches=5,
+        max_steps=args.train_iters,
+        val_check_interval=int(args.val_freq),
+        default_root_dir=default_root_dir,
+        strategy=None,
+        accumulate_grad_batches=args.accumulate_grad_batches,
+    )
+    if args.eval_only:
+        trainer.fit(model, dm)
+    else:
+        trainer.validate(model, dm)
 
-    if val_loaders is not None:
-        val_metrics = validation_step(
-            args.train_iters,
-            val_loaders,
-            model,
-            writer,
-            loss_and_metrics,
-            val_iters=-1,
-        )
-
-    # last checkpoint
-    checkpoint = log_dir / f"mtl_{args.seed}_{args.lr}.pth"
-    torch.save(model_dict, checkpoint)
-
-    # evaluation
-    model.eval()
-
+    # Final test
+    # FIXME convert it in PL format
+    # ckpt_path = None if args.checkpoint_path == "" else args.checkpoint_path
+    # trainer.test(datamodule=dm, ckpt_path=ckpt_path)
     env = RLBenchEnv(
         data_path="",
         apply_rgb=True,
         apply_pc=True,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
         headless=args.headless,
+        gripper_pose=args.gripper_pose,
     )
+    log_dir = get_log_dir(args)
+    log_dir.mkdir(exist_ok=True, parents=True)
 
     instruction = load_instructions(args.instructions)
-    if instruction is None:
-        raise NotImplementedError()
-
-    actioner = Actioner(model=model.model, instructions=instruction)
+    actioner = Actioner(
+        model={"model": model.model, "t": model.t_dict, "z": model.z_dict},  # type: ignore
+        instructions=instruction,
+        taskvar_token=args.taskvar_token,
+    )
     max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
-        for variation in args.variations:
+        for variation_id in args.variations:
             success_rate = env.evaluate(
                 task_str,
                 actioner=actioner,
                 max_episodes=max_eps_dict.get(task_str, 6),
-                variation=variation,
+                variation_id=variation_id,
                 num_demos=500,
                 demos=None,
                 log_dir=log_dir,
@@ -484,5 +592,5 @@ if __name__ == "__main__":
             with FileLock(args.output.parent / f"{args.output.name}.lock"):
                 with open(args.output, "a") as oid:
                     oid.write(
-                        f"{task_str}-{variation}, na, seed={args.seed}, {success_rate}\n"
+                        f"{task_str}-{variation_id}, na, seed={args.seed}, {success_rate}\n"
                     )

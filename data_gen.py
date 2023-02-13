@@ -100,6 +100,7 @@ class Dataset(torch.utils.data.Dataset):
         tasks = [t for t in args.tasks if t not in broken]
         variations = range(args.offset, args.max_variations)
         self.items = []
+
         for task_str, variation in itertools.product(tasks, variations):
             episodes_dir = args.data_dir / task_str / f"variation{variation}" / "episodes"
             episodes = [

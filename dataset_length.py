@@ -33,5 +33,5 @@ for task in tasks:
         print("No episode for", task)
         continue
 
-    np_lengths = np.array(lengths)
-    print(task, np.percentile(np_lengths, 0.9), np.std(np_lengths))
+    lengths = np.array(lengths)
+    print(task, np.percentile(lengths, 0.9), np.std(lengths))

@@ -1,10 +1,8 @@
-from abc import abstractmethod, ABC
 import random
 import itertools
 import pickle
-from typing import List, Dict, Optional, Tuple, Literal, TypedDict, Union, Any, Sequence
+from typing import List, Dict, Optional, Sequence, Tuple, TypedDict, Union, Any
 from pathlib import Path
-import math
 import json
 from tqdm import tqdm
 import numpy as np
@@ -13,7 +11,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from PIL import Image
-from scipy.spatial.transform import Rotation as R
 import einops
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
@@ -26,22 +23,21 @@ from rlbench.backend.exceptions import InvalidActionError
 from rlbench.demo import Demo
 from pyrep.errors import IKError, ConfigurationPathError
 from pyrep.const import RenderMode
-
-
-Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
-Instructions = Dict[str, Dict[int, torch.Tensor]]
-
-
-class Sample(TypedDict):
-    frame_id: torch.Tensor
-    task: Union[List[str], str]
-    variation: Union[List[int], int]
-    rgbs: torch.Tensor
-    pcds: torch.Tensor
-    action: torch.Tensor
-    padding_mask: torch.Tensor
-    instr: torch.Tensor
-    gripper: torch.Tensor
+from structures import (
+    Observation,
+    Demo,
+    GripperPose,
+    Instructions,
+    Output,
+    RotType,
+    RotMode,
+    Sample,
+    EulerRotation,
+    ContRotation,
+    QuatRotation,
+    Rotation,
+    Position,
+)
 
 
 def load_episodes() -> Dict[str, Any]:
@@ -50,6 +46,7 @@ def load_episodes() -> Dict[str, Any]:
 
 
 def get_max_episode_length(tasks: Tuple[str, ...], variations: Tuple[int, ...]) -> int:
+    return 10
     max_episode_length = 0
     max_eps_dict = load_episodes()["max_episode_length"]
 
@@ -69,14 +66,6 @@ def task_file_to_task_class(task_file):
     mod = importlib.reload(mod)
     task_class = getattr(mod, class_name)
     return task_class
-
-
-class Output(TypedDict):
-    position: torch.Tensor
-    rotation: torch.Tensor
-    gripper: torch.Tensor
-    attention: torch.Tensor
-    task: Optional[torch.Tensor]
 
 
 class MotionPlannerError(Exception):
@@ -120,9 +109,9 @@ class Mover:
 
             pos = obs.gripper_pose[:3]
             rot = obs.gripper_pose[3:7]
-            gripper = obs.gripper_open
-            dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
-            dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
+            dist_pos = np.sqrt(np.square(target[:3] - pos).sum())  # type: ignore
+            dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())  # type: ignore
+            # criteria = (dist_pos < 5e-2, dist_rot < 1e-1, (gripper > 0.5) == (target_gripper > 0.5))
             criteria = (dist_pos < 5e-2,)
 
             if all(criteria) or reward == 1:
@@ -160,31 +149,86 @@ class Mover:
         return obs, reward, terminate, images
 
 
+class Model(TypedDict):
+    model: nn.Module
+    t: Dict[str, torch.Tensor]
+    z: Dict[str, torch.Tensor]
+
+
 class Actioner:
     def __init__(
         self,
-        model: nn.Module,
-        instructions: Dict,
+        record_actions: bool = False,
+        replay_actions: Optional[Path] = None,
+        ground_truth_rotation: bool = False,
+        ground_truth_position: bool = False,
+        ground_truth_gripper: bool = False,
+        model: Optional[Model] = None,  # model includes t and z
+        model_rotation: Optional[nn.Module] = None,
+        model_position: Optional[nn.Module] = None,
+        model_gripper: Optional[nn.Module] = None,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist"),
+        instructions: Optional[Dict] = None,
+        taskvar_token: bool = False,
     ):
+        self._record_actions = record_actions
+        self._replay_actions = replay_actions
+        self._ground_truth_rotation = ground_truth_rotation
+        self._ground_truth_position = ground_truth_position
+        self._ground_truth_gripper = ground_truth_gripper
+        assert (model is not None) ^ (
+            model_rotation is not None
+            and model_position is not None
+            and model_gripper is not None
+        )
         self._model = model
+        self._model_rotation = model_rotation
+        self._model_position = model_position
+        self._model_gripper = model_gripper
         self._apply_cameras = apply_cameras
         self._instructions = instructions
+        self._taskvar_token = taskvar_token
+
+        if self._taskvar_token:
+            with open(Path(__file__).parent / "tasks.csv", "r") as fid:
+                self._tasks = [l.strip() for l in fid.readlines()]
 
         self._actions: Dict = {}
         self._instr: Optional[torch.Tensor] = None
+        self._taskvar: Optional[torch.Tensor] = None
         self._task: Optional[str] = None
-
-        self._model.eval()
 
     def load_episode(
         self, task_str: str, variation: int, demo_id: int, demo: Union[Demo, int]
     ):
         self._task = task_str
-        instructions = list(self._instructions[task_str][variation])
-        self._instr = random.choice(instructions).unsqueeze(0)
 
-        self._actions = {}
+        if self._instructions is None:
+            self._instr = None
+        else:
+            instructions = list(self._instructions[task_str][variation])
+            self._instr = random.choice(instructions).unsqueeze(0)
+
+        if self._taskvar_token:
+            task_id = self._tasks.index(task_str)
+            self._taskvar = torch.Tensor([[task_id, variation]]).unsqueeze(0)
+            print(self._taskvar)
+
+        if self._replay_actions is not None:
+            self._actions = torch.load(
+                self._replay_actions / f"episode{demo_id}" / "actions.pth"
+            )
+        elif (
+            self._ground_truth_rotation
+            or self._ground_truth_position
+            or self._ground_truth_gripper
+        ):
+            if isinstance(demo, int):
+                raise NotImplementedError()
+            action_ls = self.get_action_from_demo(demo)
+            self._actions = dict(enumerate(action_ls))
+        else:
+            self._actions = {}
 
     def get_action_from_demo(self, demo: Demo):
         """
@@ -197,7 +241,7 @@ class Actioner:
         action_ls = []
         for f in key_frame:
             obs = demo[f]
-            action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
+            action_np = np.concatenate([obs.gripper_pose, [obs.gripper_open]])  # type: ignore
             action = torch.from_numpy(action_np)
             action_ls.append(action.unsqueeze(0))
         return action_ls
@@ -208,26 +252,128 @@ class Actioner:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
         output: Dict[str, Any] = {"action": None, "attention": {}}
 
-        if self._instr is None:
-            raise ValueError()
+        if self._instr is not None:
+            self._instr = self._instr.to(rgbs.device)
 
-        self._instr = self._instr.to(rgbs.device)
+        if self._taskvar is not None:
+            self._taskvar = self._taskvar.to(rgbs.device)
 
-        pred = self._model(
-            rgbs,
-            pcds,
-            padding_mask,
-            self._instr,
-            gripper,
-        )
-        output["action"] = self._model.compute_action(pred)  # type: ignore
-        output["attention"] = pred["attention"]
+        if self._replay_actions:
+            if step_id not in self._actions:
+                print(f"Step {step_id} is not prerecorded!")
+                return output
+            action = self._actions[step_id]
+        elif self._model is None:
+            action = torch.Tensor([]).to(self.device)
+            keys = ("position", "rotation", "gripper")
+            slices = (slice(0, 3), slice(3, 7), slice(7, 8))
+            for key, slice_ in zip(keys, slices):
+                model = getattr(self, f"_model_{key}")
+                t = model["t"][self._task][: step_id + 1].unsqueeze(0)
+                z = model["z"][self._task][: step_id + 1].unsqueeze(0)
+                pred = model["model"](
+                    rgbs, pcds, padding_mask, t, z, self._instr, gripper, self._taskvar
+                )
+                action_key = model["model"].compute_action(pred)
+                action = torch.cat([action, action_key[slice_]])
+            output["action"] = action
+        else:
+            if self._task is None:
+                raise ValueError()
+            t = self._model["t"][self._task][: step_id + 1].unsqueeze(0)
+            z = self._model["z"][self._task][: step_id + 1].unsqueeze(0)
+            pred = self._model["model"](
+                rgbs, pcds, padding_mask, t, z, self._instr, gripper, self._taskvar
+            )
+            output["action"] = self._model["model"].compute_action(pred)  # type: ignore
+            output["attention"] = pred["attention"]
+
+        if self._ground_truth_rotation:
+            if step_id not in self._actions:
+                print(f"No ground truth available for step {step_id}!")
+                return output
+            output["action"][:, 3:7] = self._actions[step_id][:, 3:7]
+        if self._ground_truth_position:
+            if step_id not in self._actions:
+                print(f"No ground truth available for step {step_id}!")
+                return output
+            output["action"][:, :3] = self._actions[step_id][:, :3]
+        if self._ground_truth_gripper:
+            if step_id not in self._actions:
+                print(f"No ground truth available for step {step_id}!")
+                return output
+            output["action"][:, 7] = self._actions[step_id][:, 7]
+
+        if self._record_actions:
+            self._actions[step_id] = output["action"]
 
         return output
 
+    def save(self, ep_dir):
+        if self._record_actions:
+            torch.save(self._actions, ep_dir / "actions.pth")
+
     @property
     def device(self):
-        return next(self._model.parameters()).device
+        if self._model is not None:
+            return next(self._model["model"].parameters()).device
+        return next(self._model_position["model"].parameters()).device  # type: ignore
+
+    def eval(self):
+        if self._model is not None:
+            self._model["model"].eval()
+        else:
+            self._model_position["model"].eval()  # type: ignore
+            self._model_rotation["model"].eval()  # type: ignore
+            self._model_gripper["model"].eval()  # type: ignore
+
+
+def plot_attention(
+    attentions: torch.Tensor, rgbs: torch.Tensor, pcds: torch.Tensor, dest: Path
+) -> plt.Figure:
+    attentions = attentions.detach().cpu()
+    rgbs = rgbs.detach().cpu()
+    pcds = pcds.detach().cpu()
+
+    ep_dir = dest.parent
+    ep_dir.mkdir(exist_ok=True, parents=True)
+    name = dest.stem
+    ext = dest.suffix
+
+    # plt.figure(figsize=(10, 8))
+    num_cameras = len(attentions)
+    for i, (a, rgb, pcd) in enumerate(zip(attentions, rgbs, pcds)):
+        # plt.subplot(num_cameras, 4, i * 4 + 1)
+        plt.imshow(a.permute(1, 2, 0).log())
+        plt.axis("off")
+        plt.colorbar()
+        plt.savefig(ep_dir / f"{name}-{i}-attn{ext}", bbox_inches="tight")
+        plt.tight_layout()
+        plt.clf()
+
+        # plt.subplot(num_cameras, 4, i * 4 + 2)
+        # plt.imshow(a.permute(1, 2, 0))
+        # plt.axis('off')
+        # plt.colorbar()
+        # plt.tight_layout()
+        # plt.clf()
+
+        # plt.subplot(num_cameras, 4, i * 4 + 3)
+        plt.imshow(((rgb + 1) / 2).permute(1, 2, 0))
+        plt.axis("off")
+        plt.savefig(ep_dir / f"{name}-{i}-rgb{ext}", bbox_inches="tight")
+        plt.tight_layout()
+        plt.clf()
+
+        pcd_norm = (pcd - pcd.min(0).values) / (pcd.max(0).values - pcd.min(0).values)
+        # plt.subplot(num_cameras, 4, i * 4 + 4)
+        plt.imshow(pcd_norm.permute(1, 2, 0))
+        plt.axis("off")
+        plt.savefig(ep_dir / f"{name}-{i}-pcd{ext}", bbox_inches="tight")
+        plt.tight_layout()
+        plt.clf()
+
+    return plt.gcf()
 
 
 def obs_to_attn(obs, camera: str) -> Tuple[int, int]:
@@ -259,6 +405,7 @@ class RLBenchEnv:
         apply_pc=False,
         headless=False,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist", "front"),
+        gripper_pose: GripperPose = "none",
     ):
 
         # setup required inputs
@@ -267,6 +414,7 @@ class RLBenchEnv:
         self.apply_depth = apply_depth
         self.apply_pc = apply_pc
         self.apply_cameras = apply_cameras
+        self.gripper_pose = gripper_pose
 
         # setup RLBench environments
         self.obs_config = self.create_obs_config(
@@ -327,14 +475,15 @@ class RLBenchEnv:
         pcd = state[:, 1].unsqueeze(0)  # 1, N, C, H, W
         gripper = gripper.unsqueeze(0)  # 1, D
 
-        attns = torch.Tensor([])
-        for cam in self.apply_cameras:
-            u, v = obs_to_attn(obs, cam)
-            attn = torch.zeros((1, 1, 1, 128, 128))
-            if not (u < 0 or u > 127 or v < 0 or v > 127):
-                attn[0, 0, 0, v, u] = 1
-            attns = torch.cat([attns, attn], 1)
-        rgb = torch.cat([rgb, attns], 2)
+        if "attn" in self.gripper_pose:
+            attns = torch.Tensor([])
+            for cam in self.apply_cameras:
+                u, v = obs_to_attn(obs, cam)
+                attn = torch.zeros((1, 1, 1, 128, 128))
+                if not (u < 0 or u > 127 or v < 0 or v > 127):
+                    attn[0, 0, 0, v, u] = 1
+                attns = torch.cat([attns, attn], 1)
+            rgb = torch.cat([rgb, attns], 2)
 
         return rgb, pcd, gripper
 
@@ -350,7 +499,7 @@ class RLBenchEnv:
         state_ls = []
         action_ls = []
         for f in key_frame:
-            state, action = self.get_obs_action(demo._observations[f])
+            state, action = self.get_obs_action(demo[f])
             state = transform(state, augmentation=False)
             state_ls.append(state.unsqueeze(0))
             action_ls.append(action.unsqueeze(0))
@@ -401,6 +550,7 @@ class RLBenchEnv:
         task = self.env.get_task(task_type)
         task.set_variation(variation)  # type: ignore
 
+        actioner.eval()
         device = actioner.device
 
         success_rate = 0.0
@@ -421,12 +571,12 @@ class RLBenchEnv:
                 grippers = torch.Tensor([]).to(device)
 
                 # reset a new demo or a defined demo in the demo list
-                if demos is None:
+                if isinstance(demo, int):
                     _, obs = task.reset()
                 else:
                     print("Resetting to demo")
                     print(demo)
-                    _, obs = task.reset_to_demo(demo)
+                    _, obs = task.reset_to_demo(demo)  # type: ignore
 
                 actioner.load_episode(task_str, variation, demo_id, demo)
 
@@ -438,7 +588,7 @@ class RLBenchEnv:
 
                 for step_id in range(max_episodes):
                     # fetch the current observation, and predict one action
-                    rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
+                    rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)  # type: ignore
 
                     rgb = rgb.to(device)
                     pcd = pcd.to(device)
@@ -454,9 +604,29 @@ class RLBenchEnv:
                     if action is None:
                         break
 
+                    if log_dir is not None and save_attn and output["action"] is not None:
+                        ep_dir = log_dir / f"episode{demo_id}"
+                        fig = plot_attention(
+                            output["attention"][-1],
+                            rgbs[0][-1, :, :3],
+                            pcds[0][-1].view(3, 3, 128, 128),
+                            ep_dir / f"attn_{step_id}.png",
+                        )
+
                     # update the observation based on the predicted action
                     try:
                         action_np = action[-1].detach().cpu().numpy()
+
+                        # HACK tower3
+                        if task_str == "tower3":
+                            step1 = gripper.cpu().numpy()[-1]
+                            if step_id > 0:
+                                step1[2] += 0.1
+                                move(step1)
+                            step2 = action_np.copy()
+                            step2[2] += 0.1
+                            step2[7] = step1[7]
+                            move(step2)
 
                         obs, reward, terminate, step_images = move(action_np)
 
@@ -465,15 +635,12 @@ class RLBenchEnv:
                         if reward == 1:
                             success_rate += 1 / num_demos
                             break
-
                         if terminate:
                             print("The episode has terminated!")
-
                     except (IKError, ConfigurationPathError, InvalidActionError) as e:
                         print(task_type, demo, step_id, success_rate, e)
                         reward = 0
                         break
-
                 print(
                     task_str,
                     "Reward",
@@ -484,6 +651,15 @@ class RLBenchEnv:
                     demo_id,
                     "SR: %.2f" % (success_rate * 100),
                 )
+
+                if log_dir is not None:
+                    ep_dir = log_dir / task_str / f"episode{demo_id}"
+                    ep_dir.mkdir(exist_ok=True, parents=True)
+                    for frame_id, img_by_cam in enumerate(images):
+                        for cam, im in img_by_cam.items():
+                            cam_dir = ep_dir / cam
+                            cam_dir.mkdir(exist_ok=True, parents=True)
+                            Image.fromarray(im).save(cam_dir / f"{frame_id}.png")
 
         self.env.shutdown()
         return success_rate
@@ -617,59 +793,32 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def norm_tensor(tensor: torch.Tensor) -> torch.Tensor:
-    return tensor / torch.linalg.norm(tensor, ord=2, dim=-1, keepdim=True)
+def load_rotation(mode: RotMode = "mse", rot_type: RotType = "quat") -> Rotation:
+    if rot_type == "quat":
+        return QuatRotation(mode)
+    if rot_type == "euler":
+        return EulerRotation(mode)
+    if rot_type == "cont":
+        return ContRotation(mode)
+    raise ValueError(f"Unexpected rotation {mode}")
 
 
-def compute_rotation_metrics(
-    pred: torch.Tensor,
-    true: torch.Tensor,
-    reduction: str = "mean",
-) -> Dict[str, torch.Tensor]:
-    pred = norm_tensor(pred)
-    acc = (pred - true).abs().max(1).values < 0.05
-    acc = acc.to(pred.dtype)
-
-    if reduction == "mean":
-        acc = acc.mean()
-    return {"rotation": acc}
-
-
-def compute_rotation_loss(logit: torch.Tensor, rot: torch.Tensor):
-    dtype = logit.dtype
-
-    rot_ = -rot.clone()
-
-    loss = F.mse_loss(logit, rot, reduction="none").to(dtype)
-    loss = loss.mean(1)
-
-    loss_ = F.mse_loss(logit, rot_, reduction="none").to(dtype)
-    loss_ = loss_.mean(1)
-
-    select_mask = (loss < loss_).float()
-
-    sym_loss = 4 * (select_mask * loss + (1 - select_mask) * loss_)
-
-    return {"rotation": sym_loss.mean()}
-
-
-def load_instructions(
-    instructions: Optional[Path],
-    tasks: Optional[Sequence[str]] = None,
-    variations: Optional[Sequence[int]] = None,
-) -> Optional[Instructions]:
+def load_instructions(instructions: Optional[Path], tasks: Optional[Sequence[str]] = None, variations: Optional[Sequence[int]] = None) -> Optional[Instructions]:
     if instructions is not None:
         with open(instructions, "rb") as fid:
             data: Instructions = pickle.load(fid)
 
         if tasks is not None:
-            data = {task: var_instr for task, var_instr in data.items() if task in tasks}
-
+            data = {
+                task: var_instr
+                for task, var_instr in data.items()
+                if task in tasks 
+            }
+        
         if variations is not None:
             data = {
-                task: {
-                    var: instr for var, instr in var_instr.items() if var in variations
-                }
+                task: {var: instr for var, instr in var_instr.items()
+                     if var in variations}
                 for task, var_instr in data.items()
             }
 
@@ -679,25 +828,24 @@ def load_instructions(
 
 
 class LossAndMetrics:
-    def __init__(
-        self,
-    ):
+    def __init__(self, rotation: Rotation, position: Position):
+        self.rot = rotation
+        self.pos = position
         task_file = Path(__file__).parent / "tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
 
     def compute_loss(
-        self, pred: Dict[str, torch.Tensor], sample: Sample
+        self, pred: Output, sample: Sample
     ) -> Dict[str, torch.Tensor]:
         device = pred["position"].device
         padding_mask = sample["padding_mask"].to(device)
-        outputs = sample["action"].to(device)[padding_mask]
+        action = sample["action"].to(device)[padding_mask]
 
         losses = {}
-        losses["position"] = F.mse_loss(pred["position"], outputs[:, :3]) * 3
-
-        losses.update(compute_rotation_loss(pred["rotation"], outputs[:, 3:7]))
-        losses["gripper"] = F.mse_loss(pred["gripper"], outputs[:, 7:8])
+        losses.update(self.pos.compute_loss(pred, sample))
+        losses.update(self.rot.compute_loss(pred["rotation"], action[:, 3:7]))
+        losses["gripper"] = F.mse_loss(pred["gripper"], action[:, 7:8])
         if pred["task"] is not None:
             task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
             task = task.to(device).long()
@@ -714,19 +862,19 @@ class LossAndMetrics:
 
         metrics = {}
 
-        acc = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt() < 0.01
-        metrics["position"] = acc.to(dtype).mean()
+        metrics.update(self.pos.compute_metrics(pred["position"], outputs[:, :3]))
 
         pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
         true_gripper = outputs[:, 7].bool()
         acc = pred_gripper == true_gripper
         metrics["gripper"] = acc.to(dtype).mean()
 
-        metrics.update(compute_rotation_metrics(pred["rotation"], outputs[:, 3:7]))
+        metrics.update(self.rot.compute_metrics(pred["rotation"], outputs[:, 3:7]))
 
-        task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
-        task = task.to(device).long()
-        acc = task == pred["task"].argmax(1)
-        metrics["task"] = acc.to(dtype).mean()
+        if pred["task"] is not None:
+            task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
+            task = task.to(device).long()
+            acc = task == pred["task"].argmax(1)
+            metrics["task"] = acc.to(dtype).mean()
 
         return metrics
