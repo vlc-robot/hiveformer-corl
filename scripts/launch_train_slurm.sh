@@ -14,7 +14,7 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_12_overfit_coarse_to_fine6
+main_dir=02_12_overfit_coarse_to_fine7
 
 task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/3

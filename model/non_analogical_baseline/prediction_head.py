@@ -148,13 +148,13 @@ class PredictionHead(nn.Module):
             (
                 fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd, fine_ghost_pcd_features
             ) = self._coarse_to_fine(
-                coarse_position, query_features,
+                coarse_position, query_features, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                 curr_gripper_features, curr_gripper_pos,
                 batch_size, num_cameras, height, width, device, gt_action
             )
-
-            fine_ghost_pcd = einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")
+            fine_ghost_pcd = torch.cat([
+                coarse_ghost_pcd, einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")], dim=-1)
             ghost_pcd = fine_ghost_pcd
             ghost_pcd_masks = fine_ghost_pcd_masks
             ghost_pcd_features = fine_ghost_pcd_features
@@ -332,7 +332,7 @@ class PredictionHead(nn.Module):
         return position, rotation, gripper
 
     def _coarse_to_fine(self,
-                        coarse_position, query_features,
+                        coarse_position, query_features, coarse_ghost_pcd_features,
                         fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                         curr_gripper_features, curr_gripper_pos,
                         batch_size, num_cameras, height, width, device, gt_action):
@@ -374,11 +374,12 @@ class PredictionHead(nn.Module):
         fine_ghost_pcd_features, fine_ghost_pcd_pos = self._compute_ghost_point_features(
             fine_ghost_pcd, fine_ghost_pcd_context_features, fine_ghost_pcd_context_pos, batch_size)
 
-        # Contextualize the query and predict masks over fine ghost points
+        # Contextualize the query and predict masks over all (coarse + fine) ghost points
         # Now that the query is localized, we use positional embeddings
         query_pos = self.pcd_pe_layer(coarse_position.unsqueeze(1))
         fine_query_context_features = torch.cat([fine_ghost_pcd_context_features, fine_ghost_pcd_features], dim=0)
         fine_query_context_pos = torch.cat([fine_ghost_pcd_context_pos, fine_ghost_pcd_pos], dim=1)
+        fine_ghost_pcd_features = torch.cat([coarse_ghost_pcd_features, fine_ghost_pcd_features], dim=0)
         query_features, fine_ghost_pcd_masks, fine_visible_rgb_mask = self._decode_mask(
             fine_visible_rgb_features, fine_ghost_pcd_features, height, width,
             query_features, fine_query_context_features, query_pos=query_pos, context_pos=fine_query_context_pos
