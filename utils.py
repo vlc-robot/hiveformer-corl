@@ -617,16 +617,6 @@ class RLBenchEnv:
                     try:
                         action_np = action[-1].detach().cpu().numpy()
 
-                        # HACK tower3
-                        if task_str == "tower3":
-                            step1 = gripper.cpu().numpy()[-1]
-                            if step_id > 0:
-                                step1[2] += 0.1
-                                move(step1)
-                            step2 = action_np.copy()
-                            step2[2] += 0.1
-                            step2[7] = step1[7]
-                            move(step2)
 
                         obs, reward, terminate, step_images = move(action_np)
 
@@ -747,7 +737,6 @@ def keypoint_discovery(demo: Demo) -> List[int]:
     ):
         episode_keypoints.pop(-2)
 
-    # HACK for tower3 task
     return episode_keypoints
 
 

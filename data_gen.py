@@ -36,14 +36,6 @@ def get_attn_indices_from_demo(
 ) -> List[Dict[str, Tuple[int, int]]]:
     frames = keypoint_discovery(demo)
 
-    # HACK tower3
-    if task_str == "tower3":
-        frames = [k for i, k in enumerate(frames) if i % 6 in set([1, 4])]
-
-    # HACK tower4
-    elif task_str == "tower4":
-        frames = frames[6:]
-
     frames.insert(0, 0)
     return [{cam: obs_to_attn(demo[f], cam) for cam in cameras} for f in frames]
 
@@ -53,12 +45,6 @@ def get_observation(task_str: str, variation: int, episode: int, env: RLBenchEnv
     demo = demos[0]
 
     key_frame = keypoint_discovery(demo)
-    # HACK for tower3
-    if task_str == "tower3":
-        key_frame = [k for i, k in enumerate(key_frame) if i % 6 in set([1, 4])]
-    # HACK tower4
-    elif task_str == "tower4":
-        key_frame = key_frame[6:]
     key_frame.insert(0, 0)
 
     state_ls = []
