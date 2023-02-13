@@ -50,7 +50,7 @@
 #    done
 #done
 
-main_dir=02_13_train_coarse_to_fine
+main_dir=02_13_train_coarse_to_fine2
 
 task_file=tasks/2_debugging_tasks.csv
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -62,11 +62,13 @@ for task in $(cat $task_file | tr '\n' ' '); do
       sbatch train_1gpu_32gb.sh \
          --tasks $task \
          --dataset $dataset \
+         --valset $valset \
          --image_size $image_size \
          --exp_log_dir $main_dir \
          --run_log_dir $task-img-$image_size-rand-$randomize_ground_truth_ghost_point \
          --batch_size $batch_size \
-         --randomize_ground_truth_ghost_point $randomize_ground_truth_ghost_point
+         --randomize_ground_truth_ghost_point $randomize_ground_truth_ghost_point \
+         --num_workers 2
     done
 done
 
@@ -80,6 +82,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
       sbatch train_1gpu_32gb.sh \
          --tasks $task \
          --dataset $dataset \
+         --valset $valset \
          --image_size $image_size \
          --exp_log_dir $main_dir \
          --run_log_dir $task-img-$image_size-rand-$randomize_ground_truth_ghost_point \
