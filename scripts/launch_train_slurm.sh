@@ -59,8 +59,48 @@ main_dir=02_14_tune_ghost_points
 #  done
 #done
 
-dataset=/home/tgervet/datasets/hiveformer/packaged/2
-valset=/home/tgervet/datasets/hiveformer/packaged/3
+#dataset=/home/tgervet/datasets/hiveformer/packaged/2
+#valset=/home/tgervet/datasets/hiveformer/packaged/3
+#image_size="256,256"
+#fine_sampling_cube_size=0.08
+#use_ground_truth_position_for_sampling_val=0
+#num_workers=2
+#task=put_money_in_safe
+#
+#num_ghost_points=1000
+#batch_size=20
+#sbatch train_1gpu_32gb.sh \
+#       --tasks $task \
+#       --dataset $dataset \
+#       --valset $valset \
+#       --image_size $image_size \
+#       --exp_log_dir $main_dir \
+#       --run_log_dir $task-cube-$fine_sampling_cube_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+#       --batch_size $batch_size \
+#       --num_workers $num_workers \
+#       --fine_sampling_cube_size $fine_sampling_cube_size \
+#       --num_ghost_points $num_ghost_points \
+#       --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
+#
+#num_ghost_points=2000
+#batch_size=12
+#sbatch train_1gpu_32gb.sh \
+#       --tasks $task \
+#       --dataset $dataset \
+#       --valset $valset \
+#       --image_size $image_size \
+#       --exp_log_dir $main_dir \
+#       --run_log_dir $task-cube-$fine_sampling_cube_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+#       --batch_size $batch_size \
+#       --num_workers $num_workers \
+#       --fine_sampling_cube_size $fine_sampling_cube_size \
+#       --num_ghost_points $num_ghost_points \
+#       --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
+
+
+# OVERFIT
+
+dataset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 fine_sampling_cube_size=0.08
 use_ground_truth_position_for_sampling_val=0
@@ -72,10 +112,9 @@ batch_size=20
 sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset $dataset \
-       --valset $valset \
        --image_size $image_size \
        --exp_log_dir $main_dir \
-       --run_log_dir $task-cube-$fine_sampling_cube_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+       --run_log_dir OVERFIT-$task-cube-$fine_sampling_cube_size-image-$image_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
        --batch_size $batch_size \
        --num_workers $num_workers \
        --fine_sampling_cube_size $fine_sampling_cube_size \
@@ -87,12 +126,44 @@ batch_size=12
 sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset $dataset \
-       --valset $valset \
        --image_size $image_size \
        --exp_log_dir $main_dir \
-       --run_log_dir $task-cube-$fine_sampling_cube_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+       --run_log_dir OVERFIT-$task-cube-$fine_sampling_cube_size-image-$image_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
        --batch_size $batch_size \
        --num_workers $num_workers \
+       --fine_sampling_cube_size $fine_sampling_cube_size \
+       --num_ghost_points $num_ghost_points \
+       --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
+
+
+dataset=/home/tgervet/datasets/hiveformer/packaged/1
+image_size="128,128"
+fine_sampling_cube_size=0.08
+use_ground_truth_position_for_sampling_val=0
+task=put_money_in_safe
+
+num_ghost_points=1000
+batch_size=20
+sbatch train_1gpu_32gb.sh \
+       --tasks $task \
+       --dataset $dataset \
+       --image_size $image_size \
+       --exp_log_dir $main_dir \
+       --run_log_dir OVERFIT-$task-cube-$fine_sampling_cube_size-image-$image_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+       --batch_size $batch_size \
+       --fine_sampling_cube_size $fine_sampling_cube_size \
+       --num_ghost_points $num_ghost_points \
+       --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
+
+num_ghost_points=2000
+batch_size=12
+sbatch train_1gpu_32gb.sh \
+       --tasks $task \
+       --dataset $dataset \
+       --image_size $image_size \
+       --exp_log_dir $main_dir \
+       --run_log_dir OVERFIT-$task-cube-$fine_sampling_cube_size-image-$image_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+       --batch_size $batch_size \
        --fine_sampling_cube_size $fine_sampling_cube_size \
        --num_ghost_points $num_ghost_points \
        --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
