@@ -65,6 +65,7 @@ image_size="256,256"
 fine_sampling_cube_size=0.08
 use_ground_truth_position_for_sampling_val=0
 num_workers=2
+task=put_money_in_safe
 
 num_ghost_points=1000
 batch_size=20
