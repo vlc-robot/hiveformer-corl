@@ -78,7 +78,7 @@ class Arguments(tap.Tap):
     position_prediction_only: int = 1
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
     ground_truth_gaussian_spread: float = 0.01
-    compute_loss_at_all_layers: int = 1
+    compute_loss_at_all_layers: int = 0
     position_loss_coeff: float = 1.0
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
@@ -89,6 +89,7 @@ class Arguments(tap.Tap):
     fine_sampling_cube_size: float = 0.04
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling: int = 1
+    use_ground_truth_position_for_sampling_val: int = 0  # for debugging
     randomize_ground_truth_ghost_point: int = 1
 
     # Model
@@ -108,6 +109,7 @@ def training(
     loss_and_metrics,
     args: Arguments,
     writer: SummaryWriter,
+    use_ground_truth_position_for_sampling_val=False,
 ):
     iter_loader = iter(train_loader)
 
@@ -183,6 +185,7 @@ def training(
                         model,
                         writer,
                         loss_and_metrics,
+                        use_ground_truth_position_for_sampling_val=use_ground_truth_position_for_sampling_val
                     )
                     model.train()
                 else:
@@ -251,6 +254,7 @@ def validation_step(
     model,
     writer,
     loss_and_metrics,
+    use_ground_truth_position_for_sampling_val=False,
     val_iters: int = 5,
 ):
     values = {}
@@ -281,7 +285,7 @@ def validation_step(
                     sample["instr"],
                     sample["gripper"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
-                    # sample["action"]
+                    sample["action"] if use_ground_truth_position_for_sampling_val else None
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample, model)
@@ -541,6 +545,7 @@ if __name__ == "__main__":
             loss_and_metrics,
             args,
             writer,
+            use_ground_truth_position_for_sampling_val=bool(args.use_ground_truth_position_for_sampling_val),
         )
 
     if val_loaders is not None:
@@ -550,6 +555,7 @@ if __name__ == "__main__":
             model,
             writer,
             loss_and_metrics,
+            use_ground_truth_position_for_sampling_val=bool(args.use_ground_truth_position_for_sampling_val),
             val_iters=-1,
         )
 

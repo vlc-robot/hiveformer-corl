@@ -14,7 +14,50 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_14_tune_hyperparams
+main_dir=02_14_tune_ghost_points
+dataset=/home/tgervet/datasets/hiveformer/packaged/0
+valset=/home/tgervet/datasets/hiveformer/packaged/1
+image_size="128,128"
+
+batch_size=25
+num_ghost_points=1000
+for task in put_money_in_safe; do
+  for fine_sampling_cube_size in 0.08 0.16 0.04; do
+    for use_ground_truth_position_for_sampling_val in 0 1; do
+      sbatch train_1gpu_32gb.sh \
+         --tasks $task \
+         --dataset $dataset \
+         --valset $valset \
+         --image_size $image_size \
+         --exp_log_dir $main_dir \
+         --run_log_dir $task \
+         --batch_size $batch_size \
+         --fine_sampling_cube_size $fine_sampling_cube_size \
+         --num_ghost_points $num_ghost_points \
+         --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
+    done
+  done
+done
+
+batch_size=15
+num_ghost_points=2000
+for task in put_money_in_safe; do
+  for fine_sampling_cube_size in 0.08 0.16 0.04; do
+    for use_ground_truth_position_for_sampling_val in 0 1; do
+      sbatch train_1gpu_32gb.sh \
+         --tasks $task \
+         --dataset $dataset \
+         --valset $valset \
+         --image_size $image_size \
+         --exp_log_dir $main_dir \
+         --run_log_dir $task-cube-$fine_sampling_cube_size-ghost-$num_ghost_points-gtsample-$use_ground_truth_position_for_sampling_val \
+         --batch_size $batch_size \
+         --fine_sampling_cube_size $fine_sampling_cube_size \
+         --num_ghost_points $num_ghost_points \
+         --use_ground_truth_position_for_sampling_val $use_ground_truth_position_for_sampling_val
+    done
+  done
+done
 
 #task_file=tasks/2_debugging_tasks.csv
 #dataset=/home/tgervet/datasets/hiveformer/packaged/2
@@ -35,79 +78,3 @@ main_dir=02_14_tune_hyperparams
 #         --num_workers 2
 #    done
 #done
-
-dataset=/home/tgervet/datasets/hiveformer/packaged/0
-valset=/home/tgervet/datasets/hiveformer/packaged/1
-image_size="128,128"
-batch_size=25
-for task in put_money_in_safe; do
-  for lr in 5e-5 5e-4; do
-    sbatch train_1gpu_32gb.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --valset $valset \
-       --image_size $image_size \
-       --exp_log_dir $main_dir \
-       --run_log_dir $task-img-$image_size-lr-$lr \
-       --batch_size $batch_size \
-       --lr $lr
-  done
-done
-
-for task in put_money_in_safe; do
-  for fine_sampling_cube_size in 0.08 0.16; do
-    sbatch train_1gpu_32gb.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --valset $valset \
-       --image_size $image_size \
-       --exp_log_dir $main_dir \
-       --run_log_dir $task-img-$image_size-cube-$fine_sampling_cube_size \
-       --batch_size $batch_size \
-       --fine_sampling_cube_size $fine_sampling_cube_size
-  done
-done
-
-for task in put_money_in_safe; do
-  sbatch train_1gpu_32gb.sh \
-     --tasks $task \
-     --dataset $dataset \
-     --valset $valset \
-     --image_size $image_size \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task-img-$image_size-BIG-MODEL \
-     --batch_size 12 \
-     --embedding_dim 120 \
-     --num_ghost_point_cross_attn_layers 4 \
-     --num_ghost_point_cross_attn_layers 4
-done
-
-sbatch train_1gpu_32gb.sh \
-     --tasks put_money_in_safe \
-     --dataset $dataset \
-     --valset $valset \
-     --image_size $image_size \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task-img-$image_size-BCE \
-     --batch_size $batch_size \
-     --position_loss bce
-
-sbatch train_1gpu_32gb.sh \
-     --tasks put_money_in_safe \
-     --dataset $dataset \
-     --valset $valset \
-     --image_size $image_size \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task-img-$image_size-LOSSLASTLAYER \
-     --batch_size $batch_size \
-     --compute_loss_at_all_layers 0
-
-sbatch train_1gpu_32gb.sh \
-     --tasks put_money_in_safe \
-     --dataset $dataset \
-     --valset $valset \
-     --image_size $image_size \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task-img-$image_size-NOLABELSMOOTHING \
-     --batch_size $batch_size \
-     --label_smoothing 0

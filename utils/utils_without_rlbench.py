@@ -228,9 +228,12 @@ class LossAndMetrics:
         metrics = {}
 
         l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
-        acc = l2 < 0.01
         metrics["position_l2"] = l2.to(dtype).mean()
-        metrics["position_l2<0.01"] = acc.to(dtype).mean()
+        metrics["position_l2<0.01"] = (l2 < 0.01).to(dtype).mean()
+        metrics["position_l2<0.02"] = (l2 < 0.02).to(dtype).mean()
+        metrics["position_l2<0.04"] = (l2 < 0.04).to(dtype).mean()
+        metrics["position_l2<0.08"] = (l2 < 0.08).to(dtype).mean()
+        metrics["position_l2<0.16"] = (l2 < 0.16).to(dtype).mean()
 
         if not self.position_prediction_only:
             pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
