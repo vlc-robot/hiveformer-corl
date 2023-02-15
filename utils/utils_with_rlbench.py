@@ -191,12 +191,12 @@ class Actioner:
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
         if "fine_ghost_pcd_masks" in pred:
-            topk = pred["fine_ghost_pcd_masks"][-1][-1].topk(k=50)
+            topk = pred["fine_ghost_pcd_masks"][-1][-1].topk(k=500)
             top_value = topk.values[-1]
             top_pcd_idxs = topk.indices
 
             output["top_pcd"] = pred["fine_ghost_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
-            output["top_rgb"] = pred["fine_visible_rgb_mask"][-1] >= top_value
+            # output["top_rgb"] = pred["fine_visible_rgb_mask"][-1] >= top_value
 
         return output
 
