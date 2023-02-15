@@ -14,7 +14,6 @@ for ((i=0; i<$num_ckpts; i++)); do
     --data_dir $data_dir --image_size $image_size --offline 1 \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-OFFLINE &
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
-    --
     --data_dir $data_dir --image_size $image_size --offline 0 \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE &
 done
