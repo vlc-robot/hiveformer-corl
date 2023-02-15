@@ -253,6 +253,7 @@ class RLBenchEnv:
             self.action_mode, str(data_path), self.obs_config, headless=headless
         )
         self.gripper_loc_bounds = json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))
+        self.image_size = image_size
 
     def get_obs_action(self, obs):
         """
@@ -304,8 +305,8 @@ class RLBenchEnv:
         attns = torch.Tensor([])
         for cam in self.apply_cameras:
             u, v = obs_to_attn(obs, cam)
-            attn = torch.zeros((1, 1, 1, 128, 128))
-            if not (u < 0 or u > 127 or v < 0 or v > 127):
+            attn = torch.zeros((1, 1, 1, self.image_size[0], self.image_size[1]))
+            if not (u < 0 or u > self.image_size[1] - 1 or v < 0 or v > self.image_size[0] - 1):
                 attn[0, 0, 0, v, u] = 1
             attns = torch.cat([attns, attn], 1)
         rgb = torch.cat([rgb, attns], 2)
