@@ -238,7 +238,8 @@ class LossAndMetrics:
                             torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
                         gt_position
                     )
-                losses["position"] += losses["position_offset"] * self.position_offset_loss_coeff
+                losses["position_offset"] *= self.position_offset_loss_coeff
+                losses["position"] += losses["position_offset"]
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss
