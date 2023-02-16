@@ -515,6 +515,7 @@ if __name__ == "__main__":
         ground_truth_gaussian_spread=args.ground_truth_gaussian_spread,
         label_smoothing=args.label_smoothing,
         position_loss_coeff=args.position_loss_coeff,
+        position_offset_loss_coeff=args.position_offset_loss_coeff,
         rotation_loss_coeff=args.rotation_loss_coeff,
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
