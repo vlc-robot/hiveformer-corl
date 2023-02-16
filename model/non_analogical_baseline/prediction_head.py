@@ -23,8 +23,6 @@ class PredictionHead(nn.Module):
                  num_query_cross_attn_layers=2,
                  loss="ce",
                  rotation_pooling_gaussian_spread=0.01,
-                 use_ground_truth_position_for_sampling=True,
-                 randomize_ground_truth_ghost_point=True,
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
@@ -36,8 +34,6 @@ class PredictionHead(nn.Module):
         self.image_size = image_size
         self.loss = loss
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
-        self.use_ground_truth_position_for_sampling = use_ground_truth_position_for_sampling
-        self.randomize_ground_truth_ghost_point = randomize_ground_truth_ghost_point
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
         self.fine_sampling_cube_size = fine_sampling_cube_size
@@ -130,6 +126,10 @@ class PredictionHead(nn.Module):
         """
         batch_size, num_cameras, _, height, width = visible_rgb.shape
         device = visible_rgb.device
+        if gt_action is not None:
+            gt_position = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
+        else:
+            gt_position = None
 
         # Compute visual features at different scales and their positional embeddings
         (
@@ -143,9 +143,7 @@ class PredictionHead(nn.Module):
 
         # Sample ghost points coarsely across the entire workspace
         coarse_ghost_pcd = self._sample_ghost_points(
-            np.stack([self.gripper_loc_bounds for _ in range(batch_size)]),
-            batch_size, device, gt_action
-        )
+            batch_size, device, ghost_point_type="coarse", anchor=gt_position)
 
         # Compute coarse ghost point features and their positional embeddings by attending to
         # coarse visual features and current gripper position
@@ -188,7 +186,7 @@ class PredictionHead(nn.Module):
                 coarse_position, query_features, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                 curr_gripper_features, curr_gripper_pos,
-                batch_size, num_cameras, height, width, device, gt_action
+                batch_size, num_cameras, height, width, device, gt_position
             )
             fine_ghost_pcd = torch.cat([
                 coarse_ghost_pcd, einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")], dim=-1)
@@ -267,21 +265,40 @@ class PredictionHead(nn.Module):
             fine_visible_rgb_features, fine_visible_rgb_pos, fine_visible_pcd
         )
 
-    def _sample_ghost_points(self, bounds, batch_size, device, gt_action=None):
-        """Sample ghost points uniformly within the bounds."""
+    def _sample_ghost_points(self, batch_size, device, ghost_point_type, anchor=None):
+        """Sample ghost points.
+
+        If ghost_point_type is "coarse", sample points uniformly within the workspace
+        bounds and one near the anchor if it is specified.
+
+        If ghost_point_type is "fine", sample points uniformly within a local region
+        of the workspace bounds centered around the anchor.
+        """
+        if ghost_point_type == "coarse":
+            bounds = np.stack([self.gripper_loc_bounds for _ in range(batch_size)])
+        elif ghost_point_type == "fine":
+            anchor_ = anchor[:, 0].cpu().numpy()
+            bounds_min = np.clip(
+                anchor_ - self.fine_sampling_cube_size / 2,
+                a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
+            )
+            bounds_max = np.clip(
+                anchor_ + self.fine_sampling_cube_size / 2,
+                a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
+            )
+            bounds = np.stack([bounds_min, bounds_max], axis=1)
+
         uniform_pcd = np.stack([
             sample_ghost_points_randomly(bounds[i], num_points=self.num_ghost_points)
             for i in range(batch_size)
         ])
         uniform_pcd = torch.from_numpy(uniform_pcd).float().to(device)
 
-        if self.use_ground_truth_position_for_sampling and gt_action is not None:
-            # Sample the ground-truth position as an additional ghost point
-            ground_truth_pcd = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
-            if self.randomize_ground_truth_ghost_point:
-                offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
-                ground_truth_pcd += offset
-            ghost_pcd = torch.cat([uniform_pcd, ground_truth_pcd], dim=1)
+        if anchor is not None:
+            # Sample a point near the anchor position as an additional ghost point
+            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
+            anchor_pcd = anchor + offset
+            ghost_pcd = torch.cat([uniform_pcd, anchor_pcd], dim=1)
         else:
             ghost_pcd = uniform_pcd
 
@@ -367,8 +384,10 @@ class PredictionHead(nn.Module):
             # Top point
             top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
             position = ghost_pcd[torch.arange(batch_size), :, top_idx]
+
+            # Add an offset regressed from the ghost point's position to the predicted position
             if fine_ghost_pcd_offsets is not None:
-                position += fine_ghost_pcd_offsets[torch.arange(batch_size), top_idx]
+                position = position + fine_ghost_pcd_offsets[torch.arange(batch_size), :, top_idx]
 
         # Predict rotation and gripper opening from features pooled near the predicted position
         if self.loss in ["ce", "bce"]:
@@ -395,23 +414,16 @@ class PredictionHead(nn.Module):
                         coarse_position, query_features, coarse_ghost_pcd_features,
                         fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                         curr_gripper_features, curr_gripper_pos,
-                        batch_size, num_cameras, height, width, device, gt_action):
+                        batch_size, num_cameras, height, width, device, gt_position):
         """
         Refine the predicted position by sampling fine ghost points that attend to local
         RGB features.
         """
-        # Sample ghost points finely near the top scoring point
-        coarse_position_ = coarse_position.cpu().numpy()
-        bounds_min = np.clip(
-            coarse_position_ - self.fine_sampling_cube_size / 2,
-            a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
-        )
-        bounds_max = np.clip(
-            coarse_position_ + self.fine_sampling_cube_size / 2,
-            a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
-        )
-        bounds = np.stack([bounds_min, bounds_max], axis=1)
-        fine_ghost_pcd = self._sample_ghost_points(bounds, batch_size, device, gt_action)
+        # Sample ghost points finely near the top scoring coarse point (or the ground truth
+        # position at training time)
+        fine_ghost_pcd = self._sample_ghost_points(
+            batch_size, device, ghost_point_type="fine",
+            anchor=gt_position if gt_position is not None else coarse_position)
 
         # Select local fine RGB features
         l2_pred_pos = ((coarse_position.unsqueeze(1) - fine_visible_pcd) ** 2).sum(-1).sqrt()
@@ -451,6 +463,7 @@ class PredictionHead(nn.Module):
         # Regress an offset from the ghost point's position to the predicted position
         if self.regress_position_offset:
             fine_ghost_pcd_offsets = self.ghost_point_offset_predictor(fine_ghost_pcd_features)
+            fine_ghost_pcd_offsets = einops.rearrange(fine_ghost_pcd_offsets, "npts b c -> b c npts")
         else:
             fine_ghost_pcd_offsets = None
 

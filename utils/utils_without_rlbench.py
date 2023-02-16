@@ -103,6 +103,7 @@ class LossAndMetrics:
         compute_loss_at_all_layers=True,
         label_smoothing=0.0,
         position_loss_coeff=1.0,
+        position_offset_loss_coeff=1.0,
         rotation_loss_coeff=1.0,
         gripper_loss_coeff=1.0,
         rotation_pooling_gaussian_spread=0.01,
@@ -116,6 +117,7 @@ class LossAndMetrics:
         self.ground_truth_gaussian_spread = ground_truth_gaussian_spread
         self.label_smoothing = label_smoothing
         self.position_loss_coeff = position_loss_coeff
+        self.position_offset_loss_coeff = position_offset_loss_coeff
         self.rotation_loss_coeff = rotation_loss_coeff
         self.gripper_loss_coeff = gripper_loss_coeff
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
@@ -217,15 +219,27 @@ class LossAndMetrics:
 
             # Supervise offset from the ghost point's position to the predicted position
             if "fine_ghost_pcd_offsets" in pred:
-                print(pred["fine_ghost_pcd"].shape)
-                print(pred["fine_ghost_pcd_offsets"].shape)
-                print(gt_position.unsqueeze(-1).shape)
-                raise NotImplementedError
                 if self.points_supervised_for_offset == "all":
-                    losses["position"] += F.mse_loss(
+                    npts = pred["fine_ghost_pcd"].shape[-1]
+                    losses["position_offset"] = F.mse_loss(
                         pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"],
-                        gt_position.unsqueeze(-1)
+                        gt_position.unsqueeze(-1).repeat(1, 1, npts)
                     )
+                elif self.points_supervised_for_offset == "fine":
+                    npts = pred["fine_ghost_pcd"].shape[-1] // 2
+                    losses["position_offset"] = F.mse_loss(
+                        (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[:, :, npts:],
+                        gt_position.unsqueeze(-1).repeat(1, 1, npts)
+                    )
+                elif self.points_supervised_for_offset == "closest":
+                    b = pred["fine_ghost_pcd"].shape[0]
+                    losses["position_offset"] = F.mse_loss(
+                        (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[
+                            torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
+                        gt_position
+                    )
+
+                losses["position"] += losses["position_offset"] * self.position_offset_loss_coeff
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss

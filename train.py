@@ -77,22 +77,22 @@ class Arguments(tap.Tap):
     # Loss
     position_prediction_only: int = 1
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
-    ground_truth_gaussian_spread: float = 0.01
+    ground_truth_gaussian_spread: float = 0.08
     compute_loss_at_all_layers: int = 0
     position_loss_coeff: float = 1.0
+    position_offset_loss_coeff: float = 1.0
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.1
-    regress_position_offset: int = 1
-    points_supervised_for_offset: str = "fine"  # one of "all", "fine, "top"
+    regress_position_offset: int = 0
+    points_supervised_for_offset: str = "fine"  # one of "all", "fine, "closest"
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
-    fine_sampling_cube_size: float = 0.08
+    fine_sampling_cube_size: float = 0.02
     num_ghost_points: int = 2000
-    use_ground_truth_position_for_sampling: int = 1
-    use_ground_truth_position_for_sampling_val: int = 0  # for debugging
-    randomize_ground_truth_ghost_point: int = 1
+    use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
+    use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
     # Model
     embedding_dim: int = 60
@@ -111,6 +111,7 @@ def training(
     loss_and_metrics,
     args: Arguments,
     writer: SummaryWriter,
+    use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
     iter_loader = iter(train_loader)
@@ -147,8 +148,8 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
-                    # Provide ground-truth action to sample ghost points at training time
-                    sample["action"]
+                    # Provide ground-truth action to bias ghost point sampling at training time
+                    sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
 
             train_losses = loss_and_metrics.compute_loss(pred, sample, model)
@@ -425,8 +426,6 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         if len(args.tasks) == 1:
             _model = Baseline(
                 image_size=tuple(int(x) for x in args.image_size.split(",")),
-                use_ground_truth_position_for_sampling=bool(args.use_ground_truth_position_for_sampling),
-                randomize_ground_truth_ghost_point=bool(args.randomize_ground_truth_ghost_point),
                 position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
@@ -550,6 +549,7 @@ if __name__ == "__main__":
             loss_and_metrics,
             args,
             writer,
+            use_ground_truth_position_for_sampling_train=bool(args.use_ground_truth_position_for_sampling_train),
             use_ground_truth_position_for_sampling_val=bool(args.use_ground_truth_position_for_sampling_val),
         )
 
