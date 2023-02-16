@@ -29,7 +29,8 @@ class PredictionHead(nn.Module):
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
                  fine_sampling_cube_size=0.05,
-                 separate_coarse_and_fine_layers=False):
+                 separate_coarse_and_fine_layers=False,
+                 regress_position_offset=False):
         super().__init__()
         assert image_size in [(128, 128), (256, 256)]
         self.image_size = image_size
@@ -41,6 +42,7 @@ class PredictionHead(nn.Module):
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
         self.fine_sampling_cube_size = fine_sampling_cube_size
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
+        self.regress_position_offset = regress_position_offset
 
         # Frozen ResNet50 backbone
         cfg = get_cfg()
@@ -102,6 +104,14 @@ class PredictionHead(nn.Module):
         else:
             self.fine_query_cross_attn_layers = self.coarse_query_cross_attn_layers
             self.fine_query_ffw_layers = self.coarse_query_ffw_layers
+
+        # Ghost point offset prediction
+        if self.regress_position_offset:
+            self.ghost_point_offset_predictor = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+                nn.Linear(embedding_dim, 3)
+            )
 
         # Gripper rotation prediction
         self.gripper_state_predictor = nn.Sequential(
@@ -172,7 +182,8 @@ class PredictionHead(nn.Module):
             coarse_position = coarse_ghost_pcd[torch.arange(batch_size), :, top_idx]
 
             (
-                fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd, fine_ghost_pcd_features
+                fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd,
+                fine_ghost_pcd_features, fine_ghost_pcd_offsets
             ) = self._coarse_to_fine(
                 coarse_position, query_features, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
@@ -187,7 +198,9 @@ class PredictionHead(nn.Module):
 
         # Predict the next gripper action (position, rotation, gripper opening)
         position, rotation, gripper = self._predict_action(
-            ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, batch_size)
+            ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, batch_size,
+            fine_ghost_pcd_offsets if (self.coarse_to_fine_sampling and self.regress_position_offset) else None
+        )
 
         return {
             # Action
@@ -203,6 +216,7 @@ class PredictionHead(nn.Module):
             "fine_ghost_pcd_masks": fine_ghost_pcd_masks if self.coarse_to_fine_sampling else None,
             "fine_ghost_pcd": fine_ghost_pcd if self.coarse_to_fine_sampling else None,
             "fine_ghost_pcd_features": fine_ghost_pcd_features if self.coarse_to_fine_sampling else None,
+            "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.coarse_to_fine_sampling else None,
         }
 
     def _compute_visual_features(self, visible_rgb, visible_pcd, device, num_cameras):
@@ -340,7 +354,9 @@ class PredictionHead(nn.Module):
 
         return query_features, ghost_pcd_masks, visible_rgb_mask
 
-    def _predict_action(self, ghost_pcd_mask, ghost_pcd, ghost_pcd_features, batch_size):
+    def _predict_action(self,
+                        ghost_pcd_mask, ghost_pcd, ghost_pcd_features, batch_size,
+                        fine_ghost_pcd_offsets=None):
         """Compute the predicted action (position, rotation, opening) from the predicted mask."""
         # Predict position differently depending on the loss
         if self.loss == "mse":
@@ -351,6 +367,8 @@ class PredictionHead(nn.Module):
             # Top point
             top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
             position = ghost_pcd[torch.arange(batch_size), :, top_idx]
+            if fine_ghost_pcd_offsets is not None:
+                position += fine_ghost_pcd_offsets[torch.arange(batch_size), top_idx]
 
         # Predict rotation and gripper opening from features pooled near the predicted position
         if self.loss in ["ce", "bce"]:
@@ -430,4 +448,13 @@ class PredictionHead(nn.Module):
             ghost_point_type="fine"
         )
 
-        return fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd, fine_ghost_pcd_features
+        # Regress an offset from the ghost point's position to the predicted position
+        if self.regress_position_offset:
+            fine_ghost_pcd_offsets = self.ghost_point_offset_predictor(fine_ghost_pcd_features)
+        else:
+            fine_ghost_pcd_offsets = None
+
+        return (
+            fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd,
+            fine_ghost_pcd_features, fine_ghost_pcd_offsets
+        )

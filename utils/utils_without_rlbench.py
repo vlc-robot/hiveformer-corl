@@ -106,6 +106,8 @@ class LossAndMetrics:
         rotation_loss_coeff=1.0,
         gripper_loss_coeff=1.0,
         rotation_pooling_gaussian_spread=0.01,
+        regress_position_offset=False,
+        points_supervised_for_offset="fine"
     ):
         assert position_loss in ["mse", "ce", "bce"]
         self.position_loss = position_loss
@@ -117,6 +119,8 @@ class LossAndMetrics:
         self.rotation_loss_coeff = rotation_loss_coeff
         self.gripper_loss_coeff = gripper_loss_coeff
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
+        self.regress_position_offset = regress_position_offset
+        self.points_supervised_for_offset = points_supervised_for_offset
         task_file = Path(__file__).parent.parent / "tasks/106_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -210,6 +214,18 @@ class LossAndMetrics:
                             fine_pred, fine_label, pos_weight=pos_weight))
 
             losses["position"] = torch.stack(losses["position"]).mean()
+
+            # Supervise offset from the ghost point's position to the predicted position
+            if "fine_ghost_pcd_offsets" in pred:
+                print(pred["fine_ghost_pcd"].shape)
+                print(pred["fine_ghost_pcd_offsets"].shape)
+                print(gt_position.unsqueeze(-1).shape)
+                raise NotImplementedError
+                if self.points_supervised_for_offset == "all":
+                    losses["position"] += F.mse_loss(
+                        pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"],
+                        gt_position.unsqueeze(-1)
+                    )
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss

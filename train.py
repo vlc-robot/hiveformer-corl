@@ -83,6 +83,8 @@ class Arguments(tap.Tap):
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.1
+    regress_position_offset: int = 1
+    points_supervised_for_offset: str = "fine"  # one of "all", "fine, "top"
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
@@ -435,6 +437,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
                 fine_sampling_cube_size=args.fine_sampling_cube_size,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+                regress_position_offset=bool(args.regress_position_offset),
             )
         else:
             raise NotImplementedError
@@ -516,6 +519,8 @@ if __name__ == "__main__":
         rotation_loss_coeff=args.rotation_loss_coeff,
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+        regress_position_offset=bool(args.regress_position_offset),
+        points_supervised_for_offset=args.points_supervised_for_offset
     )
 
     model_dict = {
