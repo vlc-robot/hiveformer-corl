@@ -423,7 +423,7 @@ class PredictionHead(nn.Module):
         # position at training time)
         fine_ghost_pcd = self._sample_ghost_points(
             batch_size, device, ghost_point_type="fine",
-            anchor=gt_position if gt_position is not None else coarse_position)
+            anchor=gt_position)
 
         # Select local fine RGB features
         l2_pred_pos = ((coarse_position.unsqueeze(1) - fine_visible_pcd) ** 2).sum(-1).sqrt()
