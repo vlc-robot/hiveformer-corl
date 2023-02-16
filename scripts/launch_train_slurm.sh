@@ -31,24 +31,24 @@ sbatch train_1gpu_32gb.sh \
      --num_workers $num_workers \
      --num_ghost_points $num_ghost_points \
      --regress_position_offset 0 \
-     --run_log_dir OVERFIT-$task-NO-OFFSET
+     --run_log_dir OVERFIT-OLD-WAY-$task-NO-OFFSET
 
-for position_offset_loss_coeff in 10 100 1000; do
-  for points_supervised_for_offset in all fine closest; do
-    sbatch train_1gpu_32gb.sh \
-         --tasks $task \
-         --dataset $dataset \
-         --image_size $image_size \
-         --exp_log_dir $main_dir \
-         --batch_size $batch_size \
-         --num_workers $num_workers \
-         --num_ghost_points $num_ghost_points \
-         --regress_position_offset 1 \
-         --position_offset_loss_coeff $position_offset_loss_coeff \
-         --points_supervised_for_offset $points_supervised_for_offset \
-         --run_log_dir OVERFIT-$task-$position_offset_loss_coeff-$points_supervised_for_offset
-  done
-done
+#for position_offset_loss_coeff in 10 100 1000; do
+#  for points_supervised_for_offset in all fine closest; do
+#    sbatch train_1gpu_32gb.sh \
+#         --tasks $task \
+#         --dataset $dataset \
+#         --image_size $image_size \
+#         --exp_log_dir $main_dir \
+#         --batch_size $batch_size \
+#         --num_workers $num_workers \
+#         --num_ghost_points $num_ghost_points \
+#         --regress_position_offset 1 \
+#         --position_offset_loss_coeff $position_offset_loss_coeff \
+#         --points_supervised_for_offset $points_supervised_for_offset \
+#         --run_log_dir OVERFIT-$task-$position_offset_loss_coeff-$points_supervised_for_offset
+#  done
+#done
 
 #main_dir=02_15_tune_ghost_points
 #dataset=/home/tgervet/datasets/hiveformer/packaged/3
