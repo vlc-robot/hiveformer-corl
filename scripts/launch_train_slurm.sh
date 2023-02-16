@@ -14,10 +14,9 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_16_regress_position_offset4
+main_dir=02_16_regress_position_offset5
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
-fine_sampling_cube_size=0.08
 num_workers=2
 task=put_money_in_safe
 num_ghost_points=2000

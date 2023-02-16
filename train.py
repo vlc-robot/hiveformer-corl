@@ -77,7 +77,7 @@ class Arguments(tap.Tap):
     # Loss
     position_prediction_only: int = 1
     position_loss: str = "ce"  # one of "ce", "mse", "bce"
-    ground_truth_gaussian_spread: float = 0.08
+    ground_truth_gaussian_spread: float = 0.01
     compute_loss_at_all_layers: int = 0
     position_loss_coeff: float = 1.0
     position_offset_loss_coeff: float = 1.0
