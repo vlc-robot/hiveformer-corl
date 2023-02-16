@@ -34,7 +34,7 @@ sbatch train_1gpu_32gb.sh \
      --regress_position_offset 0 \
      --run_log_dir OVERFIT-$task-NO-OFFSET
 
-for position_offset_loss_coeff in 10 1; do
+for position_offset_loss_coeff in 10 1000; do
   for points_supervised_for_offset in all fine closest; do
     sbatch train_1gpu_32gb.sh \
          --tasks $task \

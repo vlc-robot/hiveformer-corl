@@ -187,7 +187,7 @@ class LossAndMetrics:
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
             coarse_l2 = ((pred["coarse_ghost_pcd"] - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
             coarse_label = torch.softmax(-coarse_l2 / self.ground_truth_gaussian_spread, dim=-1).detach()
-            if "fine_ghost_pcd" in pred:
+            if pred.get("fine_ghost_pcd") is not None:
                 fine_l2 = ((pred["fine_ghost_pcd"] - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
                 fine_label = torch.softmax(-fine_l2 / self.ground_truth_gaussian_spread, dim=-1).detach()
 
@@ -196,13 +196,13 @@ class LossAndMetrics:
 
             for i in loss_layers:
                 coarse_pred = pred["coarse_ghost_pcd_masks"][i]
-                if "fine_ghost_pcd" in pred:
+                if pred.get("fine_ghost_pcd") is not None:
                     fine_pred = pred["fine_ghost_pcd_masks"][i]
 
                 if self.position_loss == "ce":
                     losses["position"].append(F.cross_entropy(
                         coarse_pred, coarse_label, label_smoothing=self.label_smoothing))
-                    if "fine_ghost_pcd" in pred:
+                    if pred.get("fine_ghost_pcd") is not None:
                         losses["position"].append(F.cross_entropy(
                             fine_pred, fine_label, label_smoothing=self.label_smoothing))
 
@@ -210,7 +210,7 @@ class LossAndMetrics:
                     pos_weight = coarse_label.numel() / coarse_label.sum()
                     losses["position"].append(F.binary_cross_entropy_with_logits(
                         coarse_pred, coarse_label, pos_weight=pos_weight))
-                    if "fine_ghost_pcd" in pred:
+                    if pred.get("fine_ghost_pcd") is not None:
                         pos_weight = fine_label.numel() / fine_label.sum()
                         losses["position"].append(F.binary_cross_entropy_with_logits(
                             fine_pred, fine_label, pos_weight=pos_weight))
@@ -218,7 +218,7 @@ class LossAndMetrics:
             losses["position"] = torch.stack(losses["position"]).mean()
 
             # Supervise offset from the ghost point's position to the predicted position
-            if "fine_ghost_pcd_offsets" in pred:
+            if pred.get("fine_ghost_pcd_offsets") is not None:
                 if self.points_supervised_for_offset == "all":
                     npts = pred["fine_ghost_pcd"].shape[-1]
                     losses["position_offset"] = F.mse_loss(
@@ -238,7 +238,6 @@ class LossAndMetrics:
                             torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
                         gt_position
                     )
-
                 losses["position"] += losses["position_offset"] * self.position_offset_loss_coeff
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
