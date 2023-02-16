@@ -89,7 +89,7 @@ class Arguments(tap.Tap):
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
-    fine_sampling_cube_size: float = 0.02
+    fine_sampling_cube_size: float = 0.08
     num_ghost_points: int = 2000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
