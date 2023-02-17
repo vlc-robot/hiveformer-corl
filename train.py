@@ -80,11 +80,11 @@ class Arguments(tap.Tap):
     ground_truth_gaussian_spread: float = 0.01
     compute_loss_at_all_layers: int = 0
     position_loss_coeff: float = 1.0
-    position_offset_loss_coeff: float = 1.0
+    position_offset_loss_coeff: float = 10000.0
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.1
-    regress_position_offset: int = 0
+    regress_position_offset: int = 1
     points_supervised_for_offset: str = "fine"  # one of "all", "fine, "closest"
 
     # Ghost points
