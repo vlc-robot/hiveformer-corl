@@ -21,7 +21,7 @@ class PredictionHead(nn.Module):
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
-                 rotation_pooling_gaussian_spread=0.01,
+                 rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
@@ -31,7 +31,8 @@ class PredictionHead(nn.Module):
         super().__init__()
         assert image_size in [(128, 128), (256, 256)]
         self.image_size = image_size
-        self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
+        assert rotation_parametrization in ["quat_from_top_ghost", "quat_from_query"]
+        self.rotation_parametrization = rotation_parametrization
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
         self.fine_sampling_cube_size = fine_sampling_cube_size
@@ -179,7 +180,8 @@ class PredictionHead(nn.Module):
 
             (
                 fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd,
-                fine_ghost_pcd_features, fine_ghost_pcd_offsets
+                fine_ghost_pcd_features, fine_ghost_pcd_offsets,
+                query_features
             ) = self._coarse_to_fine(
                 coarse_position, query_features, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
@@ -194,7 +196,7 @@ class PredictionHead(nn.Module):
 
         # Predict the next gripper action (position, rotation, gripper opening)
         position, rotation, gripper = self._predict_action(
-            ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, batch_size,
+            ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, query_features, batch_size,
             fine_ghost_pcd_offsets if (self.coarse_to_fine_sampling and self.regress_position_offset) else None
         )
 
@@ -370,10 +372,10 @@ class PredictionHead(nn.Module):
         return query_features, ghost_pcd_masks, visible_rgb_mask
 
     def _predict_action(self,
-                        ghost_pcd_mask, ghost_pcd, ghost_pcd_features, batch_size,
+                        ghost_pcd_mask, ghost_pcd, ghost_pcd_features, query_features, batch_size,
                         fine_ghost_pcd_offsets=None):
         """Compute the predicted action (position, rotation, opening) from the predicted mask."""
-        # Top point
+        # Select top-scoring ghost point
         top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
         position = ghost_pcd[torch.arange(batch_size), :, top_idx]
 
@@ -381,16 +383,12 @@ class PredictionHead(nn.Module):
         if fine_ghost_pcd_offsets is not None:
             position = position + fine_ghost_pcd_offsets[torch.arange(batch_size), :, top_idx]
 
-        # Predict rotation and gripper opening from features pooled near the predicted position
-        ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts b c -> b npts c")
-
-        if self.rotation_pooling_gaussian_spread == 0:
+        # Predict rotation and gripper opening
+        if self.rotation_parametrization == "quat_from_top_ghost":
+            ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts b c -> b npts c")
             features = ghost_pcd_features[torch.arange(batch_size), top_idx]
-        else:
-            # Pool features around predicted position
-            l2_pred_pos = ((position.unsqueeze(-1) - ghost_pcd) ** 2).sum(1).sqrt()
-            weights = torch.softmax(-l2_pred_pos / self.rotation_pooling_gaussian_spread, dim=-1).detach()
-            features = einops.einsum(ghost_pcd_features, weights, "b npts c, b npts -> b c")
+        elif self.rotation_parametrization == "quat_from_query":
+            features = query_features.squeeze(0)
 
         pred = self.gripper_state_predictor(features)
         rotation = normalise_quat(pred[:, :4])
@@ -457,5 +455,6 @@ class PredictionHead(nn.Module):
 
         return (
             fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd,
-            fine_ghost_pcd_features, fine_ghost_pcd_offsets
+            fine_ghost_pcd_features, fine_ghost_pcd_offsets,
+            query_features
         )

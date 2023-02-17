@@ -75,7 +75,7 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     # Loss
-    position_prediction_only: int = 1
+    position_prediction_only: int = 0
     position_loss: str = "ce"  # one of "ce" (our model), "mse" (original HiveFormer)
     ground_truth_gaussian_spread: float = 0.01
     compute_loss_at_all_layers: int = 0
@@ -83,7 +83,7 @@ class Arguments(tap.Tap):
     position_offset_loss_coeff: float = 10000.0
     rotation_loss_coeff: float = 1.0
     gripper_loss_coeff: float = 1.0
-    label_smoothing: float = 0.1
+    label_smoothing: float = 0.0
     regress_position_offset: int = 1
     points_supervised_for_offset: str = "fine"  # one of "fine, "closest"
 
@@ -99,7 +99,7 @@ class Arguments(tap.Tap):
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
     separate_coarse_and_fine_layers: int = 1
-    rotation_pooling_gaussian_spread: float = 0.01  # if 0, no pooling
+    rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
 
 
 def training(
@@ -152,7 +152,7 @@ def training(
                     sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
 
-            train_losses = loss_and_metrics.compute_loss(pred, sample, model)
+            train_losses = loss_and_metrics.compute_loss(pred, sample)
             train_losses["total"] = sum(list(train_losses.values()))  # type: ignore
             train_losses["total"].backward()  # type: ignore
 
@@ -291,7 +291,7 @@ def validation_step(
                     sample["action"] if use_ground_truth_position_for_sampling_val else None
                 )
 
-            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample, model)
+            losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
             losses["total"] = torch.stack(list(losses.values())).sum()
 
             for n, l in losses.items():
@@ -429,7 +429,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+                rotation_parametrization=args.rotation_parametrization,
                 gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
                 num_ghost_points=args.num_ghost_points,
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
@@ -517,7 +517,7 @@ if __name__ == "__main__":
         position_offset_loss_coeff=args.position_offset_loss_coeff,
         rotation_loss_coeff=args.rotation_loss_coeff,
         gripper_loss_coeff=args.gripper_loss_coeff,
-        rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+        rotation_parametrization=args.rotation_parametrization,
         regress_position_offset=bool(args.regress_position_offset),
         points_supervised_for_offset=args.points_supervised_for_offset
     )
