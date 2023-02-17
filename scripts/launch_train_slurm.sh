@@ -14,7 +14,7 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_17_train_with_offset
+main_dir=02_17_train_with_offset2
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
@@ -22,6 +22,18 @@ num_workers=2
 task=put_money_in_safe
 num_ghost_points=2000
 batch_size=12
+
+sbatch train_1gpu_32gb.sh \
+     --tasks $task \
+     --dataset $dataset \
+     --valset $valset \
+     --image_size $image_size \
+     --exp_log_dir $main_dir \
+     --batch_size $batch_size \
+     --num_workers $num_workers \
+     --num_ghost_points $num_ghost_points \
+     --run_log_dir $task-NOOFFSET \
+     --regress_position_offset 0
 
 sbatch train_1gpu_32gb.sh \
      --tasks $task \
