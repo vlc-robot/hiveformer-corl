@@ -28,7 +28,6 @@ for rotation_parametrization in quat_from_query quat_from_top_ghost; do
     sbatch train_1gpu_32gb.sh \
          --tasks $task \
          --dataset $dataset \
-#         --valset $valset \
          --image_size $image_size \
          --exp_log_dir $main_dir \
          --batch_size $batch_size \
@@ -38,3 +37,18 @@ for rotation_parametrization in quat_from_query quat_from_top_ghost; do
          --rotation_loss_coeff $rotation_loss_coeff
   done
 done
+#for rotation_parametrization in quat_from_query quat_from_top_ghost; do
+#  for rotation_loss_coeff in 1; do
+#    sbatch train_1gpu_32gb.sh \
+#         --tasks $task \
+#         --dataset $dataset \
+#         --valset $valset \
+#         --image_size $image_size \
+#         --exp_log_dir $main_dir \
+#         --batch_size $batch_size \
+#         --num_workers $num_workers \
+#         --run_log_dir $task-$num_ghost_points-ghost_points \
+#         --rotation_parametrization $rotation_parametrization \
+#         --rotation_loss_coeff $rotation_loss_coeff
+#  done
+#done
