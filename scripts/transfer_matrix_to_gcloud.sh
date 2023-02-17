@@ -2,10 +2,10 @@
 
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-#exp_src=02_17_train_with_offset2
-#exp_tgt=02_17_train_with_offset2
-exp_src=02_17_overfit_rotation
-exp_tgt=02_17_overfit_rotation
+exp_src=02_17_train_with_offset2
+exp_tgt=02_17_train_with_offset2
+#exp_src=02_17_overfit_rotation2
+#exp_tgt=02_17_overfit_rotation2
 ckpt=best.pth
 
 # Get Tensorboard from source

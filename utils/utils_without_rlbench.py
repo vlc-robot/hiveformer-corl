@@ -197,7 +197,6 @@ class LossAndMetrics:
         metrics["position_l2"] = l2.to(dtype).mean()
         metrics["position_l2<0.01"] = (l2 < 0.01).to(dtype).mean()
         metrics["position_l2<0.02"] = (l2 < 0.02).to(dtype).mean()
-        metrics["position_l2<0.04"] = (l2 < 0.04).to(dtype).mean()
         metrics["position_l2<0.08"] = (l2 < 0.08).to(dtype).mean()
 
         if not self.position_prediction_only:
@@ -208,10 +207,8 @@ class LossAndMetrics:
 
             l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
             metrics["rotation_l1"] = l1.to(dtype).mean()
+            metrics["rotation_l1<0.025"] = (l1 < 0.025).to(dtype).mean()
             metrics["rotation_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
-            metrics["rotation_l1<0.1"] = (l2 < 0.1).to(dtype).mean()
-            metrics["rotation_l1<0.2"] = (l2 < 0.2).to(dtype).mean()
-            metrics["rotation_l1<0.4"] = (l2 < 0.4).to(dtype).mean()
 
             if pred["task"] is not None:
                 task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])

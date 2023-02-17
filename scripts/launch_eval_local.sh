@@ -1,6 +1,6 @@
-exp=02_14_tune_ghost_points
+exp=02_17_train_with_offset2
 ckpts=(
-  put_money_in_safe-cube-0.08-ghost-2000-gtsample-0_version152530
+  put_money_in_safe-1000-ghost_points_version152987
 )
 tasks=(
   put_money_in_safe

@@ -83,7 +83,7 @@ class Arguments(tap.Tap):
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
     separate_coarse_and_fine_layers: int = 1
-    rotation_pooling_gaussian_spread: float = 0.01  # if 0, no pooling
+    rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -156,7 +156,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                rotation_pooling_gaussian_spread=args.rotation_pooling_gaussian_spread,
+                rotation_parametrization=args.rotation_parametrization,
                 gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
                 num_ghost_points=args.num_ghost_points,
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),

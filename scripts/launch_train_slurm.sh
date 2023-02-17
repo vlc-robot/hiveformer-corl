@@ -14,14 +14,13 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_17_overfit_rotation2
-#dataset=/home/tgervet/datasets/hiveformer/packaged/2
+main_dir=02_17_train_rotation
+dataset=/home/tgervet/datasets/hiveformer/packaged/2
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
-#valset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 num_workers=2
 task=put_money_in_safe
-batch_size=12
+batch_size=20
 
 for rotation_parametrization in quat_from_query quat_from_top_ghost; do
   for rotation_loss_coeff in 10 100; do
