@@ -206,7 +206,8 @@ class LossAndMetrics:
             acc = pred_gripper == true_gripper
             metrics["gripper"] = acc.to(dtype).mean()
 
-            l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1)).to(dtype).mean()
+            l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
+            metrics["rotation_l1"] = l1.to(dtype).mean()
             metrics["rotation_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
             metrics["rotation_l1<0.1"] = (l2 < 0.1).to(dtype).mean()
             metrics["rotation_l1<0.2"] = (l2 < 0.2).to(dtype).mean()
