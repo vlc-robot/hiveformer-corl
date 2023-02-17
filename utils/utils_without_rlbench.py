@@ -227,9 +227,10 @@ class LossAndMetrics:
                     )
                 elif self.points_supervised_for_offset == "fine":
                     npts = pred["fine_ghost_pcd"].shape[-1] // 2
+                    pred_with_offset = (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[:, :, npts:]
                     losses["position_offset"] = F.mse_loss(
-                        (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[:, :, npts:],
-                        gt_position.unsqueeze(-1).repeat(1, 1, npts)
+                        pred_with_offset,
+                        gt_position.unsqueeze(-1).repeat(1, 1, pred_with_offset.shape[-1])
                     )
                 elif self.points_supervised_for_offset == "closest":
                     b = pred["fine_ghost_pcd"].shape[0]

@@ -177,7 +177,7 @@ class PredictionHead(nn.Module):
 
         if self.coarse_to_fine_sampling:
             top_idx = torch.max(coarse_ghost_pcd_masks[-1], dim=-1).indices
-            coarse_position = coarse_ghost_pcd[torch.arange(batch_size), :, top_idx]
+            coarse_position = coarse_ghost_pcd[torch.arange(batch_size), :, top_idx].unsqueeze(1)
 
             (
                 fine_visible_rgb_mask, fine_ghost_pcd_masks, fine_ghost_pcd,
@@ -426,7 +426,7 @@ class PredictionHead(nn.Module):
             anchor=gt_position if gt_position is not None else coarse_position)
 
         # Select local fine RGB features
-        l2_pred_pos = ((coarse_position.unsqueeze(1) - fine_visible_pcd) ** 2).sum(-1).sqrt()
+        l2_pred_pos = ((coarse_position - fine_visible_pcd) ** 2).sum(-1).sqrt()
         indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
         local_fine_visible_rgb_features = einops.rearrange(
@@ -450,7 +450,7 @@ class PredictionHead(nn.Module):
 
         # Contextualize the query and predict masks over all (coarse + fine) ghost points
         # Now that the query is localized, we use positional embeddings
-        query_pos = self.pcd_pe_layer(coarse_position.unsqueeze(1))
+        query_pos = self.pcd_pe_layer(coarse_position)
         fine_query_context_features = torch.cat([fine_ghost_pcd_context_features, fine_ghost_pcd_features], dim=0)
         fine_query_context_pos = torch.cat([fine_ghost_pcd_context_pos, fine_ghost_pcd_pos], dim=1)
         fine_ghost_pcd_features = torch.cat([coarse_ghost_pcd_features, fine_ghost_pcd_features], dim=0)
