@@ -14,7 +14,7 @@
 #     --train_iters 100_000
 #done
 
-main_dir=02_17_overfit_rotation
+main_dir=02_17_overfit_rotation2
 #dataset=/home/tgervet/datasets/hiveformer/packaged/2
 dataset=/home/tgervet/datasets/hiveformer/packaged/3
 #valset=/home/tgervet/datasets/hiveformer/packaged/3
@@ -32,7 +32,7 @@ for rotation_parametrization in quat_from_query quat_from_top_ghost; do
          --exp_log_dir $main_dir \
          --batch_size $batch_size \
          --num_workers $num_workers \
-         --run_log_dir $task-$num_ghost_points-ghost_points \
+         --run_log_dir $task-$rotation_loss_coeff-$rotation_parametrization \
          --rotation_parametrization $rotation_parametrization \
          --rotation_loss_coeff $rotation_loss_coeff
   done
