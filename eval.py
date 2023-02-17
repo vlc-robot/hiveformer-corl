@@ -45,7 +45,7 @@ class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
     image_size: str = "128,128"
     
-    # Logging
+    # Logging to base_log_dir/exp_log_dir/run_log_dir
     base_log_dir: Path = Path(__file__).parent / "eval_logs"
     exp_log_dir: str = "exp"
     run_log_dir: str = "run"
@@ -72,12 +72,11 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     position_prediction_only: int = 1
-    position_loss: str = "ce"  # one of "ce", "mse", "bce"
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
     fine_sampling_cube_size: float = 0.08
-    num_ghost_points: int = 2000
+    num_ghost_points: int = 1000
 
     # Model
     embedding_dim: int = 60
@@ -154,7 +153,6 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
         if len(args.tasks) == 1:
             model = Baseline(
                 image_size=tuple(int(x) for x in args.image_size.split(",")),
-                position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,

@@ -44,7 +44,7 @@ class Arguments(tap.Tap):
     dataset: List[Path]
     valset: Optional[Tuple[Path, ...]] = None
 
-    # Logging
+    # Logging to base_log_dir/exp_log_dir/run_log_dir
     base_log_dir: Path = Path(__file__).parent / "train_logs"
     exp_log_dir: str = "exp"
     run_log_dir: str = "run"
@@ -76,7 +76,7 @@ class Arguments(tap.Tap):
 
     # Loss
     position_prediction_only: int = 1
-    position_loss: str = "ce"  # one of "ce", "mse", "bce"
+    position_loss: str = "ce"  # one of "ce" (our model), "mse" (original HiveFormer)
     ground_truth_gaussian_spread: float = 0.01
     compute_loss_at_all_layers: int = 0
     position_loss_coeff: float = 1.0
@@ -85,12 +85,12 @@ class Arguments(tap.Tap):
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.1
     regress_position_offset: int = 1
-    points_supervised_for_offset: str = "fine"  # one of "all", "fine, "closest"
+    points_supervised_for_offset: str = "fine"  # one of "fine, "closest"
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
     fine_sampling_cube_size: float = 0.08
-    num_ghost_points: int = 2000
+    num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
@@ -426,7 +426,6 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         if len(args.tasks) == 1:
             _model = Baseline(
                 image_size=tuple(int(x) for x in args.image_size.split(",")),
-                position_loss=args.position_loss,
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
                 num_query_cross_attn_layers=args.num_query_cross_attn_layers,

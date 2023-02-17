@@ -21,18 +21,16 @@ class PredictionHead(nn.Module):
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
-                 loss="ce",
                  rotation_pooling_gaussian_spread=0.01,
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
-                 fine_sampling_cube_size=0.05,
-                 separate_coarse_and_fine_layers=False,
-                 regress_position_offset=False):
+                 fine_sampling_cube_size=0.08,
+                 separate_coarse_and_fine_layers=True,
+                 regress_position_offset=True):
         super().__init__()
         assert image_size in [(128, 128), (256, 256)]
         self.image_size = image_size
-        self.loss = loss
         self.rotation_pooling_gaussian_spread = rotation_pooling_gaussian_spread
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
@@ -375,38 +373,28 @@ class PredictionHead(nn.Module):
                         ghost_pcd_mask, ghost_pcd, ghost_pcd_features, batch_size,
                         fine_ghost_pcd_offsets=None):
         """Compute the predicted action (position, rotation, opening) from the predicted mask."""
-        # Predict position differently depending on the loss
-        if self.loss == "mse":
-            # Weighted sum of all points
-            ghost_pcd_mask = torch.softmax(ghost_pcd_mask, dim=-1)
-            position = einops.einsum(ghost_pcd, ghost_pcd_mask, "b c npts, b npts -> b c")
-        elif self.loss in ["ce", "bce"]:
-            # Top point
-            top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
-            position = ghost_pcd[torch.arange(batch_size), :, top_idx]
+        # Top point
+        top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
+        position = ghost_pcd[torch.arange(batch_size), :, top_idx]
 
-            # Add an offset regressed from the ghost point's position to the predicted position
-            if fine_ghost_pcd_offsets is not None:
-                position = position + fine_ghost_pcd_offsets[torch.arange(batch_size), :, top_idx]
+        # Add an offset regressed from the ghost point's position to the predicted position
+        if fine_ghost_pcd_offsets is not None:
+            position = position + fine_ghost_pcd_offsets[torch.arange(batch_size), :, top_idx]
 
         # Predict rotation and gripper opening from features pooled near the predicted position
-        if self.loss in ["ce", "bce"]:
-            ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts b c -> b npts c")
+        ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts b c -> b npts c")
 
-            if self.rotation_pooling_gaussian_spread == 0:
-                features = ghost_pcd_features[torch.arange(batch_size), top_idx]
-            else:
-                # Pool features around predicted position
-                l2_pred_pos = ((position.unsqueeze(-1) - ghost_pcd) ** 2).sum(1).sqrt()
-                weights = torch.softmax(-l2_pred_pos / self.rotation_pooling_gaussian_spread, dim=-1).detach()
-                features = einops.einsum(ghost_pcd_features, weights, "b npts c, b npts -> b c")
-
-            pred = self.gripper_state_predictor(features)
-            rotation = normalise_quat(pred[:, :4])
-            gripper = torch.sigmoid(pred[:, 4:])
-
+        if self.rotation_pooling_gaussian_spread == 0:
+            features = ghost_pcd_features[torch.arange(batch_size), top_idx]
         else:
-            raise NotImplementedError
+            # Pool features around predicted position
+            l2_pred_pos = ((position.unsqueeze(-1) - ghost_pcd) ** 2).sum(1).sqrt()
+            weights = torch.softmax(-l2_pred_pos / self.rotation_pooling_gaussian_spread, dim=-1).detach()
+            features = einops.einsum(ghost_pcd_features, weights, "b npts c, b npts -> b c")
+
+        pred = self.gripper_state_predictor(features)
+        rotation = normalise_quat(pred[:, :4])
+        gripper = torch.sigmoid(pred[:, 4:])
 
         return position, rotation, gripper
 

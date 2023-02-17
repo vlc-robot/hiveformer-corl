@@ -9,7 +9,6 @@ from .utils import norm_tensor
 class Baseline(nn.Module):
     def __init__(self,
                  image_size=(128, 128),
-                 position_loss="ce",
                  embedding_dim=60,
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
@@ -24,7 +23,6 @@ class Baseline(nn.Module):
 
         self.prediction_head = PredictionHead(
             image_size=image_size,
-            loss=position_loss,
             embedding_dim=embedding_dim,
             num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
             num_query_cross_attn_layers=num_query_cross_attn_layers,

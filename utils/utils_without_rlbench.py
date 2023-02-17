@@ -110,7 +110,7 @@ class LossAndMetrics:
         regress_position_offset=False,
         points_supervised_for_offset="fine"
     ):
-        assert position_loss in ["mse", "ce", "bce"]
+        assert position_loss in ["mse", "ce"]
         self.position_loss = position_loss
         self.position_prediction_only = position_prediction_only
         self.compute_loss_at_all_layers = compute_loss_at_all_layers
@@ -179,9 +179,10 @@ class LossAndMetrics:
 
     def _compute_position_loss(self, pred, gt_position, losses):
         if self.position_loss == "mse":
+            # Only used for original HiveFormer
             losses["position"] = F.mse_loss(pred["position"], gt_position)
 
-        elif self.position_loss in ["ce", "bce"]:
+        elif self.position_loss == "ce":
             losses["position"] = []
 
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
@@ -195,37 +196,17 @@ class LossAndMetrics:
                 len(pred["coarse_ghost_pcd_masks"])) if self.compute_loss_at_all_layers else [-1]
 
             for i in loss_layers:
-                coarse_pred = pred["coarse_ghost_pcd_masks"][i]
+                losses["position"].append(F.cross_entropy(
+                    pred["coarse_ghost_pcd_masks"][i], coarse_label, label_smoothing=self.label_smoothing))
                 if pred.get("fine_ghost_pcd") is not None:
-                    fine_pred = pred["fine_ghost_pcd_masks"][i]
-
-                if self.position_loss == "ce":
                     losses["position"].append(F.cross_entropy(
-                        coarse_pred, coarse_label, label_smoothing=self.label_smoothing))
-                    if pred.get("fine_ghost_pcd") is not None:
-                        losses["position"].append(F.cross_entropy(
-                            fine_pred, fine_label, label_smoothing=self.label_smoothing))
-
-                elif self.position_loss == "bce":
-                    pos_weight = coarse_label.numel() / coarse_label.sum()
-                    losses["position"].append(F.binary_cross_entropy_with_logits(
-                        coarse_pred, coarse_label, pos_weight=pos_weight))
-                    if pred.get("fine_ghost_pcd") is not None:
-                        pos_weight = fine_label.numel() / fine_label.sum()
-                        losses["position"].append(F.binary_cross_entropy_with_logits(
-                            fine_pred, fine_label, pos_weight=pos_weight))
+                        pred["fine_ghost_pcd_masks"][i], fine_label, label_smoothing=self.label_smoothing))
 
             losses["position"] = torch.stack(losses["position"]).mean()
 
             # Supervise offset from the ghost point's position to the predicted position
             if pred.get("fine_ghost_pcd_offsets") is not None:
-                if self.points_supervised_for_offset == "all":
-                    npts = pred["fine_ghost_pcd"].shape[-1]
-                    losses["position_offset"] = F.mse_loss(
-                        pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"],
-                        gt_position.unsqueeze(-1).repeat(1, 1, npts)
-                    )
-                elif self.points_supervised_for_offset == "fine":
+                if self.points_supervised_for_offset == "fine":
                     npts = pred["fine_ghost_pcd"].shape[-1] // 2
                     pred_with_offset = (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[:, :, npts:]
                     losses["position_offset"] = F.mse_loss(
