@@ -15,7 +15,7 @@
 #done
 
 main_dir=02_17_train_with_offset
-dataset=/home/tgervet/datasets/hiveformer/packaged/1
+dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 num_workers=2
