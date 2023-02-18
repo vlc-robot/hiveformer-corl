@@ -23,7 +23,7 @@ task=put_money_in_safe
 batch_size=20
 
 for rotation_parametrization in quat_from_query; do
-  for rotation_loss_coeff in 10 100 1000; do
+  for rotation_loss_coeff in 10000; do
     sbatch train_1gpu_32gb.sh \
          --tasks $task \
          --dataset $dataset \
