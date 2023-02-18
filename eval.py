@@ -72,6 +72,7 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     position_prediction_only: int = 0
+    regress_position_offset: int = 1
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
@@ -162,6 +163,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
                 fine_sampling_cube_size=args.fine_sampling_cube_size,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+                regress_position_offset=bool(args.regress_position_offset),
             ).to(device)
         else:
             raise NotImplementedError
