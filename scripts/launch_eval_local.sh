@@ -1,6 +1,6 @@
-exp=02_17_train_with_offset2
+exp=02_17_train_rotation2
 ckpts=(
-  put_money_in_safe-1000-ghost_points_version152987
+  put_money_in_safe-1000-quat_from_query_version153036
 )
 tasks=(
   put_money_in_safe

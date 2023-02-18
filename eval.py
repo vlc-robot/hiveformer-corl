@@ -71,7 +71,7 @@ class Arguments(tap.Tap):
     # Our non-analogical baseline parameters
     # ---------------------------------------------------------------
 
-    position_prediction_only: int = 1
+    position_prediction_only: int = 0
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
