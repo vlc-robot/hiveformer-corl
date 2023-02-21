@@ -22,7 +22,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --image_size "256,256" \
      --exp_log_dir $main_dir \
      --model baseline \
-     --batch_size 14 \
-     --num_workers 3 \
+     --batch_size 15 \
+     --num_workers 2 \
      --run_log_dir BASELINE-$task
 done
