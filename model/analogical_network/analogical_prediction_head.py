@@ -14,7 +14,7 @@ from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
 from model.utils.utils import normalise_quat, sample_ghost_points_randomly
 
 
-class PredictionHead(nn.Module):
+class AnalogicalPredictionHead(nn.Module):
     def __init__(self,
                  image_size=(128, 128),
                  embedding_dim=60,
