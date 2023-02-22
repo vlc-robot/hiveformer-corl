@@ -225,6 +225,12 @@ class AnalogicalPredictionHead(nn.Module):
         self.pixel_mean = self.pixel_mean.to(device)
         self.pixel_std = self.pixel_std.to(device)
         visible_rgb = (visible_rgb - self.pixel_mean) / self.pixel_std
+
+        print()
+        print("visible_rgb.device", visible_rgb.device)
+        print("next(self.backbone.parameters()).device", next(self.backbone.parameters()).device)
+        print()
+
         visible_rgb_features = self.backbone(visible_rgb)
 
         # Pass visual features through feature pyramid network
