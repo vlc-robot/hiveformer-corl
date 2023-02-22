@@ -25,6 +25,9 @@ from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 
 from .video_utils import CircleCameraMotion, TaskRecorder
+from model.released_hiveformer.network import Hiveformer
+from model.non_analogical_baseline.baseline import Baseline
+from model.analogical_network.analogical_network import AnalogicalNetwork
 
 
 def task_file_to_task_class(task_file):
@@ -180,13 +183,22 @@ class Actioner:
 
         self._instr = self._instr.to(rgbs.device)
 
-        pred = self._model(
-            rgbs,
-            pcds,
-            padding_mask,
-            self._instr,
-            gripper,
-        )
+        if type(self._model) in [Hiveformer, Baseline]:
+            pred = self._model(
+                rgbs,
+                pcds,
+                padding_mask,
+                self._instr,
+                gripper,
+            )
+        elif type(self._model) == AnalogicalNetwork:
+            pred = self._model(
+                rgbs,
+                pcds,
+                padding_mask,
+                self._instr,
+                gripper,
+            )
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
 

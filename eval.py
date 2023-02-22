@@ -11,6 +11,7 @@ from filelock import FileLock
 from train import Arguments as TrainArguments
 from model.released_hiveformer.network import Hiveformer
 from model.non_analogical_baseline.baseline import Baseline
+from model.analogical_network.analogical_network import AnalogicalNetwork
 from utils.utils_with_rlbench import (
     RLBenchEnv,
     Actioner,
@@ -54,7 +55,7 @@ class Arguments(tap.Tap):
     offline: int = 1
 
     # Toggle to switch between original HiveFormer and our models
-    model: str = "baseline"  # one of "original", "baseline"
+    model: str = "baseline"  # one of "original", "baseline", "analogical"
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -153,6 +154,23 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     elif args.model == "baseline":
         if len(args.tasks) == 1:
             model = Baseline(
+                image_size=tuple(int(x) for x in args.image_size.split(",")),
+                embedding_dim=args.embedding_dim,
+                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+                rotation_parametrization=args.rotation_parametrization,
+                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
+                num_ghost_points=args.num_ghost_points,
+                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+                fine_sampling_cube_size=args.fine_sampling_cube_size,
+                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+                regress_position_offset=bool(args.regress_position_offset),
+            ).to(device)
+        else:
+            raise NotImplementedError
+    elif args.model == "analogical":
+        if len(args.tasks) == 1:
+            model = AnalogicalNetwork(
                 image_size=tuple(int(x) for x in args.image_size.split(",")),
                 embedding_dim=args.embedding_dim,
                 num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from .prediction_head import PredictionHead
-from .utils import norm_tensor
+from model.utils.utils import norm_tensor
 
 
 class Baseline(nn.Module):

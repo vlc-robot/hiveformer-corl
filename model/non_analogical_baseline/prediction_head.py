@@ -9,9 +9,9 @@ from detectron2.config import get_cfg
 from detectron2.modeling import build_model
 from torchvision.ops import FeaturePyramidNetwork
 
-from .position_encodings import RotaryPositionEncoding3D
-from .layers import RelativeCrossAttentionLayer, FeedforwardLayer
-from .utils import normalise_quat, sample_ghost_points_randomly
+from model.utils.position_encodings import RotaryPositionEncoding3D
+from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
+from model.utils.utils import normalise_quat, sample_ghost_points_randomly
 
 
 class PredictionHead(nn.Module):
