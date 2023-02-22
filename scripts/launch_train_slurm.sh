@@ -1,10 +1,11 @@
 #!/bin/sh
 
 main_dir=02_22_analogical_poc
+task=put_money_in_safe
 
 for support_set in "self" "rest_of_batch"; do
   sbatch train_1gpu_32gb.sh \
-     --tasks put_money_in_safe \
+     --tasks $task \
      --dataset /home/tgervet/datasets/hiveformer/packaged/2 \
      --valset /home/tgervet/datasets/hiveformer/packaged/3 \
      --image_size "256,256" \
