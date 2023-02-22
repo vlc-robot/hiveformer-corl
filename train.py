@@ -81,7 +81,7 @@ class Arguments(tap.Tap):
     compute_loss_at_all_layers: int = 0
     position_loss_coeff: float = 1.0
     position_offset_loss_coeff: float = 10000.0
-    rotation_loss_coeff: float = 5000.0
+    rotation_loss_coeff: float = 100.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
     regress_position_offset: int = 1

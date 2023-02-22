@@ -133,10 +133,10 @@ class LossAndMetrics:
     def _compute_position_loss(self, pred, gt_position, losses):
         if self.position_loss == "mse":
             # Only used for original HiveFormer
-            losses["position"] = F.mse_loss(pred["position"], gt_position)
+            losses["position_mse"] = F.mse_loss(pred["position"], gt_position) * self.position_loss_coeff
 
         elif self.position_loss == "ce":
-            losses["position"] = []
+            losses["position_ce"] = []
 
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
             # for a soft cross-entropy loss
@@ -150,13 +150,13 @@ class LossAndMetrics:
                 len(pred["coarse_ghost_pcd_masks"])) if self.compute_loss_at_all_layers else [-1]
 
             for i in loss_layers:
-                losses["position"].append(F.cross_entropy(
+                losses["position_ce"].append(F.cross_entropy(
                     pred["coarse_ghost_pcd_masks"][i], coarse_label, label_smoothing=self.label_smoothing))
                 if pred.get("fine_ghost_pcd") is not None:
-                    losses["position"].append(F.cross_entropy(
+                    losses["position_ce"].append(F.cross_entropy(
                         pred["fine_ghost_pcd_masks"][i], fine_label, label_smoothing=self.label_smoothing))
 
-            losses["position"] = torch.stack(losses["position"]).mean()
+            losses["position_ce"] = torch.stack(losses["position_ce"]).mean() * self.position_loss_coeff
 
             # Supervise offset from the ghost point's position to the predicted position
             if pred.get("fine_ghost_pcd_offsets") is not None:
@@ -174,14 +174,11 @@ class LossAndMetrics:
                             torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
                         gt_position
                     )
-                losses["position_offset"] *= self.position_offset_loss_coeff
-                losses["position"] += losses["position_offset"]
+                losses["position_offset"] *= (self.position_offset_loss_coeff * self.position_loss_coeff)
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
             # use it in the loss
             pred["position"] = pred["position"].detach()
-
-        losses["position"] *= self.position_loss_coeff
 
     def compute_metrics(
         self, pred: Dict[str, torch.Tensor], sample: Sample
