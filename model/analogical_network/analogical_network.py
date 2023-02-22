@@ -1,4 +1,3 @@
-import einops
 import torch
 import torch.nn as nn
 
@@ -18,7 +17,8 @@ class AnalogicalNetwork(nn.Module):
                  coarse_to_fine_sampling=True,
                  fine_sampling_cube_size=0.05,
                  separate_coarse_and_fine_layers=False,
-                 regress_position_offset=False):
+                 regress_position_offset=False,
+                 support_set="rest_of_batch"):
         super().__init__()
 
         self.prediction_head = AnalogicalPredictionHead(
@@ -33,6 +33,7 @@ class AnalogicalNetwork(nn.Module):
             gripper_loc_bounds=gripper_loc_bounds,
             separate_coarse_and_fine_layers=separate_coarse_and_fine_layers,
             regress_position_offset=regress_position_offset,
+            support_set=support_set,
         )
 
     def compute_action(self, pred) -> torch.Tensor:
@@ -48,21 +49,24 @@ class AnalogicalNetwork(nn.Module):
                 padding_mask,
                 instruction,
                 gripper,
-                gt_action=None):
-        visible_pcd = pcd_obs[padding_mask]
+                gt_action_for_support,
+                gt_action_for_sampling=None):
+        assert padding_mask.sum() == padding_mask.numel(), "Padding mask must be all 1s for now"
+
+        visible_pcd = pcd_obs
 
         # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 255])
-        visible_rgb = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
-        visible_rgb = (visible_rgb / 2 + 0.5) * 255
-        visible_rgb = visible_rgb[:, :, :3, :, :]
+        visible_rgb = (rgb_obs / 2 + 0.5) * 255
+        visible_rgb = visible_rgb[:, :, :, :3, :, :]
 
-        curr_gripper = einops.rearrange(gripper, "b t c -> (b t) c")[:, :3]
+        curr_gripper = gripper[:, :, :3]
 
         pred = self.prediction_head(
             visible_rgb=visible_rgb,
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper,
-            gt_action=gt_action,
+            gt_action_for_support=gt_action_for_support,
+            gt_action_for_sampling=gt_action_for_sampling,
         )
         pred["task"] = None
         return pred

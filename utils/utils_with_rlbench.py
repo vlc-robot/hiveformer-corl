@@ -192,6 +192,7 @@ class Actioner:
                 gripper,
             )
         elif type(self._model) == AnalogicalNetwork:
+            # TODO Pass in gt_action_for_support
             pred = self._model(
                 rgbs,
                 pcds,

@@ -87,6 +87,12 @@ class Arguments(tap.Tap):
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
 
+    # ---------------------------------------------------------------
+    # Our analogical network additional parameters
+    # ---------------------------------------------------------------
+
+    support_set: str = "self"  # one of "self" (for debugging), "rest_of_batch"
+
 
 def get_log_dir(args: Arguments) -> Path:
     log_dir = args.base_log_dir / args.exp_log_dir
@@ -182,6 +188,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 fine_sampling_cube_size=args.fine_sampling_cube_size,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
+                support_set=args.support_set,
             ).to(device)
         else:
             raise NotImplementedError

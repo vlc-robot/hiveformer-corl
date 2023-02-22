@@ -102,6 +102,12 @@ class Arguments(tap.Tap):
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
 
+    # ---------------------------------------------------------------
+    # Our analogical network additional parameters
+    # ---------------------------------------------------------------
+
+    support_set: str = "self"  # one of "self" (for debugging), "rest_of_batch"
+
 
 def training(
     model: nn.Module,
@@ -134,6 +140,7 @@ def training(
             model_type = type(model)
             if model_type == nn.DataParallel:
                 model_type = type(model.module)
+
             if model_type == Hiveformer:
                 pred = model(
                     sample["rgbs"],
@@ -159,8 +166,9 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    gt_action_for_support=sample["action"],
                     # Provide ground-truth action to bias ghost point sampling at training time
-                    gt_action=sample["action"] if use_ground_truth_position_for_sampling_train else None,
+                    gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
@@ -308,8 +316,9 @@ def validation_step(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    gt_action_for_support=sample["action"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
-                    gt_action=sample["action"] if use_ground_truth_position_for_sampling_val else None
+                    gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_val else None
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
@@ -475,6 +484,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 fine_sampling_cube_size=args.fine_sampling_cube_size,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
+                support_set=args.support_set
             )
         else:
             raise NotImplementedError
