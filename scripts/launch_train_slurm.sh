@@ -24,6 +24,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --model baseline \
      --batch_size 15 \
      --num_workers 2 \
-     --position_prediction_only 1 \
+     --position_prediction_only 0 \
      --run_log_dir BASELINE-WITH-100-ROTATION-SCALING-$task
 done
