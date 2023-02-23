@@ -1,7 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=russ_reserved
-#SBATCH --partition=kate_reserved
+#SBATCH --partition=russ_reserved,kate_reserved
 #SBATCH --job-name=train_hiveformer
 #SBATCH --output=slurm_logs/train-hiveformer-%j.out
 #SBATCH --error=slurm_logs/train-hiveformer-%j.err
