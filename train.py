@@ -23,6 +23,7 @@ from utils.utils_without_rlbench import (
 from dataset import RLBenchDataset
 from model.released_hiveformer.network import Hiveformer
 from model.non_analogical_baseline.baseline import Baseline
+from model.analogical_network.analogical_network import AnalogicalNetwork
 
 
 class Arguments(tap.Tap):
@@ -57,7 +58,7 @@ class Arguments(tap.Tap):
     train_iters: int = 200_000 // len(devices)
 
     # Toggle to switch between original HiveFormer and our models
-    model: str = "baseline"  # one of "original", "baseline"
+    model: str = "baseline"  # one of "original", "baseline", "analogical"
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -101,6 +102,12 @@ class Arguments(tap.Tap):
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
 
+    # ---------------------------------------------------------------
+    # Our analogical network additional parameters
+    # ---------------------------------------------------------------
+
+    support_set: str = "self"  # one of "self" (for debugging), "rest_of_batch"
+
 
 def training(
     model: nn.Module,
@@ -133,6 +140,7 @@ def training(
             model_type = type(model)
             if model_type == nn.DataParallel:
                 model_type = type(model.module)
+
             if model_type == Hiveformer:
                 pred = model(
                     sample["rgbs"],
@@ -149,7 +157,18 @@ def training(
                     sample["instr"],
                     sample["gripper"],
                     # Provide ground-truth action to bias ghost point sampling at training time
-                    sample["action"] if use_ground_truth_position_for_sampling_train else None,
+                    gt_action=sample["action"] if use_ground_truth_position_for_sampling_train else None,
+                )
+            elif model_type == AnalogicalNetwork:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"],
+                    gt_action_for_support=sample["action"],
+                    # Provide ground-truth action to bias ghost point sampling at training time
+                    gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
 
             train_losses = loss_and_metrics.compute_loss(pred, sample)
@@ -288,7 +307,18 @@ def validation_step(
                     sample["instr"],
                     sample["gripper"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
-                    sample["action"] if use_ground_truth_position_for_sampling_val else None
+                    gt_action=sample["action"] if use_ground_truth_position_for_sampling_val else None
+                )
+            elif model_type == AnalogicalNetwork:
+                pred = model(
+                    sample["rgbs"],
+                    sample["pcds"],
+                    sample["padding_mask"],
+                    sample["instr"],
+                    sample["gripper"],
+                    gt_action_for_support=sample["action"],
+                    # DO NOT provide ground-truth action to sample ghost points at validation time
+                    gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_val else None
                 )
 
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
@@ -436,6 +466,25 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 fine_sampling_cube_size=args.fine_sampling_cube_size,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
+            )
+        else:
+            raise NotImplementedError
+    elif args.model == "analogical":
+        if len(args.tasks) == 1:
+            _model = AnalogicalNetwork(
+                image_size=tuple(int(x) for x in args.image_size.split(",")),
+                embedding_dim=args.embedding_dim,
+                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+                rotation_parametrization=args.rotation_parametrization,
+                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[
+                    args.tasks[0]],
+                num_ghost_points=args.num_ghost_points,
+                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+                fine_sampling_cube_size=args.fine_sampling_cube_size,
+                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+                regress_position_offset=bool(args.regress_position_offset),
+                support_set=args.support_set
             )
         else:
             raise NotImplementedError

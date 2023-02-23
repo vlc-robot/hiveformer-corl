@@ -1,6 +1,5 @@
 #!/bin/sh
 
-main_dir=02_20_compare_hiveformer_and_baseline
 task_file=tasks/10_autolambda_tasks.csv
 
 #for task in $(cat $task_file | tr '\n' ' '); do
@@ -14,6 +13,7 @@ task_file=tasks/10_autolambda_tasks.csv
 #     --run_log_dir HIVEFORMER-$task
 #done
 
+main_dir=02_20_compare_hiveformer_and_baseline
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb.sh \
      --tasks $task \
@@ -26,4 +26,20 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --num_workers 2 \
      --position_prediction_only 0 \
      --run_log_dir BASELINE-WITH-100-ROTATION-SCALING-$task
+
+main_dir=02_23_analogical_poc_for_all_tasks
+for task in $(cat $task_file | tr '\n' ' '); do
+  sbatch train_1gpu_32gb.sh \
+     --tasks $task \
+     --dataset /home/tgervet/datasets/hiveformer/packaged/2 \
+     --valset /home/tgervet/datasets/hiveformer/packaged/3 \
+     --image_size "256,256" \
+     --exp_log_dir $main_dir \
+     --model analogical \
+     --batch_size 15 \
+     --num_workers 2 \
+     --position_prediction_only 1 \
+     --rotation_parametrization quat_from_top_ghost \
+     --support_set rest_of_batch \
+     --run_log_dir $task
 done
