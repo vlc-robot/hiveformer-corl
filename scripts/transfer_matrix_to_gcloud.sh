@@ -2,8 +2,8 @@
 
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-exp_src=02_20_compare_hiveformer_and_baseline
-exp_tgt=02_20_compare_hiveformer_and_baseline
+exp_src=02_23_analogical_poc
+exp_tgt=02_23_analogical_poc
 #exp_src=02_17_overfit_rotation2
 #exp_tgt=02_17_overfit_rotation2
 ckpt=best.pth
