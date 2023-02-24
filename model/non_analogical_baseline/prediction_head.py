@@ -1,17 +1,15 @@
 import einops
-from pathlib import Path
 import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-
-from detectron2.config import get_cfg
-from detectron2.modeling import build_model
+from torchvision import transforms
 from torchvision.ops import FeaturePyramidNetwork
 
 from model.utils.position_encodings import RotaryPositionEncoding3D
 from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
 from model.utils.utils import normalise_quat, sample_ghost_points_randomly
+from model.utils.resnet import resnet50
 
 
 class PredictionHead(nn.Module):
@@ -40,14 +38,10 @@ class PredictionHead(nn.Module):
         self.regress_position_offset = regress_position_offset
 
         # Frozen ResNet50 backbone
-        cfg = get_cfg()
-        cfg.merge_from_file(str(Path(__file__).resolve().parent.parent / "utils/resnet50.yaml"))
-        model = build_model(cfg)
-        self.backbone = model.backbone
-        self.pixel_mean = model.pixel_mean
-        self.pixel_std = model.pixel_std
+        self.backbone = resnet50()
         for p in self.backbone.parameters():
             p.requires_grad = False
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         # Semantic visual features at different scales
         self.feature_pyramid = FeaturePyramidNetwork([256, 512, 1024, 2048], embedding_dim)
@@ -221,15 +215,7 @@ class PredictionHead(nn.Module):
         """Compute visual features at different scales and their positional embeddings."""
         # Pass each view independently through ResNet50 backbone
         visible_rgb = einops.rearrange(visible_rgb, "b ncam c h w -> (b ncam) c h w")
-        self.pixel_mean = self.pixel_mean.to(device)
-        self.pixel_std = self.pixel_std.to(device)
-        visible_rgb = (visible_rgb - self.pixel_mean) / self.pixel_std
-
-        # print()
-        # print("next(self.backbone.parameters()).device", next(self.backbone.parameters()).device)
-        # print("visible_rgb.device", visible_rgb.device)
-        # print()
-
+        visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
 
         # Pass visual features through feature pyramid network

@@ -55,8 +55,8 @@ class AnalogicalNetwork(nn.Module):
 
         visible_pcd = pcd_obs
 
-        # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 255])
-        visible_rgb = (rgb_obs / 2 + 0.5) * 255
+        # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 1])
+        visible_rgb = (rgb_obs / 2 + 0.5)
         visible_rgb = visible_rgb[:, :, :, :3, :, :]
 
         curr_gripper = gripper[:, :, :3]

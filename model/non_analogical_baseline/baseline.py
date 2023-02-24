@@ -51,9 +51,9 @@ class Baseline(nn.Module):
                 gt_action=None):
         visible_pcd = pcd_obs[padding_mask]
 
-        # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 255])
+        # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 1])
         visible_rgb = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
-        visible_rgb = (visible_rgb / 2 + 0.5) * 255
+        visible_rgb = (visible_rgb / 2 + 0.5)
         visible_rgb = visible_rgb[:, :, :3, :, :]
 
         curr_gripper = einops.rearrange(gripper, "b t c -> (b t) c")[:, :3]
