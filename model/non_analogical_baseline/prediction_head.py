@@ -8,7 +8,7 @@ from torchvision.ops import FeaturePyramidNetwork
 
 from model.utils.position_encodings import RotaryPositionEncoding3D
 from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
-from model.utils.utils import normalise_quat, sample_ghost_points_randomly
+from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
 from model.utils.resnet import resnet50
 
 
@@ -263,11 +263,19 @@ class PredictionHead(nn.Module):
         If ghost_point_type is "coarse", sample points uniformly within the workspace
         bounds and one near the anchor if it is specified.
 
-        If ghost_point_type is "fine", sample points uniformly within a local region
+        If ghost_point_type is "fine", sample points uniformly within a local sphere
         of the workspace bounds centered around the anchor.
         """
         if ghost_point_type == "coarse":
             bounds = np.stack([self.gripper_loc_bounds for _ in range(batch_size)])
+            uniform_pcd = np.stack([
+                sample_ghost_points_uniform_cube(
+                    bounds=bounds[i],
+                    num_points=self.num_ghost_points
+                )
+                for i in range(batch_size)
+            ])
+
         elif ghost_point_type == "fine":
             anchor_ = anchor[:, 0].cpu().numpy()
             bounds_min = np.clip(
@@ -279,16 +287,21 @@ class PredictionHead(nn.Module):
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds = np.stack([bounds_min, bounds_max], axis=1)
+            uniform_pcd = np.stack([
+                sample_ghost_points_uniform_sphere(
+                    center=anchor_[i],
+                    radius=self.fine_sampling_cube_size / 2,
+                    bounds=bounds[i],
+                    num_points=self.num_ghost_points
+                )
+                for i in range(batch_size)
+            ])
 
-        uniform_pcd = np.stack([
-            sample_ghost_points_randomly(bounds[i], num_points=self.num_ghost_points)
-            for i in range(batch_size)
-        ])
         uniform_pcd = torch.from_numpy(uniform_pcd).float().to(device)
 
         if anchor is not None:
             # Sample a point near the anchor position as an additional ghost point
-            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
+            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size / 2
             anchor_pcd = anchor + offset
             ghost_pcd = torch.cat([uniform_pcd, anchor_pcd], dim=1)
         else:
