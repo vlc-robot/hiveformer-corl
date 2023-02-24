@@ -26,6 +26,7 @@ for task in pick_up_cup pick_and_lift put_money_in_safe; do
        --batch_size 15 \
        --num_workers 2 \
        --position_prediction_only 0 \
+       --rotation_loss_coeff $rotation_loss_coeff \
        --run_log_dir BASELINE-WITH-$rotation_loss_coeff-ROTATION-SCALING-$task
   done
 done
