@@ -13,7 +13,7 @@ task_file=tasks/10_autolambda_tasks.csv
 #     --run_log_dir HIVEFORMER-$task
 #done
 
-main_dir=02_24_improve_position_baseline
+main_dir=02_24_improve_position_baseline_with_ball
 for fine_sampling_ball_diameter in 0.08 0.10; do
   for task in take_money_out_safe put_knife_on_chopping_board; do
     sbatch train_1gpu_32gb.sh \
