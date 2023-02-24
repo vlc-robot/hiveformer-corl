@@ -225,10 +225,10 @@ class PredictionHead(nn.Module):
         self.pixel_std = self.pixel_std.to(device)
         visible_rgb = (visible_rgb - self.pixel_mean) / self.pixel_std
 
-        print()
-        print("next(self.backbone.parameters()).device", next(self.backbone.parameters()).device)
-        print("visible_rgb.device", visible_rgb.device)
-        print()
+        # print()
+        # print("next(self.backbone.parameters()).device", next(self.backbone.parameters()).device)
+        # print("visible_rgb.device", visible_rgb.device)
+        # print()
 
         visible_rgb_features = self.backbone(visible_rgb)
 
