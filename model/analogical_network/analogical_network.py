@@ -15,7 +15,7 @@ class AnalogicalNetwork(nn.Module):
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
-                 fine_sampling_cube_size=0.05,
+                 fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=False,
                  regress_position_offset=False,
                  support_set="rest_of_batch"):
@@ -29,7 +29,7 @@ class AnalogicalNetwork(nn.Module):
             rotation_parametrization=rotation_parametrization,
             num_ghost_points=num_ghost_points,
             coarse_to_fine_sampling=coarse_to_fine_sampling,
-            fine_sampling_cube_size=fine_sampling_cube_size,
+            fine_sampling_ball_diameter=fine_sampling_ball_diameter,
             gripper_loc_bounds=gripper_loc_bounds,
             separate_coarse_and_fine_layers=separate_coarse_and_fine_layers,
             regress_position_offset=regress_position_offset,

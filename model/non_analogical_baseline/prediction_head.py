@@ -23,7 +23,7 @@ class PredictionHead(nn.Module):
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
-                 fine_sampling_cube_size=0.08,
+                 fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=True,
                  regress_position_offset=True):
         super().__init__()
@@ -33,7 +33,7 @@ class PredictionHead(nn.Module):
         self.rotation_parametrization = rotation_parametrization
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
-        self.fine_sampling_cube_size = fine_sampling_cube_size
+        self.fine_sampling_ball_diameter = fine_sampling_ball_diameter
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
 
@@ -279,18 +279,18 @@ class PredictionHead(nn.Module):
         elif ghost_point_type == "fine":
             anchor_ = anchor[:, 0].cpu().numpy()
             bounds_min = np.clip(
-                anchor_ - self.fine_sampling_cube_size / 2,
+                anchor_ - self.fine_sampling_ball_diameter / 2,
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds_max = np.clip(
-                anchor_ + self.fine_sampling_cube_size / 2,
+                anchor_ + self.fine_sampling_ball_diameter / 2,
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds = np.stack([bounds_min, bounds_max], axis=1)
             uniform_pcd = np.stack([
                 sample_ghost_points_uniform_sphere(
                     center=anchor_[i],
-                    radius=self.fine_sampling_cube_size / 2,
+                    radius=self.fine_sampling_ball_diameter / 2,
                     bounds=bounds[i],
                     num_points=self.num_ghost_points
                 )
@@ -301,7 +301,7 @@ class PredictionHead(nn.Module):
 
         if anchor is not None:
             # Sample a point near the anchor position as an additional ghost point
-            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size / 2
+            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_ball_diameter / 2
             anchor_pcd = anchor + offset
             ghost_pcd = torch.cat([uniform_pcd, anchor_pcd], dim=1)
         else:
