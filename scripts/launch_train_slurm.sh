@@ -14,9 +14,9 @@ task_file=tasks/10_autolambda_tasks.csv
 #done
 
 main_dir=02_24_improve_position_baseline
-for task in take_money_out_safe put_knife_on_chopping_board; do
-  for fine_sampling_ball_diameter in 0.08 0.10; do
-    sbatch train_4gpu_12gb.sh \
+for fine_sampling_ball_diameter in 0.08 0.10; do
+  for task in take_money_out_safe put_knife_on_chopping_board; do
+    sbatch train_1gpu_32gb.sh \
        --tasks $task \
        --dataset /home/tgervet/datasets/hiveformer/packaged/2 \
        --valset /home/tgervet/datasets/hiveformer/packaged/3 \
@@ -27,7 +27,6 @@ for task in take_money_out_safe put_knife_on_chopping_board; do
        --num_workers 2 \
        --position_prediction_only 1 \
        --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
-       --devices cuda:0 cuda:1 cuda:2 cuda:3 \
        --run_log_dir $task-$fine_sampling_ball_diameter
   done
 done
