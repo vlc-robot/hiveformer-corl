@@ -27,6 +27,7 @@ for task in take_money_out_safe put_knife_on_chopping_board; do
        --num_workers 2 \
        --position_prediction_only 1 \
        --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
+       --devices cuda:0 cuda:1 cuda:2 cuda:3 \
        --run_log_dir $task-$fine_sampling_ball_diameter
   done
 done
