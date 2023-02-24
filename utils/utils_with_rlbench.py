@@ -178,6 +178,10 @@ class Actioner:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
         output: Dict[str, Any] = {"action": None, "attention": {}}
 
+        # Fix order of views
+        rgbs = rgbs[:, :, [2, 0, 1]]
+        pcds = pcds[:, :, [2, 0, 1]]
+
         if self._instr is None:
             raise ValueError()
 
