@@ -32,7 +32,7 @@ tasks=(
   slide_block_to_target
   take_umbrella_out_of_umbrella_stand
 )
-data_dir=/home/theophile_gervet_gmail_com/datasets/hiveformer/raw/3
+data_dir=/home/theophile_gervet_gmail_com/datasets/hiveformer/raw/1
 image_size="128,128"
 num_episodes=10
 
