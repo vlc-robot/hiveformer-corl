@@ -228,7 +228,7 @@ class PredictionHead(nn.Module):
         print()
         print("next(self.backbone.parameters()).device", next(self.backbone.parameters()).device)
         print("visible_rgb.device", visible_rgb.device)
-        raise NotImplementedError
+        print()
 
         visible_rgb_features = self.backbone(visible_rgb)
 
