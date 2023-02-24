@@ -16,7 +16,7 @@ task_file=tasks/10_autolambda_tasks.csv
 main_dir=02_20_compare_hiveformer_and_baseline
 #for task in $(cat $task_file | tr '\n' ' '); do
 for task in reach_target slide_block_to_target take_money_out_safe take_umbrella_out_of_umbrella_stand; do
-  sbatch train_1gpu_32gb_kate.sh \
+  sbatch train_1gpu_32gb.sh \
      --tasks $task \
      --dataset /home/tgervet/datasets/hiveformer/packaged/2 \
      --valset /home/tgervet/datasets/hiveformer/packaged/3 \
