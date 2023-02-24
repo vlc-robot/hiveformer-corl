@@ -42,6 +42,6 @@ for task in $(cat $task_file | tr '\n' ' '); do
      --position_prediction_only 1 \
      --rotation_parametrization quat_from_top_ghost \
      --support_set rest_of_batch \
-     --devices cuda:0 cuda:1 \
+     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
      --run_log_dir $task
 done
