@@ -16,7 +16,7 @@ task_file=tasks/10_autolambda_tasks.csv
 main_dir=02_24_improve_position_baseline
 for task in take_money_out_safe put_knife_on_chopping_board; do
   for fine_sampling_ball_diameter in 0.08 0.10; do
-    sbatch train_1gpu_32gb.sh \
+    sbatch train_4gpu_12gb.sh \
        --tasks $task \
        --dataset /home/tgervet/datasets/hiveformer/packaged/2 \
        --valset /home/tgervet/datasets/hiveformer/packaged/3 \
