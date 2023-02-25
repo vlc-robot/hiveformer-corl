@@ -8,7 +8,6 @@ dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
 for task in take_money_out_safe put_knife_on_chopping_board; do
-for task in put_knife_on_chopping_board; do
   sbatch train_1gpu_32gb.sh \
      --tasks $task \
      --dataset $dataset \
