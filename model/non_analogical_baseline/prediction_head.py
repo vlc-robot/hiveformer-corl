@@ -44,14 +44,14 @@ class PredictionHead(nn.Module):
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         # Semantic visual features at different scales
-        self.feature_pyramid = FeaturePyramidNetwork([256, 512, 1024, 2048], embedding_dim)
+        self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
 
         # 3D positional embeddings
         self.pcd_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
         # Ghost points learnable initial features
         self.fine_ghost_points_embed = nn.Embedding(1, embedding_dim)
-        if separate_coarse_and_fine_layers and image_size == (256, 256):
+        if separate_coarse_and_fine_layers:
             self.coarse_ghost_points_embed = nn.Embedding(1, embedding_dim)
         else:
             self.coarse_ghost_points_embed = self.fine_ghost_points_embed
@@ -68,7 +68,7 @@ class PredictionHead(nn.Module):
         for _ in range(num_ghost_point_cross_attn_layers):
             self.coarse_ghost_point_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
             self.coarse_ghost_point_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
-        if coarse_to_fine_sampling and separate_coarse_and_fine_layers and image_size == (256, 256):
+        if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
             self.fine_ghost_point_cross_attn_layers = nn.ModuleList()
             self.fine_ghost_point_ffw_layers = nn.ModuleList()
             for _ in range(num_ghost_point_cross_attn_layers):
@@ -84,7 +84,7 @@ class PredictionHead(nn.Module):
         for _ in range(num_query_cross_attn_layers):
             self.coarse_query_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
             self.coarse_query_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
-        if coarse_to_fine_sampling and separate_coarse_and_fine_layers and image_size == (256, 256):
+        if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
             self.fine_query_cross_attn_layers = nn.ModuleList()
             self.fine_query_ffw_layers = nn.ModuleList()
             for _ in range(num_query_cross_attn_layers):
@@ -224,25 +224,31 @@ class PredictionHead(nn.Module):
         visible_pcd = einops.rearrange(visible_pcd, "b ncam c h w -> (b ncam) c h w")
 
         if self.image_size == (128, 128):
-            # Both coarse and fine RGB features are the first layer of the feature pyramid
-            # at 1/4 resolution (32x32)
-            coarse_visible_rgb_features = fine_visible_rgb_features = visible_rgb_features["res2"]
-            visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 4, mode='bilinear')
-            visible_pcd = einops.rearrange(visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
-            fine_visible_pcd = visible_pcd
-            coarse_visible_rgb_pos = fine_visible_rgb_pos = self.pcd_pe_layer(visible_pcd)
+            # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
+            coarse_visible_rgb_features = visible_rgb_features["res2"]
+            coarse_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 4, mode='bilinear')
+            coarse_visible_pcd = einops.rearrange(
+                coarse_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+            coarse_visible_rgb_pos = self.pcd_pe_layer(coarse_visible_pcd)
+
+            # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
+            fine_visible_rgb_features = visible_rgb_features["res1"]
+            fine_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 2, mode='bilinear')
+            fine_visible_pcd = einops.rearrange(
+                fine_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+            fine_visible_rgb_pos = self.pcd_pe_layer(fine_visible_pcd)
 
         elif self.image_size == (256, 256):
-            # Coarse RGB features are the second layer of the feature pyramid at 1/8 resolution (32x32)
+            # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             coarse_visible_rgb_features = visible_rgb_features["res3"]
             coarse_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 8, mode='bilinear')
             coarse_visible_pcd = einops.rearrange(
                 coarse_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
             coarse_visible_rgb_pos = self.pcd_pe_layer(coarse_visible_pcd)
 
-            # Fine RGB features are the first layer of the feature pyramid at 1/4 resolution (64x64)
-            fine_visible_rgb_features = visible_rgb_features["res2"]
-            fine_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 4, mode='bilinear')
+            # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
+            fine_visible_rgb_features = visible_rgb_features["res1"]
+            fine_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 2, mode='bilinear')
             fine_visible_pcd = einops.rearrange(
                 fine_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
             fine_visible_rgb_pos = self.pcd_pe_layer(fine_visible_pcd)

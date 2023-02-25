@@ -28,11 +28,11 @@ class ResNetFeatures(ResNet):
     def __init__(self, block, layers, **kwargs):
         super().__init__(block, layers, **kwargs)
 
-    def _forward_impl(self, x: torch.Tensor) -> torch.Tensor:
+    def _forward_impl(self, x: torch.Tensor):
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
+        x0 = self.relu(x)
+        x = self.maxpool(x0)
 
         x1 = self.layer1(x)
         x2 = self.layer2(x1)
@@ -40,6 +40,7 @@ class ResNetFeatures(ResNet):
         x4 = self.layer4(x3)
 
         return {
+            "res1": x0,
             "res2": x1,
             "res3": x2,
             "res4": x3,
