@@ -41,13 +41,37 @@ main_dir=02_25_increase_visual_resolution2
 #     --run_log_dir $task-$image_size
 #done
 
+#dataset=/home/tgervet/datasets/hiveformer/packaged/2
+#valset=/home/tgervet/datasets/hiveformer/packaged/3
+#image_size="256,256"
+#for task in take_money_out_safe; do
+#  for fine_sampling_ball_diameter in 0.16; do
+#    for position_offset_loss_coeff in 10000 100; do
+#      sbatch train_1gpu_32gb.sh \
+#         --tasks $task \
+#         --dataset $dataset \
+#         --valset $valset \
+#         --image_size $image_size \
+#         --exp_log_dir $main_dir \
+#         --model baseline \
+#         --batch_size 16 \
+#         --num_workers 2 \
+#         --position_prediction_only 1 \
+#         --position_offset_loss_coeff $position_offset_loss_coeff \
+#         --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
+#         --run_log_dir $task-$image_size-$position_offset_loss_coeff-ball-$fine_sampling_ball_diameter
+#    done
+#  done
+#done
+
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 image_size="256,256"
-for task in take_money_out_safe; do
+for task in put_knife_on_chopping_board; do
   for fine_sampling_ball_diameter in 0.16; do
     for position_offset_loss_coeff in 10000 100; do
-      sbatch train_1gpu_32gb.sh \
+      sbatch train_4gpu_12gb.sh \
+         --devices cuda:0 cuda:1 cuda:2 cuda:3 \
          --tasks $task \
          --dataset $dataset \
          --valset $valset \
