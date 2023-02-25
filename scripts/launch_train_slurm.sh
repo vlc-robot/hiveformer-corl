@@ -61,4 +61,5 @@ for task in take_money_out_safe; do
          --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
          --run_log_dir $task-$image_size-$position_offset_loss_coeff-ball-$fine_sampling_ball_diameter
     done
+  done
 done
