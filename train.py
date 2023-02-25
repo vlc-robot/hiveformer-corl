@@ -90,7 +90,7 @@ class Arguments(tap.Tap):
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
-    fine_sampling_cube_size: float = 0.08
+    fine_sampling_ball_diameter: float = 0.08
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
@@ -463,7 +463,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
                 num_ghost_points=args.num_ghost_points,
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-                fine_sampling_cube_size=args.fine_sampling_cube_size,
+                fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
             )
@@ -481,7 +481,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                     args.tasks[0]],
                 num_ghost_points=args.num_ghost_points,
                 coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-                fine_sampling_cube_size=args.fine_sampling_cube_size,
+                fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
                 support_set=args.support_set
@@ -529,6 +529,8 @@ if __name__ == "__main__":
         args.rotation_loss_coeff = 4.0
         args.batch_size = 32
         args.train_iters = 100_000
+
+    assert args.batch_size % len(args.devices) == 0
 
     print()
     print("Arguments:")

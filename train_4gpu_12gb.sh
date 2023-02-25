@@ -6,7 +6,9 @@
 #SBATCH --output=slurm_logs/analogical-manip-%j.out
 #SBATCH --error=slurm_logs/analogical-manip-%j.err
 #SBATCH --time=3-00:00:00
-#SBATCH --gres=gpu:1
-#SBATCH --mem=50gb
+#SBATCH --nodes=1
+#SBATCH --exclusive
+#SBATCH --gres=gpu:4
+#SBATCH --mem=0
 
 python train.py "$@"

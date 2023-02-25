@@ -1,17 +1,15 @@
 import einops
-from pathlib import Path
 import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-
-from detectron2.config import get_cfg
-from detectron2.modeling import build_model
+from torchvision import transforms
 from torchvision.ops import FeaturePyramidNetwork
 
 from model.utils.position_encodings import RotaryPositionEncoding3D
 from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
-from model.utils.utils import normalise_quat, sample_ghost_points_randomly
+from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
+from model.utils.resnet import resnet50
 
 
 class AnalogicalPredictionHead(nn.Module):
@@ -25,7 +23,7 @@ class AnalogicalPredictionHead(nn.Module):
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
                  coarse_to_fine_sampling=True,
-                 fine_sampling_cube_size=0.08,
+                 fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=True,
                  regress_position_offset=True,
                  support_set="rest_of_batch"):
@@ -36,20 +34,16 @@ class AnalogicalPredictionHead(nn.Module):
         self.rotation_parametrization = rotation_parametrization
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
-        self.fine_sampling_cube_size = fine_sampling_cube_size
+        self.fine_sampling_ball_diameter = fine_sampling_ball_diameter
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
         self.support_set = support_set
 
         # Frozen ResNet50 backbone
-        cfg = get_cfg()
-        cfg.merge_from_file(str(Path(__file__).resolve().parent.parent / "utils/resnet50.yaml"))
-        model = build_model(cfg)
-        self.backbone = model.backbone
-        self.pixel_mean = model.pixel_mean
-        self.pixel_std = model.pixel_std
+        self.backbone = resnet50()
         for p in self.backbone.parameters():
             p.requires_grad = False
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         # Semantic visual features at different scales
         self.feature_pyramid = FeaturePyramidNetwork([256, 512, 1024, 2048], embedding_dim)
@@ -222,9 +216,7 @@ class AnalogicalPredictionHead(nn.Module):
         """Compute visual features at different scales and their positional embeddings."""
         # Pass each view independently through ResNet50 backbone
         visible_rgb = einops.rearrange(visible_rgb, "b ncam c h w -> (b ncam) c h w")
-        self.pixel_mean = self.pixel_mean.to(device)
-        self.pixel_std = self.pixel_std.to(device)
-        visible_rgb = (visible_rgb - self.pixel_mean) / self.pixel_std
+        visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
 
         # Pass visual features through feature pyramid network
@@ -272,32 +264,45 @@ class AnalogicalPredictionHead(nn.Module):
         If ghost_point_type is "coarse", sample points uniformly within the workspace
         bounds and one near the anchor if it is specified.
 
-        If ghost_point_type is "fine", sample points uniformly within a local region
+        If ghost_point_type is "fine", sample points uniformly within a local sphere
         of the workspace bounds centered around the anchor.
         """
         if ghost_point_type == "coarse":
             bounds = np.stack([self.gripper_loc_bounds for _ in range(batch_size)])
+            uniform_pcd = np.stack([
+                sample_ghost_points_uniform_cube(
+                    bounds=bounds[i],
+                    num_points=self.num_ghost_points
+                )
+                for i in range(batch_size)
+            ])
+
         elif ghost_point_type == "fine":
             anchor_ = anchor[:, 0].cpu().numpy()
             bounds_min = np.clip(
-                anchor_ - self.fine_sampling_cube_size / 2,
+                anchor_ - self.fine_sampling_ball_diameter / 2,
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds_max = np.clip(
-                anchor_ + self.fine_sampling_cube_size / 2,
+                anchor_ + self.fine_sampling_ball_diameter / 2,
                 a_min=self.gripper_loc_bounds[0], a_max=self.gripper_loc_bounds[1]
             )
             bounds = np.stack([bounds_min, bounds_max], axis=1)
+            uniform_pcd = np.stack([
+                sample_ghost_points_uniform_sphere(
+                    center=anchor_[i],
+                    radius=self.fine_sampling_ball_diameter / 2,
+                    bounds=bounds[i],
+                    num_points=self.num_ghost_points
+                )
+                for i in range(batch_size)
+            ])
 
-        uniform_pcd = np.stack([
-            sample_ghost_points_randomly(bounds[i], num_points=self.num_ghost_points)
-            for i in range(batch_size)
-        ])
         uniform_pcd = torch.from_numpy(uniform_pcd).float().to(device)
 
         if anchor is not None:
             # Sample a point near the anchor position as an additional ghost point
-            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_cube_size
+            offset = (torch.rand(batch_size, 1, 3, device=device) - 1 / 2) * self.fine_sampling_ball_diameter / 2
             anchor_pcd = anchor + offset
             ghost_pcd = torch.cat([uniform_pcd, anchor_pcd], dim=1)
         else:

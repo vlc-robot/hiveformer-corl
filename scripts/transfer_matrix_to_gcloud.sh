@@ -2,10 +2,8 @@
 
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-#exp_src=02_23_analogical_poc
-#exp_tgt=02_23_analogical_poc
-exp_src=02_24_analogical_poc_for_all_tasks
-exp_tgt=02_24_analogical_poc_for_all_tasks
+exp_src=02_25_increase_visual_resolution
+exp_tgt=02_25_increase_visual_resolution
 ckpt=best.pth
 
 # Get Tensorboard from source
