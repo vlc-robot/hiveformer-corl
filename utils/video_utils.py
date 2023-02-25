@@ -12,7 +12,8 @@ from rlbench.backend.observation import Observation
 
 
 GT_COLOR = (0.2, 0.8, 0.0)
-PRED_COLOR = (1.0, 0.0, 1.0)
+COARSE_PRED_COLOR = (1.0, 1.0, 0.0)
+FINE_PRED_COLOR = (1.0, 0.0, 1.0)
 
 
 def get_gripper_control_points_open3d(grasp, show_sweep_volume=False, color=(0.2, 0.8, 0.)):
@@ -102,10 +103,13 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                            custom_cam_params: bool,
                            gt_keyframe_gripper_matrices: Optional[np.array] = None,
                            pred_keyframe_gripper_matrices: Optional[np.array] = None,
-                           top_pcd_heatmap: Optional[np.array] = None,
+                           pred_coarse_position: Optional[np.array] = None,
+                           pred_fine_position: Optional[np.array] = None,
                            position_prediction_only: bool = False,
+                           fine_sampling_ball_diameter=None,
                            gt_color=GT_COLOR,
-                           pred_color=PRED_COLOR):
+                           coarse_pred_color=COARSE_PRED_COLOR,
+                           fine_pred_color=FINE_PRED_COLOR):
     num_cams = rgb_obs.shape[0]
     assert len(vis) == (num_cams + 1)  # Last visualizer is for aggregate
 
@@ -131,21 +135,9 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
     all_geometries = []
     imgs = []
 
-    # Visualize location prediction heatmap in the point cloud
-    top_pcd_heatmap_opcds = []
-    if top_pcd_heatmap is not None:
-        top_pcd_heatmap_opcd = open3d.geometry.PointCloud()
-        top_pcd_heatmap_opcd.points = open3d.utility.Vector3dVector(top_pcd_heatmap)
-        top_pcd_heatmap_colors = np.zeros_like(top_pcd_heatmap)
-        top_pcd_heatmap_colors[:, 0] = pred_color[0]
-        top_pcd_heatmap_colors[:, 1] = pred_color[1]
-        top_pcd_heatmap_colors[:, 2] = pred_color[2]
-        top_pcd_heatmap_opcd.colors = open3d.utility.Vector3dVector(top_pcd_heatmap_colors)
-        top_pcd_heatmap_opcds.append(top_pcd_heatmap_opcd)
-        all_geometries.append(top_pcd_heatmap_opcd)
+    keyframe_action_geometries = []
 
     # Add gripper keyframe actions to point clouds for visualization
-    keyframe_action_geometries = []
     if gt_keyframe_gripper_matrices is not None:
         for grasp in gt_keyframe_gripper_matrices:
             if position_prediction_only:
@@ -157,17 +149,50 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
                 keyframe_action_geometries.append(position)
             else:
                 keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=gt_color)
+
     if pred_keyframe_gripper_matrices is not None:
         for grasp in pred_keyframe_gripper_matrices:
             if position_prediction_only:
                 align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
                 position = open3d.geometry.TriangleMesh.create_sphere(radius=0.03)
-                position.paint_uniform_color(pred_color)
+                position.paint_uniform_color(fine_pred_color)
                 position.transform(np.matmul(grasp, align))
                 position.compute_vertex_normals()
                 keyframe_action_geometries.append(position)
             else:
-                keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=pred_color)
+                keyframe_action_geometries += get_gripper_control_points_open3d(grasp, color=fine_pred_color)
+
+    # Add predicted coarse and fine positions for visualization
+    if pred_coarse_position is not None:
+        pred_coarse_position_ = np.eye(4)
+        pred_coarse_position_[:3, 3] = pred_coarse_position
+        align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+        position = open3d.geometry.TriangleMesh.create_sphere(radius=0.015)
+        position.paint_uniform_color(coarse_pred_color)
+        position.transform(np.matmul(pred_coarse_position_, align))
+        position.compute_vertex_normals()
+        keyframe_action_geometries.append(position)
+
+    if pred_fine_position is not None:
+        pred_fine_position_ = np.eye(4)
+        pred_fine_position_[:3, 3] = pred_fine_position
+        align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+        position = open3d.geometry.TriangleMesh.create_sphere(radius=0.015)
+        position.paint_uniform_color(fine_pred_color)
+        position.transform(np.matmul(pred_fine_position_, align))
+        position.compute_vertex_normals()
+        keyframe_action_geometries.append(position)
+
+    if fine_sampling_ball_diameter is not None:
+        pred_coarse_position_ = np.eye(4)
+        pred_coarse_position_[:3, 3] = pred_coarse_position
+        align = tra.euler_matrix(np.pi / 2, -np.pi / 2, 0)
+        position = open3d.geometry.TriangleMesh.create_sphere(radius=fine_sampling_ball_diameter / 2)
+        position.paint_uniform_color(coarse_pred_color)
+        position.transform(np.matmul(pred_coarse_position_, align))
+        position.compute_vertex_normals()
+        keyframe_action_geometries.append(position)
+
     all_geometries += keyframe_action_geometries
 
     for cam in range(num_cams):
@@ -179,7 +204,7 @@ def get_point_cloud_images(vis: List[open3d.visualization.Visualizer],
         all_geometries.append(opcd)
         window_name = vis[cam].get_window_name()
         if window_name in ["left_shoulder", "right_shoulder"]:
-            view_geometries = [opcd, *top_pcd_heatmap_opcds, *keyframe_action_geometries]
+            view_geometries = [opcd, *keyframe_action_geometries]
         else:
             view_geometries = [opcd]
         imgs.append(plot_geometries(view_geometries, vis[cam], custom_cam_params))
@@ -219,7 +244,7 @@ class TaskRecorder(object):
 
     def __init__(self, obs_cameras, env: Environment, cam_motion: CameraMotion,
                  task_str: str, fps=30, obs_record_freq=1, custom_cam_params=False,
-                 position_prediction_only=False):
+                 position_prediction_only=False, fine_sampling_ball_diameter=None):
         """
         Arguments:
             obs_cameras: observation camera view points
@@ -245,9 +270,12 @@ class TaskRecorder(object):
         self._all_step_metrics = []
         self._gt_keyframe_gripper_matrices = None
         self._pred_keyframe_gripper_matrices = None
-        self._top_pcd_heatmap = None
-        self._top_rgb_heatmap = None
+        self._pred_coarse_position = None
+        self._pred_fine_position = None
+        self._top_coarse_rgb_heatmap = None
+        self._top_fine_rgb_heatmap = None
         self._position_prediction_only = position_prediction_only
+        self._fine_sampling_ball_diameter = fine_sampling_ball_diameter
 
         def get_extrinsic(sensor: VisionSensor) -> np.array:
             # Note: The extrinsic and intrinsic matrices are in the observation,
@@ -298,8 +326,10 @@ class TaskRecorder(object):
                   obs: Observation,
                   gt_keyframe_gripper_matrices: Optional[np.array] = None,
                   pred_keyframe_gripper_matrices: Optional[np.array] = None,
-                  top_pcd_heatmap: Optional[np.array] = None,
-                  top_rgb_heatmap: Optional[np.array] = None,
+                  pred_coarse_position: Optional[np.array] = None,
+                  pred_fine_position: Optional[np.array] = None,
+                  top_coarse_rgb_heatmap: Optional[np.array] = None,
+                  top_fine_rgb_heatmap: Optional[np.array] = None,
                   debug=False):
         """
         Take observation snapshot.
@@ -318,10 +348,14 @@ class TaskRecorder(object):
             self._gt_keyframe_gripper_matrices = gt_keyframe_gripper_matrices
         if pred_keyframe_gripper_matrices is not None:
             self._pred_keyframe_gripper_matrices = pred_keyframe_gripper_matrices
-        if top_pcd_heatmap is not None:
-            self._top_pcd_heatmap = top_pcd_heatmap
-        if top_rgb_heatmap is not None:
-            self._top_rgb_heatmap = top_rgb_heatmap
+        if pred_coarse_position is not None:
+            self._pred_coarse_position = pred_coarse_position
+        if pred_fine_position is not None:
+            self._pred_fine_position = pred_fine_position
+        if top_coarse_rgb_heatmap is not None:
+            self._top_coarse_rgb_heatmap = top_coarse_rgb_heatmap
+        if top_fine_rgb_heatmap is not None:
+            self._top_fine_rgb_heatmap = top_fine_rgb_heatmap
 
         # Compute metrics
         if gt_keyframe_gripper_matrices is not None and pred_keyframe_gripper_matrices is not None:
@@ -345,8 +379,10 @@ class TaskRecorder(object):
             pcd_obs = np.stack([getattr(obs, f"{cam}_point_cloud") for cam in self._obs_cameras])
             for i in range(len(self._rgb_snaps)):
                 rgb = rgb_obs[i].copy()
-                if self._top_rgb_heatmap is not None:
-                    rgb[self._top_rgb_heatmap[i] == 1] = (255.0, 0., 255.0)
+                if self._top_coarse_rgb_heatmap is not None:
+                    rgb[self._top_coarse_rgb_heatmap[i] == 1] = [x * 255 for x in COARSE_PRED_COLOR]
+                if self._top_fine_rgb_heatmap is not None:
+                    rgb[self._top_fine_rgb_heatmap[i] == 1] = [x * 255 for x in FINE_PRED_COLOR]
                 self._rgb_snaps[i].append(rgb)
             rgb_obs = einops.rearrange(rgb_obs, "n_cam h w c -> n_cam c h w")
             # normalise to [-1, 1]
@@ -358,8 +394,10 @@ class TaskRecorder(object):
                 self._custom_cam_params,
                 self._gt_keyframe_gripper_matrices,
                 self._pred_keyframe_gripper_matrices,
-                self._top_pcd_heatmap,
-                self._position_prediction_only
+                self._pred_coarse_position,
+                self._pred_fine_position,
+                self._position_prediction_only,
+                self._fine_sampling_ball_diameter
             )
             for i in range(len(self._pcd_snaps)):
                 self._pcd_snaps[i].append(pcd_imgs[i])
@@ -390,7 +428,7 @@ class TaskRecorder(object):
                                 fontScale=font_scale, fontFace=font, color=(0, 0, 0),
                                 thickness=font_thickness, lineType=cv2.LINE_AA)
             if len(self._all_step_metrics) > 0:
-                metrics_str = f"l2_pos = {self._all_step_metrics[i]['l2_pos']:.3f}"
+                metrics_str = f"Position L2 = {self._all_step_metrics[i]['l2_pos']:.3f}"
                 frame = cv2.putText(frame, metrics_str, org=(lang_textX, image_size[1] - 25),
                                     fontScale=font_scale, fontFace=font, color=(0, 0, 0),
                                     thickness=font_thickness, lineType=cv2.LINE_AA)
@@ -429,7 +467,9 @@ class TaskRecorder(object):
         self._rgb_snaps = [[] for _ in range(len(self._obs_cameras))]
         self._gt_keyframe_gripper_matrices = None
         self._pred_keyframe_gripper_matrices = None
-        self._top_pcd_heatmap = None
-        self._top_rgb_heatmap = None
+        self._pred_coarse_position = None
+        self._pred_fine_position = None
+        self._top_coarse_rgb_heatmap = None
+        self._top_fine_rgb_heatmap = None
         self._latest_keyframe_metrics = {}
         self._all_step_metrics = []

@@ -72,6 +72,8 @@ class Arguments(tap.Tap):
     # Our non-analogical baseline parameters
     # ---------------------------------------------------------------
 
+    visualize_rgb_attn: int = 1
+
     position_prediction_only: int = 0
     regress_position_offset: int = 1
 
@@ -171,6 +173,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
                 fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
+                visualize_rgb_attn=bool(args.visualize_rgb_attn),
             ).to(device)
         else:
             raise NotImplementedError
@@ -247,6 +250,8 @@ if __name__ == "__main__":
         apply_pc=True,
         headless=args.headless,
         apply_cameras=args.cameras,
+        # TODO Is there a way to display the fine sampling ball transparently with Open3D?
+        # fine_sampling_ball_diameter=args.fine_sampling_ball_diameter if model != "original" else None,
     )
 
     instruction = load_instructions(args.instructions)

@@ -207,13 +207,17 @@ class Actioner:
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
-        if "fine_ghost_pcd_masks" in pred:
-            topk = pred["fine_ghost_pcd_masks"][-1][-1].topk(k=200)
-            top_value = topk.values[-1]
-            top_pcd_idxs = topk.indices
+        if pred.get("coarse_position") is not None:
+            output["coarse_position"] = pred["coarse_position"][-1, 0].cpu().numpy()
+        if pred.get("fine_position") is not None:
+            output["fine_position"] = pred["fine_position"][-1, 0].cpu().numpy()
 
-            output["top_pcd"] = pred["fine_ghost_pcd"][-1, :, top_pcd_idxs].transpose(1, 0)
-            # output["top_rgb"] = pred["fine_visible_rgb_mask"][-1] >= top_value
+        if pred.get("coarse_visible_rgb_mask") is not None:
+            top_value = pred["coarse_visible_rgb_mask"][-1].flatten().topk(k=10000).values[-1]
+            output["top_coarse_rgb"] = (pred["coarse_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
+        if pred.get("fine_visible_rgb_mask") is not None:
+            top_value = pred["fine_visible_rgb_mask"][-1].flatten().topk(k=5000).values[-1]
+            output["top_fine_rgb"] = (pred["fine_visible_rgb_mask"][-1] >= top_value).cpu().numpy()
 
         return output
 
@@ -249,6 +253,7 @@ class RLBenchEnv:
         apply_pc=False,
         headless=False,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist", "front"),
+        fine_sampling_ball_diameter=None,
     ):
 
         # setup required inputs
@@ -257,6 +262,7 @@ class RLBenchEnv:
         self.apply_depth = apply_depth
         self.apply_pc = apply_pc
         self.apply_cameras = apply_cameras
+        self.fine_sampling_ball_diameter = fine_sampling_ball_diameter
 
         # setup RLBench environments
         self.obs_config = self.create_obs_config(
@@ -420,7 +426,8 @@ class RLBenchEnv:
                 self.env, cam_motion,
                 task_str=task_str,
                 custom_cam_params=True,
-                position_prediction_only=position_prediction_only
+                position_prediction_only=position_prediction_only,
+                fine_sampling_ball_diameter=self.fine_sampling_ball_diameter
             )
             self.action_mode.arm_action_mode.set_callable_each_step(task_recorder.take_snap)
 
@@ -531,9 +538,10 @@ class RLBenchEnv:
                             gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]],
                             pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
 
-                            # pred_location_heatmap=output["top_points"].cpu().numpy()
-                            top_pcd_heatmap=output["top_pcd"].cpu().numpy() if "top_pcd" in output else None,
-                            top_rgb_heatmap=output["top_rgb"].cpu().numpy() if "top_rgb" in output else None,
+                            pred_coarse_position=output.get("coarse_position"),
+                            pred_fine_position=output.get("fine_position"),
+                            top_coarse_rgb_heatmap=output.get("top_coarse_rgb"),
+                            top_fine_rgb_heatmap=output.get("top_fine_rgb"),
                         )
 
                     if action is None:

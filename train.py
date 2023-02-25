@@ -75,6 +75,8 @@ class Arguments(tap.Tap):
     # Our non-analogical baseline parameters
     # ---------------------------------------------------------------
 
+    visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
+
     # Loss
     position_prediction_only: int = 0
     position_loss: str = "ce"  # one of "ce" (our model), "mse" (original HiveFormer)
@@ -466,6 +468,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
                 fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
                 separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
                 regress_position_offset=bool(args.regress_position_offset),
+                visualize_rgb_attn=bool(args.visualize_rgb_attn),
             )
         else:
             raise NotImplementedError

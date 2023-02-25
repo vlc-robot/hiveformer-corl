@@ -18,14 +18,14 @@ class CrossAttentionLayer(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     def forward(self, query, value, query_pos=None, value_pos=None):
-        attn = self.multihead_attn(
+        attn_output, attn_output_weights = self.multihead_attn(
             query=(query + query_pos) if query_pos is not None else query,
             key=(value + value_pos) if value_pos is not None else value,
             value=value
-        )[0]
-        output = query + self.dropout(attn)
+        )
+        output = query + self.dropout(attn_output)
         output = self.norm(output)
-        return output
+        return output, attn_output_weights
 
 
 class RelativeCrossAttentionLayer(nn.Module):
@@ -36,15 +36,15 @@ class RelativeCrossAttentionLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, query, value, query_pos=None, value_pos=None):
-        attn = self.multihead_attn(
+        attn_output, attn_output_weights = self.multihead_attn(
             query=query,
             key=value,
             value=value,
             rotary_pe=(query_pos, value_pos) if query_pos is not None else None
-        )[0]
-        output = query + self.dropout(attn)
+        )
+        output = query + self.dropout(attn_output)
         output = self.norm(output)
-        return output
+        return output, attn_output_weights.mean(dim=1)
 
 
 class FeedforwardLayer(nn.Module):
