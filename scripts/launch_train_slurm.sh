@@ -24,7 +24,7 @@ for fine_sampling_ball_diameter in 0.08 0.10; do
        --image_size "256,256" \
        --exp_log_dir $main_dir \
        --model baseline \
-       --batch_size 15 \
+       --batch_size 16 \
        --num_workers 2 \
        --position_prediction_only 1 \
        --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
