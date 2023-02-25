@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --partition=russ_reserved,kate_reserved
-#SBATCH --job-name=analogical_manipulation
-#SBATCH --output=slurm_logs/train-hiveformer-%j.out
-#SBATCH --error=slurm_logs/train-hiveformer-%j.err
+#SBATCH --job-name=analogical-manip
+#SBATCH --output=slurm_logs/analogical-manip-%j.out
+#SBATCH --error=slurm_logs/analogical-manip-%j.err
 #SBATCH --time=72:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=50gb

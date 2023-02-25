@@ -15,7 +15,7 @@ tasks=(
 )
 data_dir=/home/theophile_gervet_gmail_com/datasets/hiveformer/raw/3
 image_size="256,256"
-num_episodes=10
+num_episodes=3
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
