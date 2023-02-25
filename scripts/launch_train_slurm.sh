@@ -23,7 +23,7 @@ for task in pick_up_cup pick_and_lift put_money_in_safe; do
        --image_size "256,256" \
        --exp_log_dir $main_dir \
        --model baseline \
-       --batch_size 15 \
+       --batch_size 16 \
        --num_workers 2 \
        --position_prediction_only 0 \
        --rotation_loss_coeff $rotation_loss_coeff \
