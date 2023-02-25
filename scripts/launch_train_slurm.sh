@@ -17,7 +17,7 @@ for task in take_money_out_safe put_knife_on_chopping_board; do
        --exp_log_dir $main_dir \
        --model baseline \
        --batch_size 16 \
-       --num_workers 4 \
+       --num_workers 2 \
        --position_prediction_only 1 \
        --position_offset_loss_coeff $position_offset_loss_coeff \
        --run_log_dir $task-$image_size-$position_offset_loss_coeff
@@ -36,7 +36,7 @@ for task in take_money_out_safe put_knife_on_chopping_board; do
      --exp_log_dir $main_dir \
      --model baseline \
      --batch_size 16 \
-     --num_workers 4 \
+     --num_workers 2 \
      --position_prediction_only 1 \
      --run_log_dir $task-$image_size
 done
