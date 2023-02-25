@@ -530,6 +530,8 @@ if __name__ == "__main__":
         args.batch_size = 32
         args.train_iters = 100_000
 
+    assert args.batch_size % len(args.devices) == 0
+
     print()
     print("Arguments:")
     print(args)
