@@ -52,10 +52,10 @@ class Arguments(tap.Tap):
 
     # Main training parameters
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    num_workers: int = 5 * len(devices)
-    batch_size: int = 10 * len(devices)
+    num_workers: int = 5
+    batch_size: int = 10
     lr: float = 5e-5
-    train_iters: int = 200_000 // len(devices)
+    train_iters: int = 200_000
 
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
