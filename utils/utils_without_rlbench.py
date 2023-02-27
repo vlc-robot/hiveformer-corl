@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import torch
 import torch.nn.functional as F
+import numpy as np
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
@@ -41,6 +42,16 @@ def get_max_episode_length(tasks: Tuple[str, ...], variations: Tuple[int, ...]) 
             max_episode_length = max_eps_dict[task]
 
     return max_episode_length
+
+
+def get_gripper_loc_bounds(path: str, buffer: float = 0.0):
+    # Gripper workspace is the union of workspaces for all tasks
+    gripper_loc_bounds = json.load(open(path, "r"))
+    gripper_loc_bounds_min = np.min(np.stack([bounds[0] for bounds in gripper_loc_bounds.values()]), axis=0) - buffer
+    gripper_loc_bounds_max = np.max(np.stack([bounds[1] for bounds in gripper_loc_bounds.values()]), axis=0) + buffer
+    gripper_loc_bounds = np.stack([gripper_loc_bounds_min, gripper_loc_bounds_max])
+    print("Gripper workspace size:", gripper_loc_bounds_max - gripper_loc_bounds_min)
+    return gripper_loc_bounds
 
 
 def count_parameters(model):

@@ -19,6 +19,7 @@ from utils.utils_without_rlbench import (
     load_instructions,
     count_parameters,
     get_max_episode_length,
+    get_gripper_loc_bounds,
 )
 from dataset import RLBenchDataset
 from model.released_hiveformer.network import Hiveformer
@@ -444,6 +445,10 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
 
 def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
+
+    # Gripper workspace is the union of workspaces for all tasks
+    gripper_loc_bounds = get_gripper_loc_bounds("tasks/10_autolambda_tasks_location_bounds.json", buffer=0.0)
+
     if args.model == "original":
         _model = Hiveformer(
             depth=args.depth,
@@ -455,42 +460,35 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             num_layers=args.num_layers,
         )
     elif args.model == "baseline":
-        if len(args.tasks) == 1:
-            _model = Baseline(
-                image_size=tuple(int(x) for x in args.image_size.split(",")),
-                embedding_dim=args.embedding_dim,
-                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                rotation_parametrization=args.rotation_parametrization,
-                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
-                num_ghost_points=args.num_ghost_points,
-                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-                fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
-                regress_position_offset=bool(args.regress_position_offset),
-                visualize_rgb_attn=bool(args.visualize_rgb_attn),
-            )
-        else:
-            raise NotImplementedError
+        _model = Baseline(
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            rotation_parametrization=args.rotation_parametrization,
+            gripper_loc_bounds=gripper_loc_bounds,
+            num_ghost_points=args.num_ghost_points,
+            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+            regress_position_offset=bool(args.regress_position_offset),
+            visualize_rgb_attn=bool(args.visualize_rgb_attn),
+        )
     elif args.model == "analogical":
-        if len(args.tasks) == 1:
-            _model = AnalogicalNetwork(
-                image_size=tuple(int(x) for x in args.image_size.split(",")),
-                embedding_dim=args.embedding_dim,
-                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                rotation_parametrization=args.rotation_parametrization,
-                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[
-                    args.tasks[0]],
-                num_ghost_points=args.num_ghost_points,
-                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-                fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
-                regress_position_offset=bool(args.regress_position_offset),
-                support_set=args.support_set
-            )
-        else:
-            raise NotImplementedError
+        _model = AnalogicalNetwork(
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            rotation_parametrization=args.rotation_parametrization,
+            gripper_loc_bounds=gripper_loc_bounds,
+            num_ghost_points=args.num_ghost_points,
+            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+            regress_position_offset=bool(args.regress_position_offset),
+            support_set=args.support_set
+        )
 
     devices = [torch.device(d) for d in args.devices]
     model = _model.to(devices[0])

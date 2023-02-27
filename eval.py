@@ -19,7 +19,8 @@ from utils.utils_with_rlbench import (
 from utils.utils_without_rlbench import (
     load_episodes,
     load_instructions,
-    get_max_episode_length
+    get_max_episode_length,
+    get_gripper_loc_bounds,
 )
 
 
@@ -149,6 +150,9 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
+    # Gripper workspace is the union of workspaces for all tasks
+    gripper_loc_bounds = get_gripper_loc_bounds("tasks/10_autolambda_tasks_location_bounds.json", buffer=0.0)
+
     if args.model == "original":
         model = Hiveformer(
             depth=args.depth,
@@ -160,41 +164,35 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             num_layers=args.num_layers,
         ).to(device)
     elif args.model == "baseline":
-        if len(args.tasks) == 1:
-            model = Baseline(
-                image_size=tuple(int(x) for x in args.image_size.split(",")),
-                embedding_dim=args.embedding_dim,
-                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                rotation_parametrization=args.rotation_parametrization,
-                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
-                num_ghost_points=args.num_ghost_points,
-                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-                fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
-                regress_position_offset=bool(args.regress_position_offset),
-                visualize_rgb_attn=bool(args.visualize_rgb_attn),
-            ).to(device)
-        else:
-            raise NotImplementedError
+        model = Baseline(
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            rotation_parametrization=args.rotation_parametrization,
+            gripper_loc_bounds=gripper_loc_bounds,
+            num_ghost_points=args.num_ghost_points,
+            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+            regress_position_offset=bool(args.regress_position_offset),
+            visualize_rgb_attn=bool(args.visualize_rgb_attn),
+        ).to(device)
     elif args.model == "analogical":
-        if len(args.tasks) == 1:
-            model = AnalogicalNetwork(
-                image_size=tuple(int(x) for x in args.image_size.split(",")),
-                embedding_dim=args.embedding_dim,
-                num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-                num_query_cross_attn_layers=args.num_query_cross_attn_layers,
-                rotation_parametrization=args.rotation_parametrization,
-                gripper_loc_bounds=json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))[args.tasks[0]],
-                num_ghost_points=args.num_ghost_points,
-                coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
-                fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-                separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
-                regress_position_offset=bool(args.regress_position_offset),
-                support_set=args.support_set,
-            ).to(device)
-        else:
-            raise NotImplementedError
+        model = AnalogicalNetwork(
+            image_size=tuple(int(x) for x in args.image_size.split(",")),
+            embedding_dim=args.embedding_dim,
+            num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
+            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            rotation_parametrization=args.rotation_parametrization,
+            gripper_loc_bounds=gripper_loc_bounds,
+            num_ghost_points=args.num_ghost_points,
+            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
+            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
+            regress_position_offset=bool(args.regress_position_offset),
+            support_set=args.support_set,
+        ).to(device)
 
     if hasattr(model, "film_gen") and model.film_gen is not None:
         model.film_gen.build(device)
