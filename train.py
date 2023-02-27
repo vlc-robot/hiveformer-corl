@@ -28,7 +28,7 @@ from model.analogical_network.analogical_network import AnalogicalNetwork
 
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
-    image_size: str = "128,128"
+    image_size: str = "256,256"
     max_tries: int = 10
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
@@ -52,9 +52,9 @@ class Arguments(tap.Tap):
 
     # Main training parameters
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    num_workers: int = 5
-    batch_size: int = 10
-    lr: float = 5e-5
+    num_workers: int = 2
+    batch_size: int = 16
+    lr: float = 1e-4
     train_iters: int = 200_000
 
     # Toggle to switch between original HiveFormer and our models
@@ -92,7 +92,7 @@ class Arguments(tap.Tap):
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
-    fine_sampling_ball_diameter: float = 0.08
+    fine_sampling_ball_diameter: float = 0.16
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
