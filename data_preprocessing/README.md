@@ -7,7 +7,7 @@ output_dir=$root/datasets/hiveformer/packaged
 train_seed=2
 val_seed=3
 train_episodes_per_task=100
-val_episodes_per_task=5
+val_episodes_per_task=100
 task_file=tasks/2_debugging_tasks.csv
 
 nohup sudo X &
