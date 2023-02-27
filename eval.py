@@ -44,7 +44,7 @@ class Arguments(tap.Tap):
     variations: Tuple[int, ...] = (0,)
     data_dir: Path = Path(__file__).parent / "demos"
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
-    image_size: str = "128,128"
+    image_size: str = "256,256"
     
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     base_log_dir: Path = Path(__file__).parent / "eval_logs"
@@ -79,7 +79,7 @@ class Arguments(tap.Tap):
 
     # Ghost points
     coarse_to_fine_sampling: int = 1
-    fine_sampling_ball_diameter: float = 0.08
+    fine_sampling_ball_diameter: float = 0.16
     num_ghost_points: int = 1000
 
     # Model
