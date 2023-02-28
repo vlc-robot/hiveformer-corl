@@ -237,12 +237,10 @@ class PredictionHead(nn.Module):
             "coarse_visible_rgb_mask": coarse_visible_rgb_mask,
             "coarse_ghost_pcd_masks":  coarse_ghost_pcd_masks,
             "coarse_ghost_pcd": coarse_ghost_pcd,
-            "coarse_ghost_pcd_features": coarse_ghost_pcd_features,
             "fine_position": fine_position if self.coarse_to_fine_sampling else None,
             "fine_visible_rgb_mask": fine_visible_rgb_mask if self.coarse_to_fine_sampling else None,
             "fine_ghost_pcd_masks": fine_ghost_pcd_masks if self.coarse_to_fine_sampling else None,
             "fine_ghost_pcd": fine_ghost_pcd if self.coarse_to_fine_sampling else None,
-            "fine_ghost_pcd_features": fine_ghost_pcd_features if self.coarse_to_fine_sampling else None,
             "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.coarse_to_fine_sampling else None,
         }
 
