@@ -58,7 +58,8 @@ class Baseline(nn.Module):
         visible_pcd = pcd_obs[padding_mask]
         visible_rgb = rgb_obs[padding_mask]
         curr_gripper = gripper[padding_mask][:, :3]
-        gt_action = gt_action[padding_mask]
+        if gt_action is not None:
+            gt_action = gt_action[padding_mask]
 
         # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 1])
         visible_rgb = (visible_rgb / 2 + 0.5)
