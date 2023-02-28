@@ -34,6 +34,7 @@ valset=/home/tgervet/datasets/hiveformer/packaged/3
 task_file=tasks/7_interesting_tasks.csv
 for use_instruction in 1; do
   sbatch train_4gpu_32gb.sh \
+     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
