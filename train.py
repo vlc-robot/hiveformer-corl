@@ -55,7 +55,7 @@ class Arguments(tap.Tap):
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     num_workers: int = 2
     batch_size: int = 16
-    lr: float = 1e-4
+    lr: float = 5e-5
     train_iters: int = 200_000
 
     # Toggle to switch between original HiveFormer and our models
