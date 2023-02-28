@@ -19,8 +19,7 @@ done
 
 task_file=tasks/7_interesting_tasks.csv
 for use_instruction in 0 1; do
-  sbatch train_4gpu_12gb.sh \
-     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+  sbatch train_1gpu_32gb.sh \
      --tasks $(cat $task_file | tr '\n' ' ') \
      --dataset $dataset \
      --valset $valset \
