@@ -25,7 +25,7 @@ exp_tgt=02_27_multi_task
 ckpt=best.pth
 
 # Tensorboard
-sshpass -p $LAB_PW rsync -R $source_prefix/$exp_src/*/events.out*" $LAB:$target_prefix
+sshpass -p $LAB_PW rsync -R $source_prefix/$exp_src/*/events.out* $LAB:$target_prefix
 
 
 # Uncleaned HiveFormer
