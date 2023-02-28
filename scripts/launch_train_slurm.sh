@@ -12,6 +12,21 @@ for task in put_knife_on_chopping_board; do
        --valset $valset \
        --exp_log_dir $main_dir \
        --use_instruction $use_instruction \
+       --num_workers 3 \
        --run_log_dir $task-use-instruction-$use_instruction
   done
+done
+
+task_file=tasks/7_interesting_tasks.csv
+for use_instruction in 0 1; do
+  sbatch train_4gpu_12gb.sh \
+     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+     --tasks $(cat $task_file | tr '\n' ' ') \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --use_instruction $use_instruction \
+     --batch_size 20 \
+     --num_workers 3 \
+     --run_log_dir MULTITASK-use-instruction-$use_instruction
 done
