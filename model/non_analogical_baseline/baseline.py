@@ -1,4 +1,3 @@
-import einops
 import torch
 import torch.nn as nn
 
@@ -51,19 +50,23 @@ class Baseline(nn.Module):
                 instruction,
                 gripper,
                 gt_action=None):
+
+        history_length = rgb_obs.shape[1]
+        instruction = instruction.unsqueeze(1).repeat(1, history_length, 1, 1)[padding_mask]
         visible_pcd = pcd_obs[padding_mask]
+        visible_rgb = rgb_obs[padding_mask]
+        curr_gripper = gripper[padding_mask][:, :3]
+        gt_action = gt_action[padding_mask]
 
         # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 1])
-        visible_rgb = einops.rearrange(rgb_obs, "b t n d h w -> (b t) n d h w")
         visible_rgb = (visible_rgb / 2 + 0.5)
         visible_rgb = visible_rgb[:, :, :3, :, :]
-
-        curr_gripper = einops.rearrange(gripper, "b t c -> (b t) c")[:, :3]
 
         pred = self.prediction_head(
             visible_rgb=visible_rgb,
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper,
+            instruction=instruction,
             gt_action=gt_action,
         )
         pred["task"] = None

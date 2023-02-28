@@ -125,18 +125,19 @@ class PredictionHead(nn.Module):
             nn.Linear(embedding_dim, 4 + 1)
         )
 
-    def forward(self, visible_rgb, visible_pcd, curr_gripper, gt_action=None):
+    def forward(self, visible_rgb, visible_pcd, curr_gripper, instruction, gt_action=None):
         """
         Arguments:
             visible_rgb: (batch x history, num_cameras, 3, height, width) in [0, 1]
             visible_pcd: (batch x history, num_cameras, 3, height, width) in world coordinates
             curr_gripper: (batch x history, 3)
+            instruction: (batch x history, max_instruction_length, 512)
             gt_action: (batch x history, 8) in world coordinates
         """
         batch_size, num_cameras, _, height, width = visible_rgb.shape
         device = visible_rgb.device
         if gt_action is not None:
-            gt_position = einops.rearrange(gt_action, "b t c -> (b t) c")[:, :3].unsqueeze(1).detach()
+            gt_position = gt_action[:, :3].unsqueeze(1).detach()
         else:
             gt_position = None
 
