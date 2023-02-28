@@ -19,13 +19,12 @@
 # To Xian
 
 source_prefix=home/tgervet/hiveformer/train_logs
-target_prefix=/home/zhouxian/git/datasets/hiveformer
+target_prefix=/home/zhouxian/git/hiveformer
 exp_src=02_27_multi_task
 exp_tgt=02_27_multi_task
 ckpt=best.pth
 
-# Tensorboard
-rsync -R $source_prefix/$exp_src/*/events.out* $LAB:$target_prefix
+scp -r "/$source_prefix/$exp_src" $LAB:$target_prefix
 
 
 # Uncleaned HiveFormer
