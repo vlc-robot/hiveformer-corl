@@ -104,6 +104,7 @@ class Arguments(tap.Tap):
     num_query_cross_attn_layers: int = 2
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
+    use_instruction: int = 0
 
     # ---------------------------------------------------------------
     # Our analogical network additional parameters
@@ -473,6 +474,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
+            use_instruction=bool(args.use_instruction),
         )
     elif args.model == "analogical":
         _model = AnalogicalNetwork(

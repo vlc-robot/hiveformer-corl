@@ -1,15 +1,17 @@
 #!/bin/sh
 
-main_dir=02_26_MATCH_HIVEFORMER
-task_file=tasks/7_interesting_tasks.csv
+main_dir=02_27_multi_task
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb.sh \
-     --tasks $task \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --run_log_dir $task
+for task in put_knife_on_chopping_board; do
+  for use_instruction in 0 1; do
+    sbatch train_1gpu_32gb.sh \
+       --tasks $task \
+       --dataset $dataset \
+       --valset $valset \
+       --exp_log_dir $main_dir \
+       --use_instruction $use_instruction \
+       --run_log_dir $task-use-instruction-$use_instruction
+  done
 done

@@ -18,7 +18,8 @@ class Baseline(nn.Module):
                  fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=False,
                  regress_position_offset=False,
-                 visualize_rgb_attn=False):
+                 visualize_rgb_attn=False,
+                 use_instruction=False):
         super().__init__()
 
         self.prediction_head = PredictionHead(
@@ -34,6 +35,7 @@ class Baseline(nn.Module):
             separate_coarse_and_fine_layers=separate_coarse_and_fine_layers,
             regress_position_offset=regress_position_offset,
             visualize_rgb_attn=visualize_rgb_attn,
+            use_instruction=use_instruction,
         )
 
     def compute_action(self, pred) -> torch.Tensor:

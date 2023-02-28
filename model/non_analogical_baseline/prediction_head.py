@@ -26,7 +26,8 @@ class PredictionHead(nn.Module):
                  fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=True,
                  regress_position_offset=True,
-                 visualize_rgb_attn=False):
+                 visualize_rgb_attn=False,
+                 use_instruction=False):
         super().__init__()
         assert image_size in [(128, 128), (256, 256)]
         self.image_size = image_size
@@ -125,6 +126,11 @@ class PredictionHead(nn.Module):
             nn.Linear(embedding_dim, 4 + 1)
         )
 
+        # Instruction encoder
+        self.use_instruction = use_instruction
+        if self.use_instruction:
+            self.instruction_encoder = nn.Linear(512, embedding_dim)
+
     def forward(self, visible_rgb, visible_pcd, curr_gripper, instruction, gt_action=None):
         """
         Arguments:
@@ -177,7 +183,10 @@ class PredictionHead(nn.Module):
         # Contextualize the query and predict masks over coarse ghost points
         # Given the query is not localized yet, we don't use positional embeddings
         coarse_query_context_features = torch.cat([coarse_ghost_pcd_context_features, coarse_ghost_pcd_features], dim=0)
-        coarse_query_context_pos = torch.cat([coarse_ghost_pcd_context_pos, coarse_ghost_pcd_pos], dim=1)
+        if self.use_instruction:
+            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "b l c -> l b c")
+            coarse_query_context_features = torch.cat(
+                [coarse_query_context_features, instruction_features], dim=0)
         query_features, coarse_ghost_pcd_masks, coarse_visible_rgb_mask = self._decode_mask(
             coarse_ghost_pcd_features, coarse_ghost_pcd_to_visible_rgb_attn, height, width,
             query_features, coarse_query_context_features, query_pos=None, context_pos=None,
