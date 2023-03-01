@@ -5,7 +5,7 @@ from typing import Type, Union, List, Any
 from torchvision.models.resnet import _resnet, BasicBlock, Bottleneck, ResNet, load_state_dict_from_url, model_urls
 
 
-def resnet50(pretrained: bool = False):
+def load_resnet50(pretrained: bool = False):
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained=pretrained, progress=True)
 
 

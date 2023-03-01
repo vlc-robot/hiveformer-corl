@@ -99,6 +99,7 @@ class Arguments(tap.Tap):
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
     # Model
+    backbone: str = "resnet"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
@@ -462,6 +463,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
         )
     elif args.model == "baseline":
         _model = Baseline(
+            backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,

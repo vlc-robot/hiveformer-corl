@@ -84,6 +84,7 @@ class Arguments(tap.Tap):
     num_ghost_points: int = 1000
 
     # Model
+    backbone: str = "resnet"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
@@ -166,6 +167,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
         ).to(device)
     elif args.model == "baseline":
         model = Baseline(
+            backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,

@@ -7,6 +7,7 @@ from model.utils.utils import norm_tensor
 
 class Baseline(nn.Module):
     def __init__(self,
+                 backbone="resnet",
                  image_size=(128, 128),
                  embedding_dim=60,
                  num_ghost_point_cross_attn_layers=2,
@@ -23,6 +24,7 @@ class Baseline(nn.Module):
         super().__init__()
 
         self.prediction_head = PredictionHead(
+            backbone=backbone,
             image_size=image_size,
             embedding_dim=embedding_dim,
             num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
