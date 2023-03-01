@@ -255,8 +255,6 @@ class PredictionHead(nn.Module):
         visible_rgb = einops.rearrange(visible_rgb, "b ncam c h w -> (b ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
-        print({k: v.shape for k, v in visible_rgb_features.items()})
-        raise NotImplementedError
 
         # Pass visual features through feature pyramid network
         visible_rgb_features = self.feature_pyramid(visible_rgb_features)
