@@ -9,7 +9,7 @@ from torchvision.ops import FeaturePyramidNetwork
 from model.utils.position_encodings import RotaryPositionEncoding3D
 from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
 from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
-from model.utils.resnet import resnet50
+from model.utils.resnet import load_resnet50
 
 
 class AnalogicalPredictionHead(nn.Module):
@@ -40,7 +40,7 @@ class AnalogicalPredictionHead(nn.Module):
         self.support_set = support_set
 
         # Frozen ResNet50 backbone
-        self.backbone = resnet50()
+        self.backbone = load_resnet50()
         for p in self.backbone.parameters():
             p.requires_grad = False
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

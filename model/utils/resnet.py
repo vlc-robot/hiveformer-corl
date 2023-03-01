@@ -1,12 +1,15 @@
 # Adapted from https://github.com/pytorch/vision/blob/v0.11.0/torchvision/models/resnet.py
 
 import torch
+from torchvision import transforms
 from typing import Type, Union, List, Any
 from torchvision.models.resnet import _resnet, BasicBlock, Bottleneck, ResNet, load_state_dict_from_url, model_urls
 
 
 def load_resnet50(pretrained: bool = False):
-    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained=pretrained, progress=True)
+    backbone = _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained=pretrained, progress=True)
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    return backbone, normalize
 
 
 def _resnet(

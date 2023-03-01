@@ -3,7 +3,6 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
 from torchvision.ops import FeaturePyramidNetwork
 
 from model.utils.position_encodings import RotaryPositionEncoding3D
@@ -45,20 +44,9 @@ class PredictionHead(nn.Module):
 
         # Frozen backbone
         if backbone == "resnet":
-            self.backbone = load_resnet50()
-            self.backbone_transforms = transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            self.backbone, self.normalize = load_resnet50()
         elif backbone == "clip":
-            self.backbone, self.backbone_transforms = load_clip()
-            raise NotImplementedError
-            # TODO Can we avoid resizing to 224x224?
-            # clip_model, clip_transforms = clip.load("RN50")
-            # self.backbone = clip_model.visual
-            # self.backbone_transforms = transforms.Compose([
-            #     clip_transforms.transforms[0],
-            #     clip_transforms.transforms[1],
-            #     clip_transforms.transforms[-1],  # TODO Keep only this one
-            # ])
+            self.backbone, self.normalize = load_clip()
 
         for p in self.backbone.parameters():
             p.requires_grad = False
@@ -265,11 +253,9 @@ class PredictionHead(nn.Module):
         """Compute visual features at different scales and their positional embeddings."""
         # Pass each view independently through ResNet50 backbone
         visible_rgb = einops.rearrange(visible_rgb, "b ncam c h w -> (b ncam) c h w")
-        visible_rgb = self.backbone_transforms(visible_rgb)
-        print(visible_rgb.shape)
-        print(type(self.backbone))
+        visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
-        print(visible_rgb_features.shape)
+        print({k: v.shape for k, v in visible_rgb_features.items()})
         raise NotImplementedError
 
         # Pass visual features through feature pyramid network

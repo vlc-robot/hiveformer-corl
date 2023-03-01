@@ -4,11 +4,11 @@
 root=/home/theophile_gervet_gmail_com
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
-train_seed=2
-val_seed=3
+train_seed=4
+val_seed=5
 train_episodes_per_task=100
 val_episodes_per_task=100
-task_file=tasks/2_debugging_tasks.csv
+task_file=tasks/74_tasks.csv
 
 nohup sudo X &
 export DISPLAY=:0.0
@@ -26,7 +26,7 @@ python dataset_generator.py \
     --episodes_per_task=$train_episodes_per_task \
     --variations=1 \
     --offset=0 \
-    --processes=1
+    --processes=5
     
 python dataset_generator.py \
     --save_path=$data_dir/$val_seed \
@@ -36,7 +36,7 @@ python dataset_generator.py \
     --episodes_per_task=$val_episodes_per_task \
     --variations=1 \
     --offset=0 \
-    --processes=1
+    --processes=5
 ```
 
 ### 2 - Preprocess train and val data
