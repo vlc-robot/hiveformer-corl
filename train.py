@@ -282,7 +282,7 @@ def validation_step(
     writer,
     loss_and_metrics,
     use_ground_truth_position_for_sampling_val=False,
-    val_iters: int = 5,
+    val_iters: int = 50,
 ):
     values = {}
     device = next(model.parameters()).device
