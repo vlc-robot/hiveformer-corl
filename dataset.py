@@ -19,7 +19,9 @@ import torch.utils.data as data
 from torch.nn import functional as F
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
+from torch.utils.data._utils.collate import default_collate
 import einops
+
 from utils.utils_without_rlbench import Instructions, Sample, Camera
 
 
@@ -317,3 +319,199 @@ class RLBenchDataset(data.Dataset):
         if self._num_iters is not None:
             return self._num_iters
         return self._num_episodes
+
+
+class RLBenchAnalogicalDataset(data.Dataset):
+    """
+    RLBench analogical dataset:
+    - Instead of a single demo, each dataset element is a set of demos from the same task
+       where each demo can act as a support set for others
+    - During training, all demos in the set come from the same train split, and we use
+       each demos in the set for training with all other demos as the support set
+    - During evaluation, only one demo in the set comes from the val split while others
+       come from the train split and act as the support set
+    """
+
+    def __init__(
+        self,
+        main_root: Union[Path, str],
+        support_root: Union[Path, str],
+        support_set_size: int,
+        image_size: Tuple[int, int],
+        taskvar: List[Tuple[str, int]],
+        instructions: Instructions,
+        max_episode_length: int,
+        cache_size: int,
+        max_episodes_per_taskvar: int,
+        num_iters: Optional[int] = None,
+        cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
+        training: bool = True,
+    ):
+        """
+        Arguments:
+            main_root: path to the main dataset (train split for training, val split for evaluation)
+            support_root: path to the support dataset (train split for both training and evaluation)
+            support_set_size: number of support episodes for each main episode
+        """
+        self._cache = Cache(cache_size, loader)
+        self._cameras = cameras
+        self._image_size = image_size
+        self._max_episode_length = max_episode_length
+        self._max_episodes_per_taskvar = max_episodes_per_taskvar
+        self._num_iters = num_iters
+        self._training = training
+        self._taskvar = taskvar
+
+        if isinstance(main_root, (Path, str)):
+            main_root = [Path(main_root)]
+        if isinstance(support_root, (Path, str)):
+            support_root = [Path(support_root)]
+        self._main_root = [Path(r).expanduser() for r in main_root]
+        self._support_root = [Path(r).expanduser() for r in support_root]
+        self._support_set_size = support_set_size
+
+        # We keep only useful instructions to save mem
+        self._instructions: Instructions = defaultdict(dict)
+        for task, var in taskvar:
+            self._instructions[task][var] = instructions[task][var]
+
+        self._transform = DataTransform((0.75, 1.25))
+
+        self._main_data_dirs = []
+        self._main_episodes = []  # Indexed by episode ID
+        self._main_num_episodes = 0
+        for root, (task, var) in itertools.product(self._main_root, taskvar):
+            data_dir = root / f"{task}+{var}"
+            if not data_dir.is_dir():
+                raise ValueError(f"Can't find dataset folder {data_dir}")
+            episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
+            episodes = episodes[: self._max_episodes_per_taskvar]
+            num_episodes = len(episodes)
+            if num_episodes == 0:
+                raise ValueError(f"Can't find episodes at folder {data_dir}")
+            self._main_data_dirs.append(data_dir)
+            self._main_episodes += episodes
+            self._main_num_episodes += num_episodes
+
+        self._support_data_dirs = []
+        self._support_episodes = defaultdict(list)  # Indexed by task
+        self._support_num_episodes = 0
+        for root, (task, var) in itertools.product(self._support_root, taskvar):
+            data_dir = root / f"{task}+{var}"
+            if not data_dir.is_dir():
+                raise ValueError(f"Can't find dataset folder {data_dir}")
+            episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
+            episodes = episodes[: self._max_episodes_per_taskvar]
+            num_episodes = len(episodes)
+            if num_episodes == 0:
+                raise ValueError(f"Can't find episodes at folder {data_dir}")
+            self._support_data_dirs.append(data_dir)
+            self._support_episodes[task] += episodes
+            self._support_num_episodes += num_episodes
+        self._support_episodes = dict(self._support_episodes)
+
+        print(f"Created dataset from main root {main_root} and support root {support_root} "
+              f"with {self._main_num_episodes} main episodes and {self._support_num_episodes} "
+              f"support episodes")
+
+    def __getitem__(self, episode_id: int) -> Optional[Sample]:
+        episode_id %= self._main_num_episodes
+        task, variation, file = self._main_episodes[episode_id]
+        # TODO How to deal with data augmentations in this data loader? Currently we augment
+        #  both the demos and the support set during training and neither during evaluation
+        main_episode = self._get_episode(task, variation, file, augment=self._training)
+        support_episodes = [
+            self._get_episode(task, variation, file, augment=self._training)
+            for task, variation, file in random.sample(self._support_episodes[task], self._support_set_size)
+        ]
+
+        def collate_fn(batch: List[Dict]):
+            keys = batch[0].keys()
+            return {
+                key: default_collate([item[key] for item in batch])
+                if batch[0][key] is not None
+                else None
+                for key in keys
+            }
+
+        episode = collate_fn([main_episode] + support_episodes)
+        return episode
+
+    def _get_episode(self, task: str, variation: int, file: str, augment: bool) -> Optional[Sample]:
+        episode = self._cache(file)
+
+        if episode is None:
+            return None
+
+        frame_ids = episode[0]
+        num_ind = len(frame_ids)
+        pad_len = max(0, self._max_episode_length - num_ind)
+
+        states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
+        if states.shape[-1] != self._image_size[1] or states.shape[-2] != self._image_size[0]:
+            raise ValueError(f"{states.shape} {file}")
+        pad_vec = [0] * (2 * states.dim())
+        pad_vec[-1] = pad_len
+        states = F.pad(states, pad_vec)
+
+        cameras = list(episode[3][0].keys())
+        assert all(c in cameras for c in self._cameras)
+        index = torch.tensor([cameras.index(c) for c in self._cameras])
+
+        states = states[:, index]
+        rgbs = states[:, :, 0]
+        pcds = states[:, :, 1]
+
+        attns = torch.Tensor([])
+        for i in frame_ids:
+            attn_cams = torch.Tensor([])
+            for cam in self._cameras:
+                u, v = episode[3][i][cam]
+                attn = torch.zeros((1, 1, self._image_size[0], self._image_size[1]))
+                if not (u < 0 or u > self._image_size[1] - 1 or v < 0 or v > self._image_size[0] - 1):
+                    attn[0, 0, v, u] = 1
+                attn_cams = torch.cat([attn_cams, attn])
+            attns = torch.cat([attns, attn_cams.unsqueeze(0)])
+        pad_vec = [0] * (2 * attns.dim())
+        pad_vec[-1] = pad_len
+        attns = F.pad(attns, pad_vec)
+        rgbs = torch.cat([rgbs, attns], 2)
+
+        if augment:
+            modals = self._transform(rgbs=rgbs, pcds=pcds)
+            rgbs = modals["rgbs"]
+            pcds = modals["pcds"]
+
+        action = torch.cat([episode[2][i] for i in frame_ids])
+        shape = [0, 0] * action.dim()
+        shape[-1] = pad_len
+        action = F.pad(action, tuple(shape), value=0)
+
+        mask = torch.tensor([True] * num_ind + [False] * pad_len)
+
+        instr: torch.Tensor = random.choice(self._instructions[task][variation])
+
+        gripper = torch.cat([episode[4][i] for i in frame_ids])
+        shape = [0, 0] * gripper.dim()
+        shape[-1] = pad_len
+        gripper = F.pad(gripper, tuple(shape), value=0)
+
+        tframe_ids = torch.tensor(frame_ids)
+        tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
+
+        return {
+            "frame_id": tframe_ids,
+            "task": task,
+            "variation": variation,
+            "rgbs": rgbs,
+            "pcds": pcds,
+            "action": action,
+            "padding_mask": mask,
+            "instr": instr,
+            "gripper": gripper,
+        }
+
+    def __len__(self):
+        if self._num_iters is not None:
+            return self._num_iters
+        return self._main_num_episodes

@@ -47,7 +47,6 @@ class PredictionHead(nn.Module):
             self.backbone, self.normalize = load_resnet50()
         elif backbone == "clip":
             self.backbone, self.normalize = load_clip()
-
         for p in self.backbone.parameters():
             p.requires_grad = False
 

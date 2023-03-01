@@ -21,7 +21,7 @@ from utils.utils_without_rlbench import (
     get_max_episode_length,
     get_gripper_loc_bounds,
 )
-from dataset import RLBenchDataset
+from dataset import RLBenchDataset, RLBenchAnalogicalDataset
 from model.released_hiveformer.network import Hiveformer
 from model.non_analogical_baseline.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
@@ -112,6 +112,7 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     support_set: str = "self"  # one of "self" (for debugging), "rest_of_batch"
+    support_set_size: int = 3
 
 
 def training(
@@ -380,17 +381,34 @@ def get_train_loader(args: Arguments) -> DataLoader:
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
-    dataset = RLBenchDataset(
-        root=args.dataset,
-        image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
-        taskvar=taskvar,
-        instructions=instruction,
-        max_episode_length=max_episode_length,
-        max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-        cache_size=args.cache_size,
-        num_iters=args.train_iters,
-        cameras=args.cameras,  # type: ignore
-    )
+    if args.model in ["original", "baseline"]:
+        dataset = RLBenchDataset(
+            root=args.dataset,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
+            taskvar=taskvar,
+            instructions=instruction,
+            max_episode_length=max_episode_length,
+            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            cache_size=args.cache_size,
+            num_iters=args.train_iters,
+            cameras=args.cameras,  # type: ignore
+        )
+    elif args.model == "analogical":
+        # During train, the training split is both the main dataset and the support dataset
+        dataset = RLBenchAnalogicalDataset(
+            main_root=args.dataset,
+            support_root=args.dataset,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
+            taskvar=taskvar,
+            instructions=instruction,
+            max_episode_length=max_episode_length,
+            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            cache_size=args.cache_size,
+            num_iters=args.train_iters,
+            cameras=args.cameras,  # type: ignore
+            support_set_size=args.support_set_size,
+        )
+
     loader = DataLoader(
         dataset=dataset,
         batch_size=args.batch_size,
@@ -423,16 +441,34 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
     loaders = []
 
     for valset in args.valset:
-        dataset = RLBenchDataset(
-            root=valset,
-            image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
-            taskvar=taskvar,
-            instructions=instruction,
-            max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-            cache_size=args.cache_size,
-            training=False,
-        )
+        if args.model in ["original", "baseline"]:
+            dataset = RLBenchDataset(
+                root=valset,
+                image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
+                taskvar=taskvar,
+                instructions=instruction,
+                max_episode_length=max_episode_length,
+                max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+                cache_size=args.cache_size,
+                cameras=args.cameras,  # type: ignore
+                training=False,
+            )
+        elif args.model == "analogical":
+            # During evaluation, the main dataset is the validation split and the support dataset
+            # is the training split
+            dataset = RLBenchAnalogicalDataset(
+                main_root=args.valset,
+                support_root=args.dataset,
+                image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
+                taskvar=taskvar,
+                instructions=instruction,
+                max_episode_length=max_episode_length,
+                max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+                cache_size=args.cache_size,
+                cameras=args.cameras,  # type: ignore
+                training=False,
+                support_set_size=args.support_set_size,
+            )
         loader = DataLoader(
             dataset=dataset,
             batch_size=args.batch_size,

@@ -10,10 +10,12 @@ from model.utils.position_encodings import RotaryPositionEncoding3D
 from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
 from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
 from model.utils.resnet import load_resnet50
+from model.utils.clip import load_clip
 
 
 class AnalogicalPredictionHead(nn.Module):
     def __init__(self,
+                 backbone="resnet",
                  image_size=(128, 128),
                  embedding_dim=60,
                  num_attn_heads=4,
@@ -39,14 +41,30 @@ class AnalogicalPredictionHead(nn.Module):
         self.regress_position_offset = regress_position_offset
         self.support_set = support_set
 
-        # Frozen ResNet50 backbone
-        self.backbone = load_resnet50()
+        # Frozen backbone
+        if backbone == "resnet":
+            self.backbone, self.normalize = load_resnet50()
+        elif backbone == "clip":
+            self.backbone, self.normalize = load_clip()
         for p in self.backbone.parameters():
             p.requires_grad = False
-        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-        # Semantic visual features at different scales
-        self.feature_pyramid = FeaturePyramidNetwork([256, 512, 1024, 2048], embedding_dim)
+            # Semantic visual features at different scales
+            self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
+            if self.image_size == (128, 128):
+                # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
+                # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
+                self.coarse_feature_map = "res2"
+                self.coarse_downscaling_factor = 4
+                self.fine_feature_map = "res1"
+                self.fine_downscaling_factor = 2
+            elif self.image_size == (256, 256):
+                # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
+                # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
+                self.coarse_feature_map = "res3"
+                self.coarse_downscaling_factor = 8
+                self.fine_feature_map = "res1"
+                self.fine_downscaling_factor = 2
 
         # 3D positional embeddings
         self.pcd_pe_layer = RotaryPositionEncoding3D(embedding_dim)
@@ -224,32 +242,21 @@ class AnalogicalPredictionHead(nn.Module):
 
         visible_pcd = einops.rearrange(visible_pcd, "b ncam c h w -> (b ncam) c h w")
 
-        if self.image_size == (128, 128):
-            # Both coarse and fine RGB features are the first layer of the feature pyramid
-            # at 1/4 resolution (32x32)
-            coarse_visible_rgb_features = fine_visible_rgb_features = visible_rgb_features["res2"]
-            visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 4, mode='bilinear')
-            visible_pcd = einops.rearrange(visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
-            fine_visible_pcd = visible_pcd
-            coarse_visible_rgb_pos = fine_visible_rgb_pos = self.pcd_pe_layer(visible_pcd)
-
-        elif self.image_size == (256, 256):
-            # Coarse RGB features are the second layer of the feature pyramid at 1/8 resolution (32x32)
-            coarse_visible_rgb_features = visible_rgb_features["res3"]
-            coarse_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 8, mode='bilinear')
-            coarse_visible_pcd = einops.rearrange(
-                coarse_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
-            coarse_visible_rgb_pos = self.pcd_pe_layer(coarse_visible_pcd)
-
-            # Fine RGB features are the first layer of the feature pyramid at 1/4 resolution (64x64)
-            fine_visible_rgb_features = visible_rgb_features["res2"]
-            fine_visible_pcd = F.interpolate(visible_pcd, scale_factor=1. / 4, mode='bilinear')
-            fine_visible_pcd = einops.rearrange(
-                fine_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
-            fine_visible_rgb_pos = self.pcd_pe_layer(fine_visible_pcd)
-
+        coarse_visible_rgb_features = visible_rgb_features[self.coarse_feature_map]
+        coarse_visible_pcd = F.interpolate(
+            visible_pcd, scale_factor=1. / self.coarse_downscaling_factor, mode='bilinear')
+        coarse_visible_pcd = einops.rearrange(
+            coarse_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+        coarse_visible_rgb_pos = self.pcd_pe_layer(coarse_visible_pcd)
         coarse_visible_rgb_features = einops.rearrange(
             coarse_visible_rgb_features, "(b ncam) c h w -> b ncam c h w", ncam=num_cameras)
+
+        fine_visible_rgb_features = visible_rgb_features[self.fine_feature_map]
+        fine_visible_pcd = F.interpolate(
+            visible_pcd, scale_factor=1. / self.fine_downscaling_factor, mode='bilinear')
+        fine_visible_pcd = einops.rearrange(
+            fine_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+        fine_visible_rgb_pos = self.pcd_pe_layer(fine_visible_pcd)
         fine_visible_rgb_features = einops.rearrange(
             fine_visible_rgb_features, "(b ncam) c h w -> b ncam c h w", ncam=num_cameras)
 
