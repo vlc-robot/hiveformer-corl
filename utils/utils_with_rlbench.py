@@ -197,6 +197,7 @@ class Actioner:
             )
         elif type(self._model) == AnalogicalNetwork:
             # TODO Pass in gt_action_for_support
+            # TODO Pass in task
             pred = self._model(
                 rgbs,
                 pcds,

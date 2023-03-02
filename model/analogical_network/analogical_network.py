@@ -18,7 +18,8 @@ class AnalogicalNetwork(nn.Module):
                  fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=False,
                  regress_position_offset=False,
-                 support_set="rest_of_batch"):
+                 support_set="rest_of_batch",
+                 use_instruction=False):
         super().__init__()
 
         self.prediction_head = AnalogicalPredictionHead(
@@ -34,6 +35,7 @@ class AnalogicalNetwork(nn.Module):
             separate_coarse_and_fine_layers=separate_coarse_and_fine_layers,
             regress_position_offset=regress_position_offset,
             support_set=support_set,
+            use_instruction=use_instruction,
         )
 
     def compute_action(self, pred) -> torch.Tensor:
@@ -51,20 +53,24 @@ class AnalogicalNetwork(nn.Module):
                 gripper,
                 gt_action_for_support,
                 gt_action_for_sampling=None):
-        assert padding_mask.sum() == padding_mask.numel(), "Padding mask must be all 1s for now"
+
+        history_length = rgb_obs.shape[2]
+        instruction = instruction.unsqueeze(2).repeat(1, 1, history_length, 1, 1)
 
         visible_pcd = pcd_obs
 
-        # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 1])
+        # Undo pre-processing to feed RGB to pre-trained backbone (from [-1, 1] to [0, 1])
         visible_rgb = (rgb_obs / 2 + 0.5)
-        visible_rgb = visible_rgb[:, :, :, :3, :, :]
+        visible_rgb = visible_rgb[:, :, :, :, :3, :, :]
 
-        curr_gripper = gripper[:, :, :3]
+        curr_gripper = gripper[:, :, :, :3]
 
         pred = self.prediction_head(
             visible_rgb=visible_rgb,
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper,
+            instruction=instruction,
+            padding_mask=padding_mask,
             gt_action_for_support=gt_action_for_support,
             gt_action_for_sampling=gt_action_for_sampling,
         )

@@ -6,6 +6,7 @@ import json
 import torch
 import torch.nn.functional as F
 import numpy as np
+import einops
 
 
 Camera = Literal["wrist", "left_shoulder", "right_shoulder", "overhead", "front"]
@@ -201,7 +202,8 @@ class LossAndMetrics:
 
         metrics = {}
 
-        tasks = np.repeat(np.array(sample["task"])[:, np.newaxis], padding_mask.shape[1], axis=1)[padding_mask.cpu()]
+        tasks = einops.rearrange(np.array(sample["task"]), "s b -> b s")
+        tasks = np.repeat(tasks[:, :, np.newaxis], padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
 
         l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
 

@@ -52,6 +52,17 @@ for task in $(cat $task_file | tr '\n' ' '); do
             --tasks=$task
     done
 done
+
+for task in $(cat $task_file | tr '\n' ' '); do
+    for seed in 4_first_half; do
+        python -m data_preprocessing.data_gen \
+            --data_dir=$data_dir/$seed \
+            --output=$output_dir/$seed \
+            --image_size=256,256 \
+            --max_variations=1 \
+            --tasks=$task
+    done
+done
 ```
 
 ### 3 - Preprocess instructions

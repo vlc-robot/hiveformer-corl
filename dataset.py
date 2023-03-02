@@ -327,7 +327,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
     - Instead of a single demo, each dataset element is a set of demos from the same task
        where each demo can act as a support set for others
     - During training, all demos in the set come from the same train split, and we use
-       each demos in the set for training with all other demos as the support set
+       each demo in the set for training with all other demos as the support set
     - During evaluation, only one demo in the set comes from the val split while others
        come from the train split and act as the support set
     """

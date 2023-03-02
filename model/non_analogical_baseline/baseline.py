@@ -63,7 +63,7 @@ class Baseline(nn.Module):
         if gt_action is not None:
             gt_action = gt_action[padding_mask]
 
-        # Undo pre-processing to feed RGB to pre-trained ResNet (from [-1, 1] to [0, 1])
+        # Undo pre-processing to feed RGB to pre-trained backbone (from [-1, 1] to [0, 1])
         visible_rgb = (visible_rgb / 2 + 0.5)
         visible_rgb = visible_rgb[:, :, :3, :, :]
 

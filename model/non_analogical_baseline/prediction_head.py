@@ -155,7 +155,7 @@ class PredictionHead(nn.Module):
         (
             coarse_visible_rgb_features, coarse_visible_rgb_pos,
             fine_visible_rgb_features, fine_visible_rgb_pos, fine_visible_pcd
-        ) = self._compute_visual_features(visible_rgb, visible_pcd, device, num_cameras)
+        ) = self._compute_visual_features(visible_rgb, visible_pcd, num_cameras)
 
         # Compute current gripper position features and positional embeddings
         curr_gripper_pos = self.pcd_pe_layer(curr_gripper.unsqueeze(1))
@@ -168,7 +168,7 @@ class PredictionHead(nn.Module):
         # Compute coarse ghost point features and their positional embeddings by attending to
         # coarse visual features and current gripper position
         coarse_ghost_pcd_context_features = einops.rearrange(
-            coarse_visible_rgb_features, "b ncam c h w -> (ncam h w) b c")
+            coarse_visible_rgb_features, "bt ncam c h w -> (ncam h w) bt c")
         coarse_ghost_pcd_context_features = torch.cat(
             [coarse_ghost_pcd_context_features, curr_gripper_features], dim=0)
         coarse_ghost_pcd_context_pos = torch.cat([coarse_visible_rgb_pos, curr_gripper_pos], dim=1)
@@ -188,7 +188,9 @@ class PredictionHead(nn.Module):
         # Given the query is not localized yet, we don't use positional embeddings
         coarse_query_context_features = torch.cat([coarse_ghost_pcd_context_features, coarse_ghost_pcd_features], dim=0)
         if self.use_instruction:
-            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "b l c -> l b c")
+            # TODO This is the most natural place to add language but it doesn't generalize
+            #  to analogy - using a pre-trained early fusion Vision-Language backbone seems cleaner
+            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
             coarse_query_context_features = torch.cat(
                 [coarse_query_context_features, instruction_features], dim=0)
         query_features, coarse_ghost_pcd_masks, coarse_visible_rgb_mask = self._decode_mask(
@@ -197,7 +199,7 @@ class PredictionHead(nn.Module):
             ghost_point_type="coarse"
         )
 
-        coarse_ghost_pcd = einops.rearrange(coarse_ghost_pcd, "b npts c -> b c npts")
+        coarse_ghost_pcd = einops.rearrange(coarse_ghost_pcd, "bt npts c -> bt c npts")
         ghost_pcd = coarse_ghost_pcd
         ghost_pcd_masks = coarse_ghost_pcd_masks
         ghost_pcd_features = coarse_ghost_pcd_features
@@ -217,7 +219,7 @@ class PredictionHead(nn.Module):
                 batch_size, num_cameras, height, width, device, gt_position
             )
             fine_ghost_pcd = torch.cat([
-                coarse_ghost_pcd, einops.rearrange(fine_ghost_pcd, "b npts c -> b c npts")], dim=-1)
+                coarse_ghost_pcd, einops.rearrange(fine_ghost_pcd, "bt npts c -> bt c npts")], dim=-1)
             ghost_pcd = fine_ghost_pcd
             ghost_pcd_masks = fine_ghost_pcd_masks
             ghost_pcd_features = fine_ghost_pcd_features
@@ -248,35 +250,35 @@ class PredictionHead(nn.Module):
             "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.coarse_to_fine_sampling else None,
         }
 
-    def _compute_visual_features(self, visible_rgb, visible_pcd, device, num_cameras):
+    def _compute_visual_features(self, visible_rgb, visible_pcd, num_cameras):
         """Compute visual features at different scales and their positional embeddings."""
         # Pass each view independently through ResNet50 backbone
-        visible_rgb = einops.rearrange(visible_rgb, "b ncam c h w -> (b ncam) c h w")
+        visible_rgb = einops.rearrange(visible_rgb, "bt ncam c h w -> (bt ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
 
         # Pass visual features through feature pyramid network
         visible_rgb_features = self.feature_pyramid(visible_rgb_features)
 
-        visible_pcd = einops.rearrange(visible_pcd, "b ncam c h w -> (b ncam) c h w")
+        visible_pcd = einops.rearrange(visible_pcd, "bt ncam c h w -> (bt ncam) c h w")
 
         coarse_visible_rgb_features = visible_rgb_features[self.coarse_feature_map]
         coarse_visible_pcd = F.interpolate(
             visible_pcd, scale_factor=1. / self.coarse_downscaling_factor, mode='bilinear')
         coarse_visible_pcd = einops.rearrange(
-            coarse_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+            coarse_visible_pcd, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras)
         coarse_visible_rgb_pos = self.pcd_pe_layer(coarse_visible_pcd)
         coarse_visible_rgb_features = einops.rearrange(
-            coarse_visible_rgb_features, "(b ncam) c h w -> b ncam c h w", ncam=num_cameras)
+            coarse_visible_rgb_features, "(bt ncam) c h w -> bt ncam c h w", ncam=num_cameras)
 
         fine_visible_rgb_features = visible_rgb_features[self.fine_feature_map]
         fine_visible_pcd = F.interpolate(
             visible_pcd, scale_factor=1. / self.fine_downscaling_factor, mode='bilinear')
         fine_visible_pcd = einops.rearrange(
-            fine_visible_pcd, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
+            fine_visible_pcd, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras)
         fine_visible_rgb_pos = self.pcd_pe_layer(fine_visible_pcd)
         fine_visible_rgb_features = einops.rearrange(
-            fine_visible_rgb_features, "(b ncam) c h w -> b ncam c h w", ncam=num_cameras)
+            fine_visible_rgb_features, "(bt ncam) c h w -> bt ncam c h w", ncam=num_cameras)
 
         return (
             coarse_visible_rgb_features, coarse_visible_rgb_pos,
@@ -401,13 +403,13 @@ class PredictionHead(nn.Module):
             query_features = ffw_layers[i](query_features)
 
             ghost_pcd_masks.append(einops.einsum(
-                query_features.squeeze(0), ghost_pcd_features, "b c, npts b c -> b npts"))
+                query_features.squeeze(0), ghost_pcd_features, "bt c, npts bt c -> bt npts"))
 
         # Extract attention from top ghost point to visual features for visualization
         if ghost_pcd_to_visible_rgb_attn is not None:
             top_idx = torch.max(ghost_pcd_masks[-1], dim=-1).indices
             visible_rgb_mask = ghost_pcd_to_visible_rgb_attn[torch.arange(len(top_idx)), top_idx]
-            visible_rgb_mask = einops.rearrange(visible_rgb_mask, "b (ncam h w) -> b ncam h w", h=h, w=w)
+            visible_rgb_mask = einops.rearrange(visible_rgb_mask, "bt (ncam h w) -> bt ncam h w", h=h, w=w)
             visible_rgb_mask = F.interpolate(visible_rgb_mask, size=(rgb_height, rgb_width), mode="nearest")
         else:
             visible_rgb_mask = None
@@ -428,7 +430,7 @@ class PredictionHead(nn.Module):
 
         # Predict rotation and gripper opening
         if self.rotation_parametrization == "quat_from_top_ghost":
-            ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts b c -> b npts c")
+            ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts bt c -> bt npts c")
             features = ghost_pcd_features[torch.arange(batch_size), top_idx]
         elif self.rotation_parametrization == "quat_from_query":
             features = query_features.squeeze(0)
@@ -459,7 +461,7 @@ class PredictionHead(nn.Module):
         indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
         local_fine_visible_rgb_features = einops.rearrange(
-            fine_visible_rgb_features, "b ncam c h w -> b (ncam h w) c")
+            fine_visible_rgb_features, "bt ncam c h w -> bt (ncam h w) c")
         local_fine_visible_rgb_features = torch.stack([
             f[i] for (f, i) in zip(local_fine_visible_rgb_features, indices)])
         local_fine_visible_rgb_pos = torch.stack([
@@ -467,7 +469,7 @@ class PredictionHead(nn.Module):
 
         # Compute fine ghost point features by attending to the local fine RGB features
         fine_ghost_pcd_context_features = einops.rearrange(
-            local_fine_visible_rgb_features, "b npts c -> npts b c")
+            local_fine_visible_rgb_features, "bt npts c -> npts bt c")
         fine_ghost_pcd_context_features = torch.cat(
             [fine_ghost_pcd_context_features, curr_gripper_features], dim=0)
         fine_ghost_pcd_context_pos = torch.cat(
@@ -508,7 +510,7 @@ class PredictionHead(nn.Module):
         # Regress an offset from the ghost point's position to the predicted position
         if self.regress_position_offset:
             fine_ghost_pcd_offsets = self.ghost_point_offset_predictor(fine_ghost_pcd_features)
-            fine_ghost_pcd_offsets = einops.rearrange(fine_ghost_pcd_offsets, "npts b c -> b c npts")
+            fine_ghost_pcd_offsets = einops.rearrange(fine_ghost_pcd_offsets, "npts bt c -> bt c npts")
         else:
             fine_ghost_pcd_offsets = None
 

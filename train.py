@@ -99,7 +99,7 @@ class Arguments(tap.Tap):
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
     # Model
-    backbone: str = "resnet"  # one of "resnet", "clip"
+    backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
@@ -111,8 +111,8 @@ class Arguments(tap.Tap):
     # Our analogical network additional parameters
     # ---------------------------------------------------------------
 
-    support_set: str = "self"  # one of "self" (for debugging), "rest_of_batch"
-    support_set_size: int = 3
+    support_set: str = "others"  # one of "self" (for debugging), "others"
+    support_set_size: int = 1
 
 
 def training(
@@ -347,7 +347,6 @@ def validation_step(
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-        print()
         print(f"Step {step_id}:")
         for key, value in values.items():
             print(f"{key}: {value.mean():.03f}")
