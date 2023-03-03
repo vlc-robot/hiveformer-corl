@@ -41,7 +41,7 @@ for support_set in self others; do
        --devices cuda:0 cuda:1 cuda:2 cuda:3 \
        --model $model \
        --tasks $(cat $task_file | tr '\n' ' ') \
-        --lr $lr \
+       --lr $lr \
        --dataset $dataset \
        --valset $valset \
        --exp_log_dir $main_dir \
