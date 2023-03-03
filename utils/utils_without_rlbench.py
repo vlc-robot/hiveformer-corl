@@ -202,8 +202,12 @@ class LossAndMetrics:
 
         metrics = {}
 
-        tasks = einops.rearrange(np.array(sample["task"]), "s b -> b s")
-        tasks = np.repeat(tasks[:, :, np.newaxis], padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
+        tasks = np.array(sample["task"])
+        if len(tasks.shape) == 2:
+            tasks = einops.rearrange(tasks, "s b -> b s")[:, :, np.newaxis]
+        else:
+            tasks = tasks[:, np.newaxis]
+        tasks = np.repeat(tasks, padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
 
         l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
 
