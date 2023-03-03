@@ -152,8 +152,6 @@ class AnalogicalPredictionHead(nn.Module):
         - During evaluation, only the first demo in this dimension comes from the val split while
            others come from the train split and act as the support set
         """
-        # TODO How to use the instruction?
-
         batch_size, demos_per_task, history_size, num_cameras, _, height, width = visible_rgb.shape
         device = visible_rgb.device
 
@@ -174,6 +172,15 @@ class AnalogicalPredictionHead(nn.Module):
             fine_visible_rgb_features, fine_visible_rgb_pos, fine_visible_pcd
         ) = self._compute_visual_features(visible_rgb, visible_pcd, num_cameras)
 
+        # Encode instruction
+        if self.use_instruction:
+            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
+            instruction_dummy_pos = torch.zeros(batch_size, instruction_features.shape[0], 3, device=device)
+            instruction_dummy_pos = self.pcd_pe_layer(instruction_dummy_pos)
+        else:
+            instruction_features = None
+            instruction_dummy_pos = None
+
         # Compute current gripper position features and positional embeddings
         curr_gripper_pos = self.pcd_pe_layer(curr_gripper.unsqueeze(1))
         curr_gripper_features = self.curr_gripper_embed.weight.repeat(total_timesteps, 1).unsqueeze(0)
@@ -189,6 +196,11 @@ class AnalogicalPredictionHead(nn.Module):
         coarse_ghost_pcd_context_features = torch.cat(
             [coarse_ghost_pcd_context_features, curr_gripper_features], dim=0)
         coarse_ghost_pcd_context_pos = torch.cat([coarse_visible_rgb_pos, curr_gripper_pos], dim=1)
+        if self.use_instruction:
+            coarse_ghost_pcd_context_features = torch.cat(
+                [coarse_ghost_pcd_context_features, instruction_features], dim=0)
+            coarse_ghost_pcd_context_pos = torch.cat(
+                [coarse_ghost_pcd_context_pos, instruction_dummy_pos], dim=1)
         coarse_ghost_pcd_features, coarse_ghost_pcd_pos = self._compute_ghost_point_features(
             coarse_ghost_pcd, coarse_ghost_pcd_context_features, coarse_ghost_pcd_context_pos,
             total_timesteps, ghost_point_type="coarse"
@@ -215,7 +227,8 @@ class AnalogicalPredictionHead(nn.Module):
             ) = self._coarse_to_fine(
                 coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_pos, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
-                curr_gripper_features, curr_gripper_pos, padding_mask,
+                curr_gripper_features, curr_gripper_pos,
+                instruction_features, instruction_dummy_pos, padding_mask,
                 batch_size, demos_per_task, history_size, num_cameras, total_timesteps, device,
                 gt_position_for_support, gt_position_for_sampling
             )
@@ -483,7 +496,8 @@ class AnalogicalPredictionHead(nn.Module):
     def _coarse_to_fine(self,
                         coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_pos, coarse_ghost_pcd_features,
                         fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
-                        curr_gripper_features, curr_gripper_pos, padding_mask,
+                        curr_gripper_features, curr_gripper_pos,
+                        instruction_features, instruction_dummy_pos, padding_mask,
                         batch_size, demos_per_task, history_size, num_cameras, total_timesteps, device,
                         gt_position_for_support, gt_position_for_sampling):
         """
@@ -514,7 +528,15 @@ class AnalogicalPredictionHead(nn.Module):
             [fine_ghost_pcd_context_features, curr_gripper_features], dim=0)
         fine_ghost_pcd_context_pos = torch.cat(
             [local_fine_visible_rgb_pos, curr_gripper_pos], dim=1)
-        fine_ghost_pcd_features, fine_ghost_pcd_pos = self._compute_ghost_point_features(
+        if self.use_instruction:
+            fine_ghost_pcd_context_features = torch.cat(
+                [fine_ghost_pcd_context_features, instruction_features], dim=0)
+            fine_ghost_pcd_context_pos = torch.cat(
+                [fine_ghost_pcd_context_pos, instruction_dummy_pos], dim=1)
+        (
+            fine_ghost_pcd_features,
+            fine_ghost_pcd_pos
+        ) = self._compute_ghost_point_features(
             fine_ghost_pcd, fine_ghost_pcd_context_features, fine_ghost_pcd_context_pos,
             total_timesteps, ghost_point_type="fine"
         )

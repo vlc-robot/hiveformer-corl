@@ -197,7 +197,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
             support_set=args.support_set,
-            global_correspondence=args.global_correspondence
+            global_correspondence=args.global_correspondence,
+            use_instruction=bool(args.use_instruction),
         ).to(device)
 
     if hasattr(model, "film_gen") and model.film_gen is not None:

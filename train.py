@@ -530,6 +530,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             support_set=args.support_set,
             global_correspondence=args.global_correspondence,
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
+            use_instruction=bool(args.use_instruction),
         )
 
     devices = [torch.device(d) for d in args.devices]
