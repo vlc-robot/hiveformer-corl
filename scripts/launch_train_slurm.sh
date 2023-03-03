@@ -1,52 +1,56 @@
 #!/bin/sh
 
-main_dir=02_28_multi_gpu_multi_task
+main_dir=03_03_multi_task
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
-
-# Big model with big batch size on big GPUs
 task_file=tasks/7_interesting_tasks.csv
-for use_instruction in 1; do
-  sbatch train_4gpu_32gb.sh \
-     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-     --tasks $(cat $task_file | tr '\n' ' ') \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --use_instruction $use_instruction \
-     --num_workers 16 \
-     --batch_size 32 \
-     --embedding_dim 120 \
-     --lr 1e-4 \
-     --run_log_dir LARGE-MULTITASK-use-instruction-$use_instruction
-done
+embedding_dim=120
+lr=1e-4
+train_iters=500_000
+num_workers=16
 
-# Small model with and without and without instructions on small GPUs
-task_file=tasks/7_interesting_tasks.csv
+# Multi-task
+batch_size=8
+model=baseline
 for use_instruction in 0 1; do
-  sbatch train_4gpu_12gb.sh \
-     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-     --tasks $(cat $task_file | tr '\n' ' ') \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --use_instruction $use_instruction \
-     --num_workers 12 \
-     --batch_size 16 \
-     --run_log_dir SMALL-MULTITASK-use-instruction-$use_instruction
-done
-
-# Check that there were no regressions with using a large workspace
-for task in put_knife_on_chopping_board take_money_out_safe; do
-  for num_ghost_points in 1000; do
-    sbatch train_1gpu_32gb.sh \
-       --tasks $task \
+  for backbone in clip resnet; do
+    sbatch train_4gpu_12gb.sh \
+       --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+       --model $model \
+       --tasks $(cat $task_file | tr '\n' ' ') \
+       --lr $lr \
        --dataset $dataset \
        --valset $valset \
        --exp_log_dir $main_dir \
-       --num_ghost_points $num_ghost_points \
-       --num_workers 3 \
-       --batch_size 16 \
-       --run_log_dir SANITY-CHECK-$task-ghost-$num_ghost_points
+       --num_workers $num_workers \
+       --batch_size $batch_size \
+       --train_iters $train_iters \
+       --embedding_dim $embedding_dim \
+       --use_instruction $use_instruction \
+       --backbone $backbone \
+       --run_log_dir BASELINE-instr-$use_instruction-backbone-$backbone
+  done
+done
+
+# Analogy
+batch_size=4
+model=analogical
+for support_set in self others; do
+  for global_correspondence in 0 1; do
+    sbatch train_4gpu_12gb.sh \
+       --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+       --model $model \
+       --tasks $(cat $task_file | tr '\n' ' ') \
+        --lr $lr \
+       --dataset $dataset \
+       --valset $valset \
+       --exp_log_dir $main_dir \
+       --num_workers $num_workers \
+       --batch_size $batch_size \
+       --train_iters $train_iters \
+       --embedding_dim $embedding_dim \
+       --support_set $support_set \
+       --global_correspondence $global_correspondence \
+       --run_log_dir ANALOGICAL-support_set-$support_set-global_correspondence-$global_correspondence
   done
 done

@@ -388,8 +388,9 @@ class AnalogicalPredictionHead(nn.Module):
         ghost_pcd_pos = ghost_pcd_pos_
         num_points, _, _, _, channels = ghost_pcd_features.shape
 
-        if self.global_correspondence and self.support_set == "others":
+        if self.global_correspondence:
             # TODO We assume there is a single demo in the support set for now
+            assert self.support_set == "others"
             assert ghost_pcd_features.shape[2] == 2
 
             ghost_pcd_features1 = ghost_pcd_features[:, :, 0][:, padding_mask[:, 0]]
