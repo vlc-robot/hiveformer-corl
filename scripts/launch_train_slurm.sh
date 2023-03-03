@@ -12,7 +12,7 @@ num_workers=16
 # Multi-task
 batch_size=8
 model=baseline
-for use_instruction in 0; do
+for use_instruction in 1; do
   for backbone in clip resnet; do
     sbatch train_4gpu_12gb.sh \
        --devices cuda:0 cuda:1 cuda:2 cuda:3 \
@@ -35,10 +35,11 @@ done
 # Analogy
 batch_size=4
 model=analogical
-for support_set in self; do
+for support_set in others; do
   for global_correspondence in 0 1; do
     sbatch train_4gpu_12gb.sh \
        --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+       --rotation_parametrization "quat_from_top_ghost" \
        --model $model \
        --tasks $(cat $task_file | tr '\n' ' ') \
        --lr $lr \
