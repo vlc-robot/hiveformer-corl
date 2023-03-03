@@ -10,34 +10,36 @@ train_iters=500_000
 num_workers=16
 
 # Multi-task
-batch_size=8
-model=baseline
-for accumulate_grad_batches in 4; do
-  for use_instruction in 1; do
-    for backbone in clip; do
-      sbatch train_4gpu_12gb.sh \
-         --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-         --model $model \
-         --tasks $(cat $task_file | tr '\n' ' ') \
-         --lr $lr \
-         --dataset $dataset \
-         --valset $valset \
-         --exp_log_dir $main_dir \
-         --num_workers $num_workers \
-         --batch_size $batch_size \
-         --train_iters $train_iters \
-         --embedding_dim $embedding_dim \
-         --use_instruction $use_instruction \
-         --backbone $backbone \
-         --accumulate_grad_batches $accumulate_grad_batches \
-         --run_log_dir BASELINE-INSTRUCTION-EVERYWHERE-instr-$use_instruction-backbone-$backbone-acc-$accumulate_grad_batches
-    done
-  done
-done
+#batch_size=8
+#model=baseline
+#for accumulate_grad_batches in 4; do
+#  for use_instruction in 1; do
+#    for backbone in clip; do
+#      sbatch train_4gpu_12gb.sh \
+#         --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+#         --model $model \
+#         --tasks $(cat $task_file | tr '\n' ' ') \
+#         --lr $lr \
+#         --dataset $dataset \
+#         --valset $valset \
+#         --exp_log_dir $main_dir \
+#         --num_workers $num_workers \
+#         --batch_size $batch_size \
+#         --train_iters $train_iters \
+#         --embedding_dim $embedding_dim \
+#         --use_instruction $use_instruction \
+#         --backbone $backbone \
+#         --accumulate_grad_batches $accumulate_grad_batches \
+#         --run_log_dir BASELINE-INSTRUCTION-EVERYWHERE-instr-$use_instruction-backbone-$backbone-acc-$accumulate_grad_batches
+#    done
+#  done
+#done
 
 # Analogy
 batch_size=4
 model=analogical
+use_instruction=1
+backbone=clip
 for accumulate_grad_batches in 4; do
   for support_set in others; do
     for global_correspondence in 0; do
@@ -57,6 +59,8 @@ for accumulate_grad_batches in 4; do
          --support_set $support_set \
          --global_correspondence $global_correspondence \
          --accumulate_grad_batches $accumulate_grad_batches \
+         --use_instruction $use_instruction \
+         --backbone $backbone \
          --run_log_dir ANALOGICAL-INSTRUCTION-EVERYWHERE-support_set-$support_set-global_correspondence-$global_correspondence-acc-$accumulate_grad_batches
     done
   done
