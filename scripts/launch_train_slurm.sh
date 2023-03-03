@@ -1,6 +1,6 @@
 #!/bin/sh
 
-main_dir=03_03_multi_task
+main_dir=03_03_MULTI_TASK
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 task_file=tasks/7_interesting_tasks.csv
@@ -12,7 +12,7 @@ num_workers=16
 # Multi-task
 batch_size=8
 model=baseline
-for use_instruction in 0 1; do
+for use_instruction in 1; do
   for backbone in clip resnet; do
     sbatch train_4gpu_12gb.sh \
        --devices cuda:0 cuda:1 cuda:2 cuda:3 \
@@ -35,8 +35,8 @@ done
 # Analogy
 batch_size=4
 model=analogical
-for support_set in self others; do
-  for global_correspondence in 0 1; do
+for support_set in others; do
+  for global_correspondence in 0; do
     sbatch train_4gpu_12gb.sh \
        --devices cuda:0 cuda:1 cuda:2 cuda:3 \
        --model $model \
