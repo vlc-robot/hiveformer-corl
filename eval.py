@@ -96,7 +96,9 @@ class Arguments(tap.Tap):
     # Our analogical network additional parameters
     # ---------------------------------------------------------------
 
-    support_set: str = "self"  # one of "self" (for debugging), "rest_of_batch"
+    support_set: str = "others"  # one of "self" (for debugging), "others"
+    support_set_size: int = 1
+    global_correspondence: int = 0
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -187,7 +189,6 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
@@ -196,6 +197,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
             support_set=args.support_set,
+            global_correspondence=args.global_correspondence
         ).to(device)
 
     if hasattr(model, "film_gen") and model.film_gen is not None:

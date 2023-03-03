@@ -113,6 +113,8 @@ class Arguments(tap.Tap):
 
     support_set: str = "others"  # one of "self" (for debugging), "others"
     support_set_size: int = 1
+    global_correspondence: int = 0
+    num_matching_cross_attn_layers: int = 2
 
 
 def training(
@@ -518,7 +520,6 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-            num_query_cross_attn_layers=args.num_query_cross_attn_layers,
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
@@ -526,7 +527,9 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
-            support_set=args.support_set
+            support_set=args.support_set,
+            global_correspondence=args.global_correspondence,
+            num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
         )
 
     devices = [torch.device(d) for d in args.devices]

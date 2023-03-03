@@ -10,7 +10,6 @@ class AnalogicalNetwork(nn.Module):
                  image_size=(128, 128),
                  embedding_dim=60,
                  num_ghost_point_cross_attn_layers=2,
-                 num_query_cross_attn_layers=2,
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
@@ -18,15 +17,16 @@ class AnalogicalNetwork(nn.Module):
                  fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=False,
                  regress_position_offset=False,
-                 support_set="rest_of_batch",
-                 use_instruction=False):
+                 support_set="others",
+                 use_instruction=False,
+                 global_correspondence=False,
+                 num_matching_cross_attn_layers=2):
         super().__init__()
 
         self.prediction_head = AnalogicalPredictionHead(
             image_size=image_size,
             embedding_dim=embedding_dim,
             num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
-            num_query_cross_attn_layers=num_query_cross_attn_layers,
             rotation_parametrization=rotation_parametrization,
             num_ghost_points=num_ghost_points,
             coarse_to_fine_sampling=coarse_to_fine_sampling,
@@ -36,6 +36,8 @@ class AnalogicalNetwork(nn.Module):
             regress_position_offset=regress_position_offset,
             support_set=support_set,
             use_instruction=use_instruction,
+            global_correspondence=global_correspondence,
+            num_matching_cross_attn_layers=num_matching_cross_attn_layers,
         )
 
     def compute_action(self, pred) -> torch.Tensor:

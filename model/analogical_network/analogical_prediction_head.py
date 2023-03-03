@@ -19,7 +19,6 @@ class AnalogicalPredictionHead(nn.Module):
                  embedding_dim=60,
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
-                 num_query_cross_attn_layers=2,
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
@@ -27,13 +26,16 @@ class AnalogicalPredictionHead(nn.Module):
                  fine_sampling_ball_diameter=0.08,
                  separate_coarse_and_fine_layers=True,
                  regress_position_offset=True,
-                 support_set="rest_of_batch",
-                 use_instruction=False):
+                 support_set="others",
+                 use_instruction=False,
+                 global_correspondence=False,
+                 num_matching_cross_attn_layers=2):
         super().__init__()
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
-        self.image_size = image_size
         assert rotation_parametrization in ["quat_from_top_ghost", "quat_from_query"]
+        assert support_set in ["self", "others"]
+        self.image_size = image_size
         self.rotation_parametrization = rotation_parametrization
         self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
         self.coarse_to_fine_sampling = coarse_to_fine_sampling
@@ -41,6 +43,7 @@ class AnalogicalPredictionHead(nn.Module):
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
         self.support_set = support_set
+        self.global_correspondence = global_correspondence
 
         # Frozen backbone
         if backbone == "resnet":
@@ -98,6 +101,15 @@ class AnalogicalPredictionHead(nn.Module):
         else:
             self.fine_ghost_point_cross_attn_layers = self.coarse_ghost_point_cross_attn_layers
             self.fine_ghost_point_ffw_layers = self.coarse_ghost_point_ffw_layers
+
+        # Ghost point matching self-attention and cross-attention with support set
+        self.matching_cross_attn_layers = nn.ModuleList()
+        self.matching_self_attn_layers = nn.ModuleList()
+        self.matching_ffw_layers = nn.ModuleList()
+        for _ in range(num_matching_cross_attn_layers):
+            self.matching_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
+            self.matching_self_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
+            self.matching_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
 
         # Ghost point offset prediction
         if self.regress_position_offset:
@@ -185,7 +197,7 @@ class AnalogicalPredictionHead(nn.Module):
         # Compute coarse ghost point similarity scores with the ground-truth ghost points
         # in the support set at the corresponding timestep
         coarse_ghost_pcd_mask = self._match_ghost_points(
-            coarse_ghost_pcd_features, coarse_ghost_pcd, gt_position_for_support,
+            coarse_ghost_pcd_features, coarse_ghost_pcd_pos, coarse_ghost_pcd, gt_position_for_support,
             padding_mask, batch_size, demos_per_task, history_size, device
         )
 
@@ -201,7 +213,7 @@ class AnalogicalPredictionHead(nn.Module):
             (
                 fine_ghost_pcd_mask, fine_ghost_pcd, fine_ghost_pcd_features, fine_ghost_pcd_offsets,
             ) = self._coarse_to_fine(
-                coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_features,
+                coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_pos, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                 curr_gripper_features, curr_gripper_pos, padding_mask,
                 batch_size, demos_per_task, history_size, num_cameras, total_timesteps, device,
@@ -353,7 +365,7 @@ class AnalogicalPredictionHead(nn.Module):
         return ghost_pcd_features, ghost_pcd_pos
 
     def _match_ghost_points(self,
-                            ghost_pcd_features, ghost_pcd, gt_position_for_support,
+                            ghost_pcd_features, ghost_pcd_pos, ghost_pcd, gt_position_for_support,
                             padding_mask, batch_size, demos_per_task, history_size, device):
         """Compute ghost point similarity scores with the ground-truth ghost points
         in the support set at the corresponding timestep.
@@ -370,7 +382,50 @@ class AnalogicalPredictionHead(nn.Module):
         )
         ghost_pcd_features_[:, padding_mask] = ghost_pcd_features
         ghost_pcd_features = ghost_pcd_features_
+        ghost_pcd_pos_ = torch.zeros(
+            batch_size, demos_per_task, history_size, *ghost_pcd_pos.shape[1:], device=device)
+        ghost_pcd_pos_[padding_mask] = ghost_pcd_pos
+        ghost_pcd_pos = ghost_pcd_pos_
         num_points, _, _, _, channels = ghost_pcd_features.shape
+
+        if self.global_correspondence and self.support_set == "others":
+            # TODO We assume there is a single demo in the support set for now
+            assert ghost_pcd_features.shape[2] == 2
+
+            ghost_pcd_features1 = ghost_pcd_features[:, :, 0][:, padding_mask[:, 0]]
+            ghost_pcd_features2 = ghost_pcd_features[:, :, 1][:, padding_mask[:, 1]]
+            ghost_pcd_pos1 = ghost_pcd_pos[:, 0][padding_mask[:, 0]]
+            ghost_pcd_pos2 = ghost_pcd_pos[:, 1][padding_mask[:, 1]]
+
+            for i in range(len(self.matching_cross_attn_layers)):
+                ghost_pcd_features1_prev = ghost_pcd_features1
+                ghost_pcd_features2_prev = ghost_pcd_features2
+
+                ghost_pcd_features1, _ = self.matching_cross_attn_layers[i](
+                    query=ghost_pcd_features1_prev, value=ghost_pcd_features2_prev,
+                    query_pos=ghost_pcd_pos1, value_pos=ghost_pcd_pos2
+                )
+                ghost_pcd_features2, _ = self.matching_cross_attn_layers[i](
+                    query=ghost_pcd_features2_prev, value=ghost_pcd_features1_prev,
+                    query_pos=ghost_pcd_pos2, value_pos=ghost_pcd_pos1
+                )
+                ghost_pcd_features1, _ = self.matching_self_attn_layers[i](
+                    query=ghost_pcd_features1, value=ghost_pcd_features1,
+                    query_pos=ghost_pcd_pos1, value_pos=ghost_pcd_pos1
+                )
+                ghost_pcd_features2, _ = self.matching_self_attn_layers[i](
+                    query=ghost_pcd_features2, value=ghost_pcd_features2,
+                    query_pos=ghost_pcd_pos2, value_pos=ghost_pcd_pos2
+                )
+                ghost_pcd_features1 = self.matching_ffw_layers[i](ghost_pcd_features1)
+                ghost_pcd_features2 = self.matching_ffw_layers[i](ghost_pcd_features2)
+
+            ghost_pcd_features = torch.zeros(
+                ghost_pcd_features.shape[0], batch_size, demos_per_task,
+                history_size, ghost_pcd_features.shape[-1], device=device
+            )
+            ghost_pcd_features[:, :, 0][:, padding_mask[:, 0]] = ghost_pcd_features1
+            ghost_pcd_features[:, :, 1][:, padding_mask[:, 1]] = ghost_pcd_features2
 
         # Select ground-truth ghost points in the support set
         # TODO Currently we select the sampled ghost point closest to the ground-truth
@@ -425,7 +480,7 @@ class AnalogicalPredictionHead(nn.Module):
         return position, rotation, gripper
 
     def _coarse_to_fine(self,
-                        coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_features,
+                        coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_pos, coarse_ghost_pcd_features,
                         fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
                         curr_gripper_features, curr_gripper_pos, padding_mask,
                         batch_size, demos_per_task, history_size, num_cameras, total_timesteps, device,
@@ -458,7 +513,7 @@ class AnalogicalPredictionHead(nn.Module):
             [fine_ghost_pcd_context_features, curr_gripper_features], dim=0)
         fine_ghost_pcd_context_pos = torch.cat(
             [local_fine_visible_rgb_pos, curr_gripper_pos], dim=1)
-        fine_ghost_pcd_features, _ = self._compute_ghost_point_features(
+        fine_ghost_pcd_features, fine_ghost_pcd_pos = self._compute_ghost_point_features(
             fine_ghost_pcd, fine_ghost_pcd_context_features, fine_ghost_pcd_context_pos,
             total_timesteps, ghost_point_type="fine"
         )
@@ -467,10 +522,10 @@ class AnalogicalPredictionHead(nn.Module):
         # in the support set at the corresponding timestep
         fine_ghost_pcd = torch.cat(
             [einops.rearrange(coarse_ghost_pcd, "bst c npts -> bst npts c"), fine_ghost_pcd], dim=-2)
-
         fine_ghost_pcd_features = torch.cat([coarse_ghost_pcd_features, fine_ghost_pcd_features], dim=0)
+        fine_ghost_pcd_pos = torch.cat([coarse_ghost_pcd_pos, fine_ghost_pcd_pos], dim=1)
         fine_ghost_pcd_mask = self._match_ghost_points(
-            fine_ghost_pcd_features, fine_ghost_pcd, gt_position_for_support,
+            fine_ghost_pcd_features, fine_ghost_pcd_pos, fine_ghost_pcd, gt_position_for_support,
             padding_mask, batch_size, demos_per_task, history_size, device
         )
 
