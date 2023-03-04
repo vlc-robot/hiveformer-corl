@@ -1,49 +1,44 @@
 #!/bin/sh
 
-main_dir=03_04_workspace_bounds_and_num_ghost_points
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
-task_file=tasks/debug_tasks.csv
 num_workers=2
 batch_size=4
 accumulate_grad_batches=2
 
-fine_sampling_ball_diameter=0.16
+main_dir=03_05_baseline_single_task_vs_multi_task
+task_file=tasks/7_interesting_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
-  for single_task_gripper_loc_bounds in 0 1; do
-    for num_ghost_points in 1000 2000; do
-      sbatch train_1gpu_12gb.sh \
-         --tasks $task \
-         --dataset $dataset \
-         --valset $valset \
-         --exp_log_dir $main_dir \
-         --num_workers $num_workers \
-         --batch_size $batch_size \
-         --accumulate_grad_batches $accumulate_grad_batches \
-         --num_ghost_points $num_ghost_points \
-         --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
-         --single_task_gripper_loc_bounds $single_task_gripper_loc_bounds \
-         --run_log_dir $task-single_task_gripper_loc_bounds-$single_task_gripper_loc_bounds-num_ghost_points-$num_ghost_points-fine_sampling_ball_diameter-$fine_sampling_ball_diameter
-    done
-  done
+  sbatch train_1gpu_12gb.sh \
+     --tasks $task \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --num_workers $num_workers \
+     --batch_size $batch_size \
+     --accumulate_grad_batches $accumulate_grad_batches \
+     --run_log_dir $task
 done
 
-num_ghost_points=1000
+
+main_dir=03_05_analogy_single_task
+task_file=tasks/2_easy_tasks.csv
 for task in $(cat $task_file | tr '\n' ' '); do
-  for single_task_gripper_loc_bounds in 0 1; do
-    for fine_sampling_ball_diameter in 0.08 0.32; do
+  for support_set in self others; do
+    for global_correspondence in 0; do
       sbatch train_1gpu_12gb.sh \
          --tasks $task \
+         --rotation_parametrization "quat_from_top_ghost" \
+         --model analogical \
          --dataset $dataset \
          --valset $valset \
          --exp_log_dir $main_dir \
          --num_workers $num_workers \
          --batch_size $batch_size \
+         --support_set $support_set \
+         --global_correspondence $global_correspondence \
          --accumulate_grad_batches $accumulate_grad_batches \
-         --num_ghost_points $num_ghost_points \
-         --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
-         --single_task_gripper_loc_bounds $single_task_gripper_loc_bounds \
-         --run_log_dir $task-single_task_gripper_loc_bounds-$single_task_gripper_loc_bounds-num_ghost_points-$num_ghost_points-fine_sampling_ball_diameter-$fine_sampling_ball_diameter
+         --run_log_dir $task-support_set-$support_set-global_correspondence-$global_correspondence
     done
   done
 done
