@@ -23,7 +23,7 @@ accumulate_grad_batches=2
 
 main_dir=03_05_analogy_single_task
 task_file=tasks/2_easy_tasks.csv
-for support_set in self others; do
+for support_set in others; do
   for global_correspondence in 0; do
     sbatch train_1gpu_12gb.sh \
        --tasks --tasks $(cat $task_file | tr '\n' ' ') \
