@@ -23,23 +23,21 @@ accumulate_grad_batches=2
 
 main_dir=03_05_analogy_single_task
 task_file=tasks/2_easy_tasks.csv
-for task in $(cat $task_file | tr '\n' ' '); do
-  for support_set in self others; do
-    for global_correspondence in 0; do
-      sbatch train_1gpu_12gb.sh \
-         --tasks $task \
-         --rotation_parametrization "quat_from_top_ghost" \
-         --model analogical \
-         --dataset $dataset \
-         --valset $valset \
-         --exp_log_dir $main_dir \
-         --num_workers $num_workers \
-         --batch_size $batch_size \
-         --support_set $support_set \
-         --global_correspondence $global_correspondence \
-         --accumulate_grad_batches $accumulate_grad_batches \
-         --run_log_dir DEBUG-WITH-VAL-SUPPORT-SET-$task-support_set-$support_set-global_correspondence-$global_correspondence
-    done
+for support_set in self others; do
+  for global_correspondence in 0; do
+    sbatch train_1gpu_12gb.sh \
+       --tasks --tasks $(cat $task_file | tr '\n' ' ') \
+       --rotation_parametrization "quat_from_top_ghost" \
+       --model analogical \
+       --dataset $dataset \
+       --valset $valset \
+       --exp_log_dir $main_dir \
+       --num_workers $num_workers \
+       --batch_size $batch_size \
+       --support_set $support_set \
+       --global_correspondence $global_correspondence \
+       --accumulate_grad_batches $accumulate_grad_batches \
+       --run_log_dir 2-tasks-support_set-$support_set-global_correspondence-$global_correspondence
   done
 done
 

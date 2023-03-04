@@ -460,7 +460,7 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
             # is the training split
             dataset = RLBenchAnalogicalDataset(
                 main_root=args.valset,
-                support_root=args.valset,  # TODO Trying with valset as support set to debug
+                support_root=args.dataset,
                 image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
                 taskvar=taskvar,
                 instructions=instruction,
