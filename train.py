@@ -55,7 +55,7 @@ class Arguments(tap.Tap):
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     num_workers: int = 2
     batch_size: int = 16
-    lr: float = 5e-5
+    lr: float = 1e-4
     train_iters: int = 200_000
 
     # Toggle to switch between original HiveFormer and our models
@@ -77,6 +77,7 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
+    single_task_gripper_loc_bounds: int = 0
 
     # Loss
     position_prediction_only: int = 0
@@ -486,7 +487,12 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
     # Gripper workspace is the union of workspaces for all tasks
-    gripper_loc_bounds = get_gripper_loc_bounds("tasks/10_autolambda_tasks_location_bounds.json", buffer=0.0)
+    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
+        task = args.tasks[0]
+    else:
+        task = None
+    gripper_loc_bounds = get_gripper_loc_bounds(
+        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=0.0)
 
     if args.model == "original":
         _model = Hiveformer(

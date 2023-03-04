@@ -45,12 +45,19 @@ def get_max_episode_length(tasks: Tuple[str, ...], variations: Tuple[int, ...]) 
     return max_episode_length
 
 
-def get_gripper_loc_bounds(path: str, buffer: float = 0.0):
-    # Gripper workspace is the union of workspaces for all tasks
+def get_gripper_loc_bounds(path: str, buffer: float = 0.0, task: Optional[str] = None):
     gripper_loc_bounds = json.load(open(path, "r"))
-    gripper_loc_bounds_min = np.min(np.stack([bounds[0] for bounds in gripper_loc_bounds.values()]), axis=0) - buffer
-    gripper_loc_bounds_max = np.max(np.stack([bounds[1] for bounds in gripper_loc_bounds.values()]), axis=0) + buffer
-    gripper_loc_bounds = np.stack([gripper_loc_bounds_min, gripper_loc_bounds_max])
+    if task is not None:
+        gripper_loc_bounds = gripper_loc_bounds[task]
+        gripper_loc_bounds_min = np.array(gripper_loc_bounds[0]) - buffer
+        gripper_loc_bounds_max = np.array(gripper_loc_bounds[1]) + buffer
+        gripper_loc_bounds = np.stack([gripper_loc_bounds_min, gripper_loc_bounds_max])
+    else:
+        # Gripper workspace is the union of workspaces for all tasks
+        gripper_loc_bounds = json.load(open(path, "r"))
+        gripper_loc_bounds_min = np.min(np.stack([bounds[0] for bounds in gripper_loc_bounds.values()]), axis=0) - buffer
+        gripper_loc_bounds_max = np.max(np.stack([bounds[1] for bounds in gripper_loc_bounds.values()]), axis=0) + buffer
+        gripper_loc_bounds = np.stack([gripper_loc_bounds_min, gripper_loc_bounds_max])
     print("Gripper workspace size:", gripper_loc_bounds_max - gripper_loc_bounds_min)
     return gripper_loc_bounds
 

@@ -73,7 +73,8 @@ class Arguments(tap.Tap):
     # Our non-analogical baseline parameters
     # ---------------------------------------------------------------
 
-    visualize_rgb_attn: int = 1
+    visualize_rgb_attn: int = 0
+    single_task_gripper_loc_bounds: int = 0
 
     position_prediction_only: int = 0
     regress_position_offset: int = 1
@@ -155,7 +156,12 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
 
     # Gripper workspace is the union of workspaces for all tasks
-    gripper_loc_bounds = get_gripper_loc_bounds("tasks/10_autolambda_tasks_location_bounds.json", buffer=0.0)
+    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
+        task = args.tasks[0]
+    else:
+        task = None
+    gripper_loc_bounds = get_gripper_loc_bounds(
+        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=0.0)
 
     if args.model == "original":
         model = Hiveformer(
