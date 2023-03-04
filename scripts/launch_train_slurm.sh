@@ -25,7 +25,7 @@ main_dir=03_05_analogy_single_task
 task_file=tasks/2_easy_tasks.csv
 for support_set in others; do
   for global_correspondence in 0; do
-    sbatch train_1gpu_12gb.sh \
+    sbatch train_1gpu_32gb.sh \
        --tasks --tasks $(cat $task_file | tr '\n' ' ') \
        --rotation_parametrization "quat_from_top_ghost" \
        --model analogical \
