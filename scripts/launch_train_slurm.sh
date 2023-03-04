@@ -6,19 +6,19 @@ num_workers=2
 batch_size=4
 accumulate_grad_batches=2
 
-main_dir=03_05_baseline_single_task_vs_multi_task
-task_file=tasks/7_interesting_tasks.csv
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_12gb.sh \
-     --tasks $task \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --num_workers $num_workers \
-     --batch_size $batch_size \
-     --accumulate_grad_batches $accumulate_grad_batches \
-     --run_log_dir $task
-done
+#main_dir=03_05_baseline_single_task_vs_multi_task
+#task_file=tasks/7_interesting_tasks.csv
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_12gb.sh \
+#     --tasks $task \
+#     --dataset $dataset \
+#     --valset $valset \
+#     --exp_log_dir $main_dir \
+#     --num_workers $num_workers \
+#     --batch_size $batch_size \
+#     --accumulate_grad_batches $accumulate_grad_batches \
+#     --run_log_dir $task
+#done
 
 
 main_dir=03_05_analogy_single_task
@@ -38,7 +38,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
          --support_set $support_set \
          --global_correspondence $global_correspondence \
          --accumulate_grad_batches $accumulate_grad_batches \
-         --run_log_dir $task-support_set-$support_set-global_correspondence-$global_correspondence
+         --run_log_dir DEBUG-WITH-VAL-SUPPORT-SET-$task-support_set-$support_set-global_correspondence-$global_correspondence
     done
   done
 done
