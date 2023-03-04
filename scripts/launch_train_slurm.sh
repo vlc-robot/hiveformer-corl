@@ -7,8 +7,8 @@ task_file=tasks/debug_tasks.csv
 num_workers=2
 batch_size=4
 accumulate_grad_batches=2
-fine_sampling_ball_diameter=0.16
 
+fine_sampling_ball_diameter=0.16
 for task in $(cat $task_file | tr '\n' ' '); do
   for single_task_gripper_loc_bounds in 0 1; do
     for num_ghost_points in 1000 2000; do
@@ -23,10 +23,31 @@ for task in $(cat $task_file | tr '\n' ' '); do
          --num_ghost_points $num_ghost_points \
          --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
          --single_task_gripper_loc_bounds $single_task_gripper_loc_bounds \
-         --run_log_dir $task-single_task_gripper_loc_bounds-$single_task_gripper_loc_bounds-num_ghost_points-$num_ghost_points
+         --run_log_dir $task-single_task_gripper_loc_bounds-$single_task_gripper_loc_bounds-num_ghost_points-$num_ghost_points-fine_sampling_ball_diameter-$fine_sampling_ball_diameter
     done
   done
 done
+
+num_ghost_points=1000
+for task in $(cat $task_file | tr '\n' ' '); do
+  for single_task_gripper_loc_bounds in 0 1; do
+    for fine_sampling_ball_diameter in 0.08 0.32; do
+      sbatch train_1gpu_12gb.sh \
+         --tasks $task \
+         --dataset $dataset \
+         --valset $valset \
+         --exp_log_dir $main_dir \
+         --num_workers $num_workers \
+         --batch_size $batch_size \
+         --accumulate_grad_batches $accumulate_grad_batches \
+         --num_ghost_points $num_ghost_points \
+         --fine_sampling_ball_diameter $fine_sampling_ball_diameter \
+         --single_task_gripper_loc_bounds $single_task_gripper_loc_bounds \
+         --run_log_dir $task-single_task_gripper_loc_bounds-$single_task_gripper_loc_bounds-num_ghost_points-$num_ghost_points-fine_sampling_ball_diameter-$fine_sampling_ball_diameter
+    done
+  done
+done
+
 
 #main_dir=03_03_MULTI_TASK
 #dataset=/home/tgervet/datasets/hiveformer/packaged/2
