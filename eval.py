@@ -53,7 +53,7 @@ class Arguments(tap.Tap):
     run_log_dir: str = "run"
     
     # Toggle to switch between offline and online evaluation
-    offline: int = 1
+    offline: int = 0
 
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
@@ -85,13 +85,13 @@ class Arguments(tap.Tap):
     num_ghost_points: int = 1000
 
     # Model
-    backbone: str = "resnet"  # one of "resnet", "clip"
+    backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
-    use_instruction: int = 0
+    use_instruction: int = 1
 
     # ---------------------------------------------------------------
     # Our analogical network additional parameters
@@ -100,6 +100,7 @@ class Arguments(tap.Tap):
     support_set: str = "others"  # one of "self" (for debugging), "others"
     support_set_size: int = 1
     global_correspondence: int = 0
+    num_matching_cross_attn_layers: int = 2
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -204,6 +205,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             regress_position_offset=bool(args.regress_position_offset),
             support_set=args.support_set,
             global_correspondence=args.global_correspondence,
+            num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
             use_instruction=bool(args.use_instruction),
         ).to(device)
 
