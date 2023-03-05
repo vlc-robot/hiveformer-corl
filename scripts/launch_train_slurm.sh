@@ -4,28 +4,6 @@ dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 main_dir=03_05_debugging_analogy_overfitting3
 
-# Single task for all tasks
-task_file=tasks/debug_tasks.csv
-num_workers=2
-batch_size=3
-accumulate_grad_batches=2
-for task in $(cat $task_file | tr '\n' ' '); do
-  for support_set in others; do
-    sbatch train_1gpu_12gb.sh \
-     --tasks $task \
-     --rotation_parametrization "quat_from_top_ghost" \
-     --model analogical \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --num_workers $num_workers \
-     --batch_size $batch_size \
-     --support_set $support_set \
-     --accumulate_grad_batches $accumulate_grad_batches \
-     --run_log_dir ONE-TASK-$task-support_set-$support_set
-  done
-done
-
 # Multi-task with larger model and with/without global correspondence
 task_file=tasks/7_interesting_tasks.csv
 embedding_dim=120
@@ -77,6 +55,28 @@ for support_set in others; do
    --embedding_dim $embedding_dim \
    --accumulate_grad_batches $accumulate_grad_batches \
    --run_log_dir SEVEN-TASKS-support-set-$support_set-embedding_dim-$embedding_dim-support_set_size-$support_set_size
+done
+
+# Single task for all tasks
+task_file=tasks/debug_tasks.csv
+num_workers=2
+batch_size=3
+accumulate_grad_batches=2
+for task in $(cat $task_file | tr '\n' ' '); do
+  for support_set in others; do
+    sbatch train_1gpu_12gb.sh \
+     --tasks $task \
+     --rotation_parametrization "quat_from_top_ghost" \
+     --model analogical \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --num_workers $num_workers \
+     --batch_size $batch_size \
+     --support_set $support_set \
+     --accumulate_grad_batches $accumulate_grad_batches \
+     --run_log_dir ONE-TASK-$task-support_set-$support_set
+  done
 done
 
 
