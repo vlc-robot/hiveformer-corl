@@ -3,10 +3,10 @@
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 num_workers=2
-batch_size=4
+batch_size=3
 accumulate_grad_batches=2
 
-main_dir=03_05_debugging_analogy_overfitting
+main_dir=03_05_debugging_analogy_overfitting2
 
 # Single task
 task_file=tasks/2_easy_tasks.csv
