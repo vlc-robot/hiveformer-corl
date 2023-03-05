@@ -25,7 +25,6 @@ for support_set in others; do
      --train_iters $train_iters \
      --support_set $support_set \
      --embedding_dim $embedding_dim \
-     --accumulate_grad_batches $accumulate_grad_batches \
      --global_correspondence $global_correspondence \
      --run_log_dir SEVEN-TASKS-support-set-$support_set-embedding_dim-$embedding_dim-global_correspondence-$global_correspondence
   done
@@ -53,31 +52,30 @@ for support_set in others; do
    --support_set $support_set \
    --support_set_size $support_set_size \
    --embedding_dim $embedding_dim \
-   --accumulate_grad_batches $accumulate_grad_batches \
    --run_log_dir SEVEN-TASKS-support-set-$support_set-embedding_dim-$embedding_dim-support_set_size-$support_set_size
 done
 
 # Single task for all tasks
-task_file=tasks/debug_tasks.csv
-num_workers=2
-batch_size=3
-accumulate_grad_batches=2
-for task in $(cat $task_file | tr '\n' ' '); do
-  for support_set in others; do
-    sbatch train_1gpu_12gb.sh \
-     --tasks $task \
-     --rotation_parametrization "quat_from_top_ghost" \
-     --model analogical \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --num_workers $num_workers \
-     --batch_size $batch_size \
-     --support_set $support_set \
-     --accumulate_grad_batches $accumulate_grad_batches \
-     --run_log_dir ONE-TASK-$task-support_set-$support_set
-  done
-done
+#task_file=tasks/debug_tasks.csv
+#num_workers=2
+#batch_size=3
+#accumulate_grad_batches=2
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  for support_set in others; do
+#    sbatch train_1gpu_12gb.sh \
+#     --tasks $task \
+#     --rotation_parametrization "quat_from_top_ghost" \
+#     --model analogical \
+#     --dataset $dataset \
+#     --valset $valset \
+#     --exp_log_dir $main_dir \
+#     --num_workers $num_workers \
+#     --batch_size $batch_size \
+#     --support_set $support_set \
+#     --accumulate_grad_batches $accumulate_grad_batches \
+#     --run_log_dir ONE-TASK-$task-support_set-$support_set
+#  done
+#done
 
 
 #main_dir=03_05_baseline_single_task_vs_multi_task
