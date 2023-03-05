@@ -216,17 +216,21 @@ class LossAndMetrics:
             tasks = tasks[:, np.newaxis]
         tasks = np.repeat(tasks, padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
 
-        l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
+        final_pos_l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
+        metrics["mean/final_pos_l2"] = final_pos_l2.to(dtype).mean()
+        metrics["mean/final_pos_l2<0.01"] = (final_pos_l2 < 0.01).to(dtype).mean()
 
-        metrics["mean/position_l2"] = l2.to(dtype).mean()
-        metrics["mean/position_l2<0.01"] = (l2 < 0.01).to(dtype).mean()
-        metrics["mean/position_l2<0.02"] = (l2 < 0.02).to(dtype).mean()
-        metrics["mean/position_l2<0.08"] = (l2 < 0.08).to(dtype).mean()
+        if "coarse_position" in pred:
+            coarse_pos_l2 = ((pred["coarse_position"].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
+            metrics["mean/coarse_pos_l2"] = coarse_pos_l2.to(dtype).mean()
+        if "fine_position" in pred:
+            fine_pos_l2 = ((pred["fine_position"].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
+            metrics["mean/fine_pos_l2"] = fine_pos_l2.to(dtype).mean()
 
         for task in np.unique(tasks):
-            task_l2 = l2[tasks == task]
-            metrics[f"{task}/position_l2"] = task_l2.to(dtype).mean()
-            metrics[f"{task}/position_l2<0.01"] = (task_l2 < 0.01).to(dtype).mean()
+            task_l2 = final_pos_l2[tasks == task]
+            metrics[f"{task}/final_pos_l2"] = task_l2.to(dtype).mean()
+            metrics[f"{task}/final_pos_l2<0.01"] = (task_l2 < 0.01).to(dtype).mean()
 
         if not self.position_prediction_only:
             pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
@@ -235,14 +239,13 @@ class LossAndMetrics:
             metrics["gripper"] = acc.to(dtype).mean()
 
             l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
-            metrics["mean/rotation_l1"] = l1.to(dtype).mean()
-            metrics["mean/rotation_l1<0.025"] = (l1 < 0.025).to(dtype).mean()
-            metrics["mean/rotation_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
+            metrics["mean/rot_l1"] = l1.to(dtype).mean()
+            metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
 
             for task in np.unique(tasks):
                 task_l1 = l1[tasks == task]
-                metrics[f"{task}/rotation_l1"] = task_l1.to(dtype).mean()
-                metrics[f"{task}/rotation_l1<0.05"] = (task_l1 < 0.05).to(dtype).mean()
+                metrics[f"{task}/rot_l1"] = task_l1.to(dtype).mean()
+                metrics[f"{task}/rot_l1<0.05"] = (task_l1 < 0.05).to(dtype).mean()
 
             if pred["task"] is not None:
                 task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])

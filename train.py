@@ -106,7 +106,7 @@ class Arguments(tap.Tap):
     num_query_cross_attn_layers: int = 2
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
-    use_instruction: int = 0
+    use_instruction: int = 1
 
     # ---------------------------------------------------------------
     # Our analogical network additional parameters
