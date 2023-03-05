@@ -4,32 +4,6 @@ dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 main_dir=03_05_debugging_analogy_overfitting3
 
-# Multi-task with larger model and with/without global correspondence
-task_file=tasks/7_interesting_tasks.csv
-embedding_dim=120
-train_iters=500_000
-num_workers=12
-batch_size=4
-for support_set in others; do
-  for global_correspondence in 0 1; do
-    sbatch train_4gpu_32gb.sh \
-     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-     --tasks $(cat $task_file | tr '\n' ' ') \
-     --rotation_parametrization "quat_from_top_ghost" \
-     --model analogical \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --num_workers $num_workers \
-     --batch_size $batch_size \
-     --train_iters $train_iters \
-     --support_set $support_set \
-     --embedding_dim $embedding_dim \
-     --global_correspondence $global_correspondence \
-     --run_log_dir SEVEN-TASKS-support-set-$support_set-embedding_dim-$embedding_dim-global_correspondence-$global_correspondence
-  done
-done
-
 # Multi-task with larger model and larger support set
 task_file=tasks/7_interesting_tasks.csv
 embedding_dim=120
@@ -53,6 +27,32 @@ for support_set in others; do
    --support_set_size $support_set_size \
    --embedding_dim $embedding_dim \
    --run_log_dir SEVEN-TASKS-support-set-$support_set-embedding_dim-$embedding_dim-support_set_size-$support_set_size
+done
+
+# Multi-task with larger model and with/without global correspondence
+task_file=tasks/7_interesting_tasks.csv
+embedding_dim=120
+train_iters=500_000
+num_workers=12
+batch_size=4
+for support_set in others; do
+  for global_correspondence in 0 1; do
+    sbatch train_4gpu_12gb.sh \
+     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+     --tasks $(cat $task_file | tr '\n' ' ') \
+     --rotation_parametrization "quat_from_top_ghost" \
+     --model analogical \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --num_workers $num_workers \
+     --batch_size $batch_size \
+     --train_iters $train_iters \
+     --support_set $support_set \
+     --embedding_dim $embedding_dim \
+     --global_correspondence $global_correspondence \
+     --run_log_dir SEVEN-TASKS-support-set-$support_set-embedding_dim-$embedding_dim-global_correspondence-$global_correspondence
+  done
 done
 
 # Single task for all tasks
