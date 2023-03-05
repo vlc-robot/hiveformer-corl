@@ -175,7 +175,7 @@ class AnalogicalPredictionHead(nn.Module):
         # Encode instruction
         if self.use_instruction:
             instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
-            instruction_dummy_pos = torch.zeros(batch_size, instruction_features.shape[0], 3, device=device)
+            instruction_dummy_pos = torch.zeros(total_timesteps, instruction_features.shape[0], 3, device=device)
             instruction_dummy_pos = self.pcd_pe_layer(instruction_dummy_pos)
         else:
             instruction_features = None
