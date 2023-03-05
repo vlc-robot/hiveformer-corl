@@ -6,6 +6,63 @@ num_workers=2
 batch_size=4
 accumulate_grad_batches=2
 
+main_dir=03_05_debugging_analogy_overfitting
+
+# Single task
+task_file=tasks/2_easy_tasks.csv
+for task in $(cat $task_file | tr '\n' ' '); do
+  for support_set in self others; do
+    sbatch train_1gpu_12gb.sh \
+     --tasks $task \
+     --rotation_parametrization "quat_from_top_ghost" \
+     --model analogical \
+     --dataset $dataset \
+     --valset $valset \
+     --exp_log_dir $main_dir \
+     --num_workers $num_workers \
+     --batch_size $batch_size \
+     --support_set $support_set \
+     --accumulate_grad_batches $accumulate_grad_batches \
+     --run_log_dir ONE-TASK-$task
+  done
+done
+
+# Two tasks
+task_file=tasks/2_easy_tasks.csv
+for support_set in self others; do
+  sbatch train_1gpu_12gb.sh \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --rotation_parametrization "quat_from_top_ghost" \
+   --model analogical \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --num_workers $num_workers \
+   --batch_size $batch_size \
+   --support_set $support_set \
+   --accumulate_grad_batches $accumulate_grad_batches \
+   --run_log_dir TWO-TASKS
+done
+
+# All tasks
+task_file=tasks/7_interesting_tasks.csv
+for support_set in self others; do
+  sbatch train_1gpu_12gb.sh \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --rotation_parametrization "quat_from_top_ghost" \
+   --model analogical \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --num_workers $num_workers \
+   --batch_size $batch_size \
+   --support_set $support_set \
+   --accumulate_grad_batches $accumulate_grad_batches \
+   --run_log_dir SEVEN-TASKS
+done
+
+
+
 #main_dir=03_05_baseline_single_task_vs_multi_task
 #task_file=tasks/7_interesting_tasks.csv
 #for task in $(cat $task_file | tr '\n' ' '); do
@@ -19,27 +76,6 @@ accumulate_grad_batches=2
 #     --accumulate_grad_batches $accumulate_grad_batches \
 #     --run_log_dir $task
 #done
-
-
-main_dir=03_05_analogy_single_task
-task_file=tasks/2_easy_tasks.csv
-for support_set in others; do
-  for global_correspondence in 0; do
-    sbatch train_1gpu_32gb.sh \
-       --tasks --tasks $(cat $task_file | tr '\n' ' ') \
-       --rotation_parametrization "quat_from_top_ghost" \
-       --model analogical \
-       --dataset $dataset \
-       --valset $valset \
-       --exp_log_dir $main_dir \
-       --num_workers $num_workers \
-       --batch_size $batch_size \
-       --support_set $support_set \
-       --global_correspondence $global_correspondence \
-       --accumulate_grad_batches $accumulate_grad_batches \
-       --run_log_dir 2-tasks-support_set-$support_set-global_correspondence-$global_correspondence
-  done
-done
 
 
 #main_dir=03_03_MULTI_TASK
