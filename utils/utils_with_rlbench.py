@@ -459,11 +459,16 @@ class RLBenchEnv:
         ]).to(device)
 
         success_rate = 0.0
+        failed_demos = 0
 
         with torch.no_grad():
             for demo_id in range(num_demos):
                 print(f"Starting demo {demo_id}")
-                demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+                try:
+                    demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+                except:
+                    failed_demos += 1
+                    continue
                 if record_videos and demo_id < num_videos:
                     task_recorder._cam_motion.save_pose()
 
@@ -517,7 +522,7 @@ class RLBenchEnv:
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
 
-                    print(f"Step id {step_id}")
+                    print(f"Step {step_id}")
 
                     if record_videos and demo_id < num_videos:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
@@ -582,6 +587,10 @@ class RLBenchEnv:
                 )
 
         self.env.shutdown()
+
+        # Compensate for failed demos
+        success_rate = success_rate * num_demos / (num_demos - failed_demos)
+
         return success_rate
 
     def create_obs_config(
