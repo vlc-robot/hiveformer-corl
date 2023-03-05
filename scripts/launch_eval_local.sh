@@ -1,33 +1,32 @@
-exp=02_26_MATCH_HIVEFORMER
+exp=03_05_baseline_single_task_vs_multi_task
 ckpts=(
-  FULL-pick_and_lift-BALL-0.16_version154273
-  FULL-pick_up_cup-BALL-0.16_version154274
-  FULL-put_knife_on_chopping_board-BALL-0.16_version154275
-  FULL-put_money_in_safe-BALL-0.16_version154276
-  FULL-slide_block_to_target-BALL-0.16_version154277
-  FULL-take_money_out_safe-BALL-0.08_version154285
-  FULL-take_umbrella_out_of_umbrella_stand-BALL-0.16_version154279
+  slide_block_to_target_version155313
+  put_money_in_safe_version155312
+  take_money_out_safe_version155314
+  take_umbrella_out_of_umbrella_stand_version155315
+  pick_and_lift_version155309
+  pick_up_cup_version155310
+  put_knife_on_chopping_board_version155311
 )
 tasks=(
+  slide_block_to_target
+  put_money_in_safe
+  take_money_out_safe
+  take_umbrella_out_of_umbrella_stand
   pick_and_lift
   pick_up_cup
   put_knife_on_chopping_board
-  put_money_in_safe
-  slide_block_to_target
-  take_money_out_safe
-  take_umbrella_out_of_umbrella_stand
 )
 data_dir=/home/theophile_gervet_gmail_com/datasets/hiveformer/raw/3
-image_size="256,256"
-num_episodes=10
+num_episodes=100
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
-    --data_dir $data_dir --image_size $image_size --offline 0 --num_episodes $num_episodes \
+    --data_dir $data_dir --offline 0 --num_episodes $num_episodes \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE
 #  python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
-#    --data_dir $data_dir --image_size $image_size --offline 1 --num_episodes $num_episodes \
+#    --data_dir $data_dir --offline 1 --num_episodes $num_episodes \
 #    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-OFFLINE
 done
 
