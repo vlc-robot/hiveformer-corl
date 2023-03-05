@@ -276,7 +276,6 @@ class RLBenchEnv:
         self.env = Environment(
             self.action_mode, str(data_path), self.obs_config, headless=headless
         )
-        self.gripper_loc_bounds = json.load(open("tasks/10_autolambda_tasks_location_bounds.json", "r"))
         self.image_size = image_size
 
     def get_obs_action(self, obs):
@@ -392,7 +391,6 @@ class RLBenchEnv:
         num_demos: int,
         log_dir: Optional[Path],
         actioner: Actioner,
-        offset: int = 0,
         max_tries: int = 1,
         save_attn: bool = False,
         record_videos: bool = False,
@@ -449,7 +447,6 @@ class RLBenchEnv:
 
         device = actioner.device
 
-        gripper_loc_bounds = self.gripper_loc_bounds[task_str]
         min_position = torch.tensor([
             self.env._scene._workspace_minx + 0.01,
             self.env._scene._workspace_miny + 0.01,
@@ -463,15 +460,10 @@ class RLBenchEnv:
 
         success_rate = 0.0
 
-        fetch_list = [self.get_demo(task_str, variation, episode_index=i)[0]
-                      for i in range(num_demos)]
-
-        fetch_list = fetch_list[offset:]
-
         with torch.no_grad():
-            for demo_id, demo in enumerate(tqdm(fetch_list)):
-                print()
+            for demo_id in range(num_demos):
                 print(f"Starting demo {demo_id}")
+                demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
                 if record_videos and demo_id < num_videos:
                     task_recorder._cam_motion.save_pose()
 
@@ -525,7 +517,7 @@ class RLBenchEnv:
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
 
-                    print(f"Step id {step_id}, action {action}")
+                    print(f"Step id {step_id}")
 
                     if record_videos and demo_id < num_videos:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))

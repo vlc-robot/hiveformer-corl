@@ -31,7 +31,6 @@ class Arguments(tap.Tap):
     device: str = "cuda"
     num_episodes: int = 1
     headless: bool = False
-    offset: int = 0
     max_tries: int = 10
     output: Path = Path(__file__).parent / "records.txt"
     record_actions: bool = False
@@ -280,12 +279,11 @@ if __name__ == "__main__":
                 max_episodes=max_eps_dict[task_str],
                 variation=variation,
                 num_demos=args.num_episodes,
-                offset=args.offset,
                 actioner=actioner,
                 log_dir=log_dir / task_str if args.save_img else None,
                 max_tries=args.max_tries,
                 save_attn=False,
-                record_videos=True,
+                record_videos=False,
                 position_prediction_only=bool(args.position_prediction_only),
                 offline=bool(args.offline)
             )
