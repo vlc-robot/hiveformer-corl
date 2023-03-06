@@ -63,7 +63,7 @@ class Baseline(nn.Module):
 
         history_length = rgb_obs.shape[1]
         instruction = instruction.unsqueeze(1).repeat(1, history_length, 1, 1)[padding_mask]
-        task_id = task_id.unqueeze(1).repeat(1, history_length)[padding_mask]
+        task_id = task_id.unsqueeze(1).repeat(1, history_length)[padding_mask]
         visible_pcd = pcd_obs[padding_mask]
         visible_rgb = rgb_obs[padding_mask]
         curr_gripper = gripper[padding_mask][:, :3]
