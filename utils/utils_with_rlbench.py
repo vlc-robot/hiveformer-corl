@@ -28,6 +28,7 @@ from .video_utils import CircleCameraMotion, TaskRecorder
 from model.released_hiveformer.network import Hiveformer
 from model.non_analogical_baseline.baseline import Baseline
 from model.analogical_network.analogical_network import AnalogicalNetwork
+from .utils_without_rlbench import TASK_TO_ID
 
 
 def task_file_to_task_class(task_file):
@@ -153,7 +154,7 @@ class Actioner:
         self._task = task_str
         instructions = list(self._instructions[task_str][variation])
         self._instr = random.choice(instructions).unsqueeze(0)
-
+        self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
         self._actions = {}
 
     def get_action_from_demo(self, demo: Demo):
@@ -178,7 +179,7 @@ class Actioner:
         padding_mask = torch.ones_like(rgbs[:, :, 0, 0, 0, 0]).bool()
         output: Dict[str, Any] = {"action": None, "attention": {}}
 
-        # Fix order of views
+        # Fix order of views for HiveFormer
         rgbs = rgbs[:, :, [2, 0, 1]]
         pcds = pcds[:, :, [2, 0, 1]]
 
@@ -186,6 +187,7 @@ class Actioner:
             raise ValueError()
 
         self._instr = self._instr.to(rgbs.device)
+        self._task_id = self._task_id.to(rgbs.device)
 
         if type(self._model) in [Hiveformer, Baseline]:
             pred = self._model(
@@ -194,17 +196,11 @@ class Actioner:
                 padding_mask,
                 self._instr,
                 gripper,
+                self._task_id,
             )
         elif type(self._model) == AnalogicalNetwork:
-            # TODO Pass in gt_action_for_support
-            # TODO Pass in task
-            pred = self._model(
-                rgbs,
-                pcds,
-                padding_mask,
-                self._instr,
-                gripper,
-            )
+            # TODO Implement evaluation with analogical network
+            raise NotImplementedError
 
         output["action"] = self._model.compute_action(pred)  # type: ignore
 
