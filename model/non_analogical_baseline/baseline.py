@@ -61,7 +61,7 @@ class Baseline(nn.Module):
                 task,
                 gt_action=None):
         print("rgb_obs.shape", rgb_obs.shape)
-        print("task.shape")
+        print("task.shape", task.shape)
         raise NotImplementedError
 
         history_length = rgb_obs.shape[1]
