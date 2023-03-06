@@ -100,6 +100,7 @@ class Arguments(tap.Tap):
     support_set_size: int = 1
     global_correspondence: int = 0
     num_matching_cross_attn_layers: int = 2
+    task_specific_parameters: int = 0
 
 
 def get_log_dir(args: Arguments) -> Path:
@@ -206,6 +207,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             global_correspondence=args.global_correspondence,
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
             use_instruction=bool(args.use_instruction),
+            task_specific_parameters=bool(args.task_specific_parameters),
         ).to(device)
 
     if hasattr(model, "film_gen") and model.film_gen is not None:

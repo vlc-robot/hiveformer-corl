@@ -6,7 +6,12 @@ import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
 
 from model.utils.position_encodings import RotaryPositionEncoding3D
-from model.utils.layers import RelativeCrossAttentionLayer, FeedforwardLayer
+from model.utils.layers import (
+    RelativeCrossAttentionLayer,
+    FeedforwardLayer,
+    RelativeCrossAttentionModule,
+    TaskSpecificRelativeCrossAttentionModule
+)
 from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
 from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
@@ -29,11 +34,13 @@ class AnalogicalPredictionHead(nn.Module):
                  support_set="others",
                  use_instruction=False,
                  global_correspondence=False,
-                 num_matching_cross_attn_layers=2):
+                 num_matching_cross_attn_layers=2,
+                 task_specific_biases=False,
+                 tasks=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
-        assert rotation_parametrization in ["quat_from_top_ghost", "quat_from_query"]
+        assert rotation_parametrization in ["quat_from_top_ghost"]
         assert support_set in ["self", "others"]
         self.image_size = image_size
         self.rotation_parametrization = rotation_parametrization
@@ -87,22 +94,26 @@ class AnalogicalPredictionHead(nn.Module):
         self.query_embed = nn.Embedding(1, embedding_dim)
 
         # Ghost point cross-attention to visual features and current gripper position
-        self.coarse_ghost_point_cross_attn_layers = nn.ModuleList()
-        self.coarse_ghost_point_ffw_layers = nn.ModuleList()
-        for _ in range(num_ghost_point_cross_attn_layers):
-            self.coarse_ghost_point_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
-            self.coarse_ghost_point_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
-        if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
-            self.fine_ghost_point_cross_attn_layers = nn.ModuleList()
-            self.fine_ghost_point_ffw_layers = nn.ModuleList()
-            for _ in range(num_ghost_point_cross_attn_layers):
-                self.fine_ghost_point_cross_attn_layers.append(RelativeCrossAttentionLayer(embedding_dim, num_attn_heads))
-                self.fine_ghost_point_ffw_layers.append(FeedforwardLayer(embedding_dim, embedding_dim))
+        self.task_specific_biases = task_specific_biases
+        if self.task_specific_biases:
+            self.coarse_ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
+                embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, tasks)
+            if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
+                self.fine_ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
+                embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, tasks)
+            else:
+                self.fine_ghost_point_cross_attn = self.coarse_ghost_point_cross_attn
         else:
-            self.fine_ghost_point_cross_attn_layers = self.coarse_ghost_point_cross_attn_layers
-            self.fine_ghost_point_ffw_layers = self.coarse_ghost_point_ffw_layers
+            self.coarse_ghost_point_cross_attn = RelativeCrossAttentionModule(
+                embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
+            if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
+                self.fine_ghost_point_cross_attn = RelativeCrossAttentionModule(
+                    embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
+            else:
+                self.fine_ghost_point_cross_attn = self.coarse_ghost_point_cross_attn
 
         # Ghost point matching self-attention and cross-attention with support set
+        # TODO If task-specific biases work, adapt this too
         self.matching_cross_attn_layers = nn.ModuleList()
         self.matching_self_attn_layers = nn.ModuleList()
         self.matching_ffw_layers = nn.ModuleList()
@@ -132,7 +143,7 @@ class AnalogicalPredictionHead(nn.Module):
             self.instruction_encoder = nn.Linear(512, embedding_dim)
 
     def forward(self,
-                visible_rgb, visible_pcd, curr_gripper, instruction,
+                visible_rgb, visible_pcd, curr_gripper, instruction, task,
                 padding_mask, gt_action_for_support, gt_action_for_sampling=None):
         """
         Arguments:
@@ -140,6 +151,7 @@ class AnalogicalPredictionHead(nn.Module):
             visible_pcd: (batch, 1 + support, history, num_cameras, 3, height, width) in world coordinates
             curr_gripper: (batch, 1 + support, history, 3)
             instruction: (batch, 1 + support, history, max_instruction_length, 512)
+            task: (batch, 1 + support, history)
             padding_mask: (batch, 1 + support, history)
             gt_action_for_support: ground-truth action used as the support set
              of shape (batch, 1 + support, history, 8) in world coordinates
@@ -159,6 +171,7 @@ class AnalogicalPredictionHead(nn.Module):
         visible_pcd = visible_pcd[padding_mask]
         curr_gripper = curr_gripper[padding_mask]
         instruction = instruction[padding_mask]
+        task = task[padding_mask.cpu().numpy()]
         if gt_action_for_sampling is not None:
             gt_position_for_sampling = gt_action_for_sampling[padding_mask][:, :3].unsqueeze(-2).detach()
         else:
@@ -203,7 +216,7 @@ class AnalogicalPredictionHead(nn.Module):
                 [coarse_ghost_pcd_context_pos, instruction_dummy_pos], dim=1)
         coarse_ghost_pcd_features, coarse_ghost_pcd_pos = self._compute_ghost_point_features(
             coarse_ghost_pcd, coarse_ghost_pcd_context_features, coarse_ghost_pcd_context_pos,
-            total_timesteps, ghost_point_type="coarse"
+            task, total_timesteps, ghost_point_type="coarse"
         )
 
         # Compute coarse ghost point similarity scores with the ground-truth ghost points
@@ -227,7 +240,7 @@ class AnalogicalPredictionHead(nn.Module):
             ) = self._coarse_to_fine(
                 coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_pos, coarse_ghost_pcd_features,
                 fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
-                curr_gripper_features, curr_gripper_pos,
+                task, curr_gripper_features, curr_gripper_pos,
                 instruction_features, instruction_dummy_pos, padding_mask,
                 batch_size, demos_per_task, history_size, num_cameras, total_timesteps, device,
                 gt_position_for_support, gt_position_for_sampling
@@ -348,19 +361,19 @@ class AnalogicalPredictionHead(nn.Module):
 
         return ghost_pcd
 
-    def _compute_ghost_point_features(self, ghost_pcd, context_features, context_pos, batch_size, ghost_point_type):
+    def _compute_ghost_point_features(self,
+                                      ghost_pcd, context_features, context_pos,
+                                      task, batch_size, ghost_point_type):
         """
         Ghost points cross-attend to context features (visual features and current
         gripper position).
         """
         if ghost_point_type == "fine":
             embed = self.fine_ghost_points_embed
-            attn_layers = self.fine_ghost_point_cross_attn_layers
-            ffw_layers = self.fine_ghost_point_ffw_layers
+            attn_layers = self.fine_ghost_point_cross_attn
         elif ghost_point_type == "coarse":
             embed = self.coarse_ghost_points_embed
-            attn_layers = self.coarse_ghost_point_cross_attn_layers
-            ffw_layers = self.coarse_ghost_point_ffw_layers
+            attn_layers = self.fine_ghost_point_cross_attn
 
         # Initialize ghost point features and positional embeddings
         ghost_pcd_pos = self.pcd_pe_layer(ghost_pcd)
@@ -368,12 +381,17 @@ class AnalogicalPredictionHead(nn.Module):
         ghost_pcd_features = embed.weight.unsqueeze(0).repeat(num_ghost_points, batch_size, 1)
 
         # Ghost points cross-attend to visual features and current gripper position
-        for i in range(len(attn_layers)):
-            ghost_pcd_features, _ = attn_layers[i](
+        if self.task_specific_biases:
+            ghost_pcd_features = attn_layers(
+                task=task,
                 query=ghost_pcd_features, value=context_features,
                 query_pos=ghost_pcd_pos, value_pos=context_pos
-            )
-            ghost_pcd_features = ffw_layers[i](ghost_pcd_features)
+            )[-1]
+        else:
+            ghost_pcd_features = attn_layers(
+                query=ghost_pcd_features, value=context_features,
+                query_pos=ghost_pcd_pos, value_pos=context_pos
+            )[-1]
 
         return ghost_pcd_features, ghost_pcd_pos
 
@@ -496,7 +514,7 @@ class AnalogicalPredictionHead(nn.Module):
     def _coarse_to_fine(self,
                         coarse_position, coarse_ghost_pcd, coarse_ghost_pcd_pos, coarse_ghost_pcd_features,
                         fine_visible_rgb_features, fine_visible_pcd, fine_visible_rgb_pos,
-                        curr_gripper_features, curr_gripper_pos,
+                        task, curr_gripper_features, curr_gripper_pos,
                         instruction_features, instruction_dummy_pos, padding_mask,
                         batch_size, demos_per_task, history_size, num_cameras, total_timesteps, device,
                         gt_position_for_support, gt_position_for_sampling):
@@ -538,7 +556,7 @@ class AnalogicalPredictionHead(nn.Module):
             fine_ghost_pcd_pos
         ) = self._compute_ghost_point_features(
             fine_ghost_pcd, fine_ghost_pcd_context_features, fine_ghost_pcd_context_pos,
-            total_timesteps, ghost_point_type="fine"
+            task, total_timesteps, ghost_point_type="fine"
         )
 
         # Compute all ghost point (coarse + fine) similarity scores with the ground-truth ghost points

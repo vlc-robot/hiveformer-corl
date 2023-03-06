@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -20,7 +21,9 @@ class Baseline(nn.Module):
                  separate_coarse_and_fine_layers=False,
                  regress_position_offset=False,
                  visualize_rgb_attn=False,
-                 use_instruction=False):
+                 use_instruction=False,
+                 task_specific_biases=False,
+                 tasks=[]):
         super().__init__()
 
         self.prediction_head = PredictionHead(
@@ -38,6 +41,8 @@ class Baseline(nn.Module):
             regress_position_offset=regress_position_offset,
             visualize_rgb_attn=visualize_rgb_attn,
             use_instruction=use_instruction,
+            task_specific_biases=task_specific_biases,
+            tasks=tasks,
         )
 
     def compute_action(self, pred) -> torch.Tensor:
@@ -53,10 +58,12 @@ class Baseline(nn.Module):
                 padding_mask,
                 instruction,
                 gripper,
+                task,
                 gt_action=None):
 
         history_length = rgb_obs.shape[1]
         instruction = instruction.unsqueeze(1).repeat(1, history_length, 1, 1)[padding_mask]
+        task = task[:, np.newaxis].repeat(history_length, axis=-1)[padding_mask.cpu().numpy()]
         visible_pcd = pcd_obs[padding_mask]
         visible_rgb = rgb_obs[padding_mask]
         curr_gripper = gripper[padding_mask][:, :3]
@@ -72,6 +79,7 @@ class Baseline(nn.Module):
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper,
             instruction=instruction,
+            task=task,
             gt_action=gt_action,
         )
         pred["task"] = None

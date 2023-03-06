@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -20,7 +21,9 @@ class AnalogicalNetwork(nn.Module):
                  support_set="others",
                  use_instruction=False,
                  global_correspondence=False,
-                 num_matching_cross_attn_layers=2):
+                 num_matching_cross_attn_layers=2,
+                 task_specific_biases=False,
+                 tasks=[]):
         super().__init__()
 
         self.prediction_head = AnalogicalPredictionHead(
@@ -38,6 +41,8 @@ class AnalogicalNetwork(nn.Module):
             use_instruction=use_instruction,
             global_correspondence=global_correspondence,
             num_matching_cross_attn_layers=num_matching_cross_attn_layers,
+            task_specific_biases=task_specific_biases,
+            tasks=tasks,
         )
 
     def compute_action(self, pred) -> torch.Tensor:
@@ -53,11 +58,14 @@ class AnalogicalNetwork(nn.Module):
                 padding_mask,
                 instruction,
                 gripper,
+                task,
                 gt_action_for_support,
                 gt_action_for_sampling=None):
 
         history_length = rgb_obs.shape[2]
         instruction = instruction.unsqueeze(2).repeat(1, 1, history_length, 1, 1)
+
+        task = task[:, :, np.newaxis].repeat(history_length, axis=-1)
 
         visible_pcd = pcd_obs
 
@@ -72,6 +80,7 @@ class AnalogicalNetwork(nn.Module):
             visible_pcd=visible_pcd,
             curr_gripper=curr_gripper,
             instruction=instruction,
+            task=task,
             padding_mask=padding_mask,
             gt_action_for_support=gt_action_for_support,
             gt_action_for_sampling=gt_action_for_sampling,

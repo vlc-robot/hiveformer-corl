@@ -107,6 +107,7 @@ class Arguments(tap.Tap):
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
     use_instruction: int = 1
+    task_specific_biases: int = 0
 
     # ---------------------------------------------------------------
     # Our analogical network additional parameters
@@ -165,6 +166,7 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    np.array(sample["task"]),
                     # Provide ground-truth action to bias ghost point sampling at training time
                     gt_action=sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
@@ -175,6 +177,7 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    np.array(sample["task"]).T,  # collate() transposes a list -> compensate for it
                     gt_action_for_support=sample["action"],
                     # Provide ground-truth action to bias ghost point sampling at training time
                     gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_train else None,
@@ -520,6 +523,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             regress_position_offset=bool(args.regress_position_offset),
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
             use_instruction=bool(args.use_instruction),
+            task_specific_biases=bool(args.task_specific_biases),
+            tasks=args.tasks,
         )
     elif args.model == "analogical":
         _model = AnalogicalNetwork(
@@ -537,6 +542,8 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             global_correspondence=args.global_correspondence,
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
             use_instruction=bool(args.use_instruction),
+            task_specific_biases=bool(args.task_specific_biases),
+            tasks=args.tasks,
         )
 
     devices = [torch.device(d) for d in args.devices]
@@ -630,7 +637,7 @@ if __name__ == "__main__":
         "optimizer": optimizer.state_dict(),
     }
     checkpointer = CheckpointCallback(
-        "val-metrics-0/position_l2",
+        "val-metrics-0/final_pos_l2",
         log_dir,
         model_dict,
         val_freq=args.val_freq,
