@@ -60,6 +60,9 @@ class Baseline(nn.Module):
                 gripper,
                 task,
                 gt_action=None):
+        print("rgb_obs.shape", rgb_obs.shape)
+        print("task.shape")
+        raise NotImplementedError
 
         history_length = rgb_obs.shape[1]
         instruction = instruction.unsqueeze(1).repeat(1, history_length, 1, 1)[padding_mask]
