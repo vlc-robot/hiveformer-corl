@@ -22,7 +22,7 @@ import torchvision.transforms.functional as transforms_f
 from torch.utils.data._utils.collate import default_collate
 import einops
 
-from utils.utils_without_rlbench import Instructions, Sample, Camera
+from utils.utils_without_rlbench import Instructions, Sample, Camera, TASK_TO_ID
 
 
 T = TypeVar("T")
@@ -305,6 +305,7 @@ class RLBenchDataset(data.Dataset):
 
         return {
             "frame_id": tframe_ids,
+            "task_id": TASK_TO_ID[task],
             "task": task,
             "variation": variation,
             "rgbs": rgbs,
@@ -502,6 +503,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         return {
             "frame_id": tframe_ids,
             "task": task,
+            "task_id": TASK_TO_ID[task],
             "variation": variation,
             "rgbs": rgbs,
             "pcds": pcds,

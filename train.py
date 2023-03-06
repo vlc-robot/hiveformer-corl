@@ -20,6 +20,7 @@ from utils.utils_without_rlbench import (
     count_parameters,
     get_max_episode_length,
     get_gripper_loc_bounds,
+    TASK_TO_ID
 )
 from dataset import RLBenchDataset, RLBenchAnalogicalDataset
 from model.released_hiveformer.network import Hiveformer
@@ -166,7 +167,7 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
-                    np.array(sample["task"]),
+                    sample["task_id"],
                     # Provide ground-truth action to bias ghost point sampling at training time
                     gt_action=sample["action"] if use_ground_truth_position_for_sampling_train else None,
                 )
@@ -177,7 +178,7 @@ def training(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
-                    np.array(sample["task"]).T,  # collate() transposes a list -> compensate for it
+                    sample["task_id"],
                     gt_action_for_support=sample["action"],
                     # Provide ground-truth action to bias ghost point sampling at training time
                     gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_train else None,
@@ -318,6 +319,7 @@ def validation_step(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    sample["task_id"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
                     gt_action=sample["action"] if use_ground_truth_position_for_sampling_val else None
                 )
@@ -328,6 +330,7 @@ def validation_step(
                     sample["padding_mask"],
                     sample["instr"],
                     sample["gripper"],
+                    sample["task_id"],
                     gt_action_for_support=sample["action"],
                     # DO NOT provide ground-truth action to sample ghost points at validation time
                     gt_action_for_sampling=sample["action"] if use_ground_truth_position_for_sampling_val else None
@@ -524,7 +527,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
             use_instruction=bool(args.use_instruction),
             task_specific_biases=bool(args.task_specific_biases),
-            tasks=args.tasks,
+            task_ids=[TASK_TO_ID[task] for task in args.tasks],
         )
     elif args.model == "analogical":
         _model = AnalogicalNetwork(
@@ -543,7 +546,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
             use_instruction=bool(args.use_instruction),
             task_specific_biases=bool(args.task_specific_biases),
-            tasks=args.tasks,
+            task_ids=[TASK_TO_ID[task] for task in args.tasks],
         )
 
     devices = [torch.device(d) for d in args.devices]
