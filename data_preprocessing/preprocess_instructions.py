@@ -129,8 +129,6 @@ if __name__ == "__main__":
         instructions[task] = {}
 
         variations = [v for v in args.variations if v < task_inst.variation_count()]
-        print("Num available var", task_inst.variation_count())
-        print("Num var", len(variations))
         for variation in variations:
             # check instructions among annotations
             if task in annotations and variation in annotations[task]:

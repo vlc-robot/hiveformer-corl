@@ -24,6 +24,7 @@ class Arguments(tap.Tap):
     max_episodes_per_taskvar: int = 100
     instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
+    out_file: str = "location_bounds.json"
 
     tasks: Tuple[str, ...] = (
         "pick_and_lift",
@@ -84,4 +85,4 @@ if __name__ == "__main__":
     }
 
     pprint.pprint(bounds)
-    json.dump(bounds, open("location_bounds.json", "w"), indent=4)
+    json.dump(bounds, open(args.out_file, "w"), indent=4)

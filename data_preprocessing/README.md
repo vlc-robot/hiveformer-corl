@@ -56,21 +56,13 @@ for task in $(cat $task_file | tr '\n' ' '); do
 done
 ```
 
-### C - Preprocess instructions
+### C - Compute workspace bounds
 ```
 cd $root/hiveformer
-python -m data_preprocessing.preprocess_instructions \
-    --tasks $(cat $task_file | tr '\n' ' ') \
-    --output instructions.pkl \
-    --variations {0..199} \
-    --annotations data_preprocessing/annotations.json
-```
-
-### D - Compute workspace bounds
-```
-cd $root/hiveformer
+task_file=tasks/74_hiveformer_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
-    --dataset $root/datasets/hiveformer/packaged/$train_root
+    --dataset $output_dir/$train_root \
+    --out_file 74_hiveformer_tasks_location_bounds.json
 ```
 
 ## 1 - PerAct Data Generation
@@ -84,9 +76,6 @@ train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
 task_file=tasks/18_peract_tasks.csv
-
-nohup sudo X &
-export DISPLAY=:0.0
 ```
 
 ### A - Generate raw train and val data
@@ -127,4 +116,25 @@ for task in $(cat $task_file | tr '\n' ' '); do
             --tasks=$task
     done
 done
+```
+
+### C - Compute workspace bounds
+```
+cd $root/hiveformer
+task_file=tasks/18_peract_tasks.csv
+python -m data_preprocessing.compute_workspace_bounds \
+    --dataset $output_dir/$train_root \
+    --out_file 18_peract_tasks_location_bounds.json
+```
+
+## 3 - Preprocess Instructions for Both Datasets
+```
+root=/home/theophile_gervet_gmail_com
+cd $root/hiveformer
+task_file=tasks/82_all_tasks.csv
+python -m data_preprocessing.preprocess_instructions \
+    --tasks $(cat $task_file | tr '\n' ' ') \
+    --output instructions.pkl \
+    --variations {0..199} \
+    --annotations data_preprocessing/annotations.json
 ```
