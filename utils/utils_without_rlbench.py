@@ -121,7 +121,7 @@ class LossAndMetrics:
         self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
         self.points_supervised_for_offset = points_supervised_for_offset
-        task_file = Path(__file__).parent.parent / "tasks/106_tasks.csv"
+        task_file = Path(__file__).parent.parent / "tasks/82_all_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
 
