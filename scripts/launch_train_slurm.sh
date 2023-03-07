@@ -70,26 +70,26 @@ num_workers=12
 train_iters=500_000
 task_file=tasks/7_interesting_tasks.csv
 
-batch_size=8
-for task_specific_biases in 0 1; do
-  sbatch train_4gpu_12gb.sh \
-    --devices cuda:0 cuda:1 cuda:2 cuda:3 \
-    --model analogical \
-    --rotation_parametrization "quat_from_top_ghost" \
-    --support_set "others" \
-    --tasks $(cat $task_file | tr '\n' ' ') \
-    --dataset $dataset \
-    --valset $valset \
-    --exp_log_dir $main_dir \
-    --num_workers $num_workers \
-    --batch_size $batch_size \
-    --train_iters $train_iters \
-    --embedding_dim $embedding_dim \
-    --run_log_dir ANALOGY-task_specific_biases-$task_specific_biases
-done
+#batch_size=8
+#for task_specific_biases in 0 1; do
+#  sbatch train_4gpu_12gb.sh \
+#    --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+#    --model analogical \
+#    --rotation_parametrization "quat_from_top_ghost" \
+#    --support_set "others" \
+#    --tasks $(cat $task_file | tr '\n' ' ') \
+#    --dataset $dataset \
+#    --valset $valset \
+#    --exp_log_dir $main_dir \
+#    --num_workers $num_workers \
+#    --batch_size $batch_size \
+#    --train_iters $train_iters \
+#    --embedding_dim $embedding_dim \
+#    --run_log_dir ANALOGY-task_specific_biases-$task_specific_biases
+#done
 
 batch_size=16
-for task_specific_biases in 0 1; do
+for task_specific_biases in 1; do
   sbatch train_4gpu_12gb.sh \
     --devices cuda:0 cuda:1 cuda:2 cuda:3 \
     --model baseline \
