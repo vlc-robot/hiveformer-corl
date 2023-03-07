@@ -88,7 +88,6 @@ class Scene(object):
 
         # Set at the centre of the workspace
         task.get_base().set_position(self._workspace.get_position())
-
         self._initial_task_state = task.get_state()
         self.task = task
         self._initial_task_pose = task.boundary_root().get_orientation()

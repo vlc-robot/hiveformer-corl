@@ -17,7 +17,7 @@ class PlaceCups(Task):
                         range(3)]
         self._cups_boundary = Shape('mug_boundary')
         self._w1 = Dummy('waypoint1')
-        self._w4 = Dummy('waypoint4')
+        self._w5 = Dummy('waypoint5')
         success_detectors = [
             ProximitySensor('success_detector%d' % i) for i in range(3)]
         self._on_peg_conditions = [OrConditions([
@@ -25,7 +25,7 @@ class PlaceCups(Task):
             range(3)]) for ci in range(3)]
         self.register_graspable_objects(self._cups)
         self._initial_relative_cup = self._w1.get_pose(self._cups[0])
-        self._initial_relative_spoke = self._w4.get_pose(self._spokes[0])
+        self._initial_relative_spoke = self._w5.get_pose(self._spokes[0])
 
     def init_episode(self, index: int) -> List[str]:
         self._cups_placed = 0
@@ -59,7 +59,7 @@ class PlaceCups(Task):
 
     def _move_above_next_target(self, waypoint):
         self._w1.set_parent(self._cups[self._cups_placed])
-        self._w4.set_pose(
+        self._w5.set_pose(
             self._initial_relative_spoke,
             relative_to=self._spokes[self._cups_placed])
         self._w1.set_pose(

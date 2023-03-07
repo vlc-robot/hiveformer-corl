@@ -173,7 +173,6 @@ def save_demo(demo, example_path):
 def run(i, lock, task_index, variation_count, results, file_lock, tasks):
     """Each thread will choose one task and variation, and then gather
     all the episodes_per_task for that variation."""
-
     # Initialise each thread with random seed
     np.random.seed(None)
     num_tasks = len(tasks)
@@ -233,6 +232,7 @@ def run(i, lock, task_index, variation_count, results, file_lock, tasks):
             var_target = task_env.variation_count()
             if FLAGS.variations >= 0:
                 var_target = np.minimum(FLAGS.variations, var_target)
+
             if my_variation_count >= var_target:
                 # If we have reached the required number of variations for this
                 # task, then move on to the next task.
@@ -263,8 +263,13 @@ def run(i, lock, task_index, variation_count, results, file_lock, tasks):
         episodes_path = os.path.join(variation_path, EPISODES_FOLDER)
         check_and_make(episodes_path)
 
+        # If we are generating data for more than one variation, divide
+        # the number of episodes per task by the number of variations
+        # We generate more episode than needed, we can always ignore some later
+        episodes_per_taskvar = (FLAGS.episodes_per_task // var_target) + 1
+
         abort_variation = False
-        for ex_idx in range(FLAGS.episodes_per_task):
+        for ex_idx in range(episodes_per_taskvar):
             print('Process', i, '// Task:', task_env.get_name(),
                   '// Variation:', my_variation_count, '// Demo:', ex_idx)
             attempts = 10
@@ -326,9 +331,7 @@ def main(argv):
     check_and_make(FLAGS.save_path)
 
     processes = [Process(
-        target=run, args=(
-            i, lock, task_index, variation_count, result_dict, file_lock,
-            tasks))
+        target=run, args=(i, lock, task_index, variation_count, result_dict, file_lock, tasks))
         for i in range(FLAGS.processes)]
     [t.start() for t in processes]
     [t.join() for t in processes]
@@ -339,4 +342,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-  app.run(main)
+    app.run(main)

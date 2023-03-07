@@ -1,37 +1,39 @@
-## Data Preprocessing
+# Data Generation
 
+## 1 - HiveFormer Data Generation
 ```
 root=/home/theophile_gervet_gmail_com
 data_dir=$root/datasets/hiveformer/raw
 output_dir=$root/datasets/hiveformer/packaged
-train_seed=4
-val_seed=5
+train_dir=74_hiveformer_tasks_train
+val_dir=74_hiveformer_tasks_val
 train_episodes_per_task=100
 val_episodes_per_task=100
-task_file=tasks/74_tasks.csv
+image_size="256,256"
+task_file=tasks/74_hiveformer_tasks.csv
 
 nohup sudo X &
 export DISPLAY=:0.0
 ```
 
-### 1 - Generate raw train and val data
+### A - Generate raw train and val data
 ```
 cd $root/hiveformer/RLBench/tools
 
 python dataset_generator.py \
-    --save_path=$data_dir/$train_seed \
+    --save_path=$data_dir/$train_dir \
     --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
-    --image_size=256,256 \
+    --image_size=$image_size \
     --renderer=opengl \
     --episodes_per_task=$train_episodes_per_task \
     --variations=1 \
     --offset=0 \
     --processes=5
-    
+
 python dataset_generator.py \
-    --save_path=$data_dir/$val_seed \
+    --save_path=$data_dir/$val_dir \
     --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
-    --image_size=256,256 \
+    --image_size=$image_size \
     --renderer=opengl \
     --episodes_per_task=$val_episodes_per_task \
     --variations=1 \
@@ -39,22 +41,22 @@ python dataset_generator.py \
     --processes=5
 ```
 
-### 2 - Preprocess train and val data
+### B - Preprocess train and val data
 ```
 cd $root/hiveformer
 for task in $(cat $task_file | tr '\n' ' '); do
-    for seed in $train_seed $val_seed; do
+    for split_dir in $train_dir $val_dir; do
         python -m data_preprocessing.data_gen \
-            --data_dir=$data_dir/$seed \
-            --output=$output_dir/$seed \
-            --image_size=256,256 \
+            --data_dir=$data_dir/$split_dir \
+            --output=$output_dir/$split_dir \
+            --image_size=$image_size \
             --max_variations=1 \
             --tasks=$task
     done
 done
 ```
 
-### 3 - Preprocess instructions
+### C - Preprocess instructions
 ```
 cd $root/hiveformer
 python -m data_preprocessing.preprocess_instructions \
@@ -64,9 +66,65 @@ python -m data_preprocessing.preprocess_instructions \
     --annotations data_preprocessing/annotations.json
 ```
 
-### 4 - Compute workspace bounds
+### D - Compute workspace bounds
 ```
 cd $root/hiveformer
 python -m data_preprocessing.compute_workspace_bounds \
-    --dataset $root/datasets/hiveformer/packaged/0
+    --dataset $root/datasets/hiveformer/packaged/$train_root
+```
+
+## 1 - PerAct Data Generation
+```
+root=/home/theophile_gervet_gmail_com
+data_dir=$root/datasets/peract/raw
+output_dir=$root/datasets/peract/packaged
+train_dir=18_peract_tasks_train
+val_dir=18_peract_tasks_val
+train_episodes_per_task=100
+val_episodes_per_task=100
+image_size="256,256"
+task_file=tasks/18_peract_tasks.csv
+
+nohup sudo X &
+export DISPLAY=:0.0
+```
+
+### A - Generate raw train and val data
+```
+cd $root/hiveformer/RLBench/tools
+
+python dataset_generator.py \
+    --save_path=$data_dir/$train_dir \
+    --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
+    --image_size=$image_size \
+    --renderer=opengl \
+    --episodes_per_task=$train_episodes_per_task \
+    --variations=-1 \
+    --offset=0 \
+    --processes=5
+    
+python dataset_generator.py \
+    --save_path=$data_dir/$val_dir \
+    --tasks=$(cat $root/hiveformer/$task_file | tr '\n' ',') \
+    --image_size=$image_size \
+    --renderer=opengl \
+    --episodes_per_task=$val_episodes_per_task \
+    --variations=-1 \
+    --offset=0 \
+    --processes=5
+```
+
+### B - Preprocess train and val data
+```
+cd $root/hiveformer
+for task in $(cat $task_file | tr '\n' ' '); do
+    for split_dir in $train_dir $val_dir; do
+        python -m data_preprocessing.data_gen \
+            --data_dir=$data_dir/$split_dir \
+            --output=$output_dir/$split_dir \
+            --image_size=$image_size \
+            --max_variations=60 \
+            --tasks=$task
+    done
+done
 ```

@@ -28,7 +28,6 @@ class PutTrayInOven(Task):
                 'open the oven door, pick up the tray, and put it down on the '
                 'oven shelf']
 
-
     def variation_count(self) -> int:
         return 1
 

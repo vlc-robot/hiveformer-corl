@@ -17,7 +17,7 @@ class PutItemInDrawer(Task):
                          for opt in self._options]
         self._joints = [Joint('drawer_joint_%s' % opt)
                         for opt in self._options]
-        self._waypoint1 = Dummy('waypoint1')
+        self._waypoint1 = Dummy('waypoint2')
         self._item = Shape('item')
         self.register_graspable_objects([self._item])
 
@@ -28,7 +28,7 @@ class PutItemInDrawer(Task):
         success_sensor = ProximitySensor('success_' + option)
         self.register_success_conditions(
             [DetectedCondition(self._item, success_sensor)])
-        return ['put item in %s drawer' % option,
+        return ['put the item in the %s drawer' % option,
                 'put the block away in the %s drawer' % option,
                 'open the %s drawer and place the block inside of it' % option,
                 'leave the block in the %s drawer' % option]

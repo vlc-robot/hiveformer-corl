@@ -114,6 +114,15 @@ from rlbench.tasks.water_plants import WaterPlants
 from rlbench.tasks.weighing_scales import WeighingScales
 from rlbench.tasks.wipe_desk import WipeDesk
 
+# PerAct new and modified tasks
+from rlbench.tasks.place_cups import PlaceCups
+from rlbench.tasks.place_wine_at_rack_location import PlaceWineAtRackLocation
+from rlbench.tasks.push_buttons import PushButtons
+from rlbench.tasks.put_item_in_drawer import PutItemInDrawer
+from rlbench.tasks.reach_and_drag import ReachAndDrag
+from rlbench.tasks.slide_block_to_color_target import SlideBlockToColorTarget
+from rlbench.tasks.sweep_to_dustpan_of_size import SweepToDustpanOfSize
+
 FS10_V1 = {
     'train': [
         ReachTarget,

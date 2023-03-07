@@ -13,12 +13,25 @@ class ReachAndDrag(Task):
         self.register_graspable_objects([self.stick])
         self.cube = Shape('cube')
         self.target = Shape('target0')
+        self.distractor1 = Shape('distractor1')
+        self.distractor2 = Shape('distractor2')
+        self.distractor3 = Shape('distractor3')
 
     def init_episode(self, index: int) -> List[str]:
         self.register_success_conditions([
             DetectedCondition(self.cube, ProximitySensor('success0'))])
         color_name, color_rgb = colors[index]
         self.target.set_color(color_rgb)
+
+        _, distractor1_rgb = colors[(index + 5) % len(colors)]
+        self.distractor1.set_color(distractor1_rgb)
+
+        _, distractor2_rgb = colors[(index + 6) % len(colors)]
+        self.distractor2.set_color(distractor2_rgb)
+
+        _, distractor3_rgb = colors[(index + 7) % len(colors)]
+        self.distractor3.set_color(distractor3_rgb)
+
         return ['use the stick to drag the cube onto the %s target'
                 % color_name,
                 'pick up the stick and use it to push or pull the cube '

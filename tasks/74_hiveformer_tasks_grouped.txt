@@ -6,12 +6,12 @@ meat_on_grill
 change_channel
 tv_on
 tower3
-push_buttons
+push_buttons  # TODO Modified by PerAct, might need to regenerate data
 stack_wine
 
 # TOOLS
 slide_block_to_target
-reach_and_drag
+reach_and_drag  # TODO Modified by PerAct, might need to regenerate data
 take_frame_off_hanger
 water_plants
 hang_frame_on_hanger

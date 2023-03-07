@@ -1,4 +1,4 @@
-## Conda Environment Setup
+# Conda Environment Setup
 
 We train on Matrix without RLbench, and evaluate locally with RLBench.
 
