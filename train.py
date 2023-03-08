@@ -532,6 +532,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             task_ids=[TASK_TO_ID[task] for task in args.tasks],
         )
     elif args.model == "analogical":
+        raise NotImplementedError
         _model = AnalogicalNetwork(
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,

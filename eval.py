@@ -77,11 +77,13 @@ class Arguments(tap.Tap):
     gripper_bounds_buffer: float = 0.0
 
     position_prediction_only: int = 0
-    regress_position_offset: int = 1
+    regress_position_offset: int = 0
 
     # Ghost points
+    num_sampling_level: int = 3
     coarse_to_fine_sampling: int = 1
     fine_sampling_ball_diameter: float = 0.16
+    weight_tying: int = 1
     num_ghost_points: int = 1000
 
     # Model
@@ -91,7 +93,7 @@ class Arguments(tap.Tap):
     num_query_cross_attn_layers: int = 2
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
-    use_instruction: int = 1
+    use_instruction: int = 0
 
     # ---------------------------------------------------------------
     # Our analogical network additional parameters
@@ -185,14 +187,15 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
-            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            weight_tying=bool(args.weight_tying),
+            num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
             use_instruction=bool(args.use_instruction),
         ).to(device)
     elif args.model == "analogical":
+        raise NotImplementedError
         model = AnalogicalNetwork(
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
