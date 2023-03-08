@@ -77,7 +77,7 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     # Data augmentations
-    image_rescale: Tuple[float, float] = (0.75, 1.25)  # (min, max), (1.0, 1.0) for no rescaling
+    image_rescale: str = "0.75,1.25"  # (min, max), "1.0,1.0" for no rescaling
     point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rotation
 
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
@@ -403,7 +403,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             cache_size=args.cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
-            image_rescale=args.image_rescale,
+            image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
             point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
             gripper_loc_bounds=gripper_loc_bounds,
         )
@@ -466,7 +466,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 cache_size=args.cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,
-                image_rescale=args.image_rescale,
+                image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
                 point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
                 gripper_loc_bounds=gripper_loc_bounds,
             )

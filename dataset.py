@@ -273,8 +273,8 @@ class RLBenchDataset(data.Dataset):
         num_iters: Optional[int] = None,
         cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
         training: bool = True,
-        image_rescale=(0.75, 1.25),
-        point_cloud_rotate_yaw_range=0.45,
+        image_rescale=(1.0, 1.0),
+        point_cloud_rotate_yaw_range=0.0,
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
