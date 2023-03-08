@@ -188,21 +188,71 @@ class Resize:
 class Rotate:
     """
     Rotate the point cloud, current gripper, and next ground-truth gripper, while
-    ensuring the current gripper and next ground-truth gripper stay within bounds.
+    ensuring the current gripper and next ground-truth gripper stay within workspace
+    bounds.
     """
-    def __init__(self, gripper_loc_bounds, yaw_range):
-        self.gripper_loc_bounds = gripper_loc_bounds
+    def __init__(self, gripper_loc_bounds, yaw_range, num_tries=10):
+        self.gripper_loc_bounds = torch.from_numpy(gripper_loc_bounds)
         self.yaw_range = np.deg2rad(yaw_range)
+        self.num_tries = num_tries
 
-    def __call__(self, pcds, gripper, action):
-        history_length = pcds.shape[0]
+    def __call__(self, pcds, gripper, action, mask):
+        if self.yaw_range == 0.0:
+            return pcds, gripper, action
+
+        augmentation_rot_4x4 = self._sample_rotation()
+        gripper_rot_4x4 = self._gripper_action_to_matrix(gripper)
+        action_rot_4x4 = self._gripper_action_to_matrix(action)
+
+        for i in range(self.num_tries):
+            gripper_rot_4x4 = augmentation_rot_4x4 @ gripper_rot_4x4
+            action_rot_4x4 = augmentation_rot_4x4 @ action_rot_4x4
+
+            gripper_position, gripper_quaternion = self._gripper_matrix_to_action(gripper_rot_4x4)
+            action_position, action_quaternion = self._gripper_matrix_to_action(action_rot_4x4)
+
+            if self._check_bounds(gripper_position[mask], action_position[mask]):
+                gripper[mask, :3], gripper[mask, 3:7] = gripper_position[mask], gripper_quaternion[mask]
+                action[mask, :3], action[mask, 3:7] = action_position[mask], action_quaternion[mask]
+                pcds[mask] = einops.einsum(
+                    augmentation_rot_4x4[:3, :3], pcds[mask], "c2 c1, t ncam c1 h w -> t ncam c2 h w")
+                break
+
+        return pcds, gripper, action
+
+    def _check_bounds(self, gripper_position, action_position):
+        return (
+            (gripper_position >= self.gripper_loc_bounds[0]).all() and
+            (gripper_position <= self.gripper_loc_bounds[1]).all() and
+            (action_position >= self.gripper_loc_bounds[0]).all() and
+            (action_position <= self.gripper_loc_bounds[1]).all()
+        )
+
+    def _sample_rotation(self):
         yaw = 2 * self.yaw_range * torch.rand(1) - self.yaw_range
         roll = torch.zeros_like(yaw)
         pitch = torch.zeros_like(yaw)
         rot_3x3 = torch3d_tf.euler_angles_to_matrix(torch.stack([roll, pitch, yaw], dim=1), "XYZ")
-        rot_4x4 = torch.eye(4).unsqueeze(0).repeat(history_length, 1, 1)
+        rot_4x4 = torch.eye(4)
+        rot_4x4[:3, :3] = rot_3x3
+        return rot_4x4
+
+    def _gripper_action_to_matrix(self, action):
+        position = action[:, :3]
+        quaternion = action[:, 3:7]
+        # TODO Is the quaternion in the right order?
+        rot_3x3 = torch3d_tf.quaternion_to_matrix(quaternion)
+        rot_4x4 = torch.eye(4).unsqueeze(0).repeat(position.shape[0], 1, 1)
         rot_4x4[:, :3, :3] = rot_3x3
-        raise NotImplementedError
+        rot_4x4[:, :3, 3] = position
+        return rot_4x4
+
+    def _gripper_matrix_to_action(self, matrix):
+        position = matrix[:, :3, 3]
+        rot_3x3 = matrix[:, :3, :3]
+        # TODO Is the quaternion in the right order?
+        quaternion = torch3d_tf.matrix_to_quaternion(rot_3x3)
+        return position, quaternion
 
 
 class RLBenchDataset(data.Dataset):
@@ -327,7 +377,7 @@ class RLBenchDataset(data.Dataset):
         tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
 
         if self._training:
-            # pcds, gripper, action = self._rotate(pcds, gripper, action)
+            pcds, gripper, action = self._rotate(pcds, gripper, action, mask)
             modals = self._resize(rgbs=rgbs, pcds=pcds)
             rgbs = modals["rgbs"]
             pcds = modals["pcds"]

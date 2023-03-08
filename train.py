@@ -82,7 +82,7 @@ class Arguments(tap.Tap):
 
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
     single_task_gripper_loc_bounds: int = 0
-    gripper_bounds_buffer: float = 0.0
+    gripper_bounds_buffer: float = 0.01
 
     # Loss
     position_prediction_only: int = 0
@@ -622,7 +622,7 @@ if __name__ == "__main__":
     else:
         task = None
     gripper_loc_bounds = get_gripper_loc_bounds(
-        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=0.0)
+        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=args.gripper_bounds_buffer)
 
     optimizer, model = get_model(args, gripper_loc_bounds)
 
