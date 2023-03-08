@@ -106,6 +106,7 @@ class LossAndMetrics:
         gripper_loss_coeff=1.0,
         rotation_parametrization="quat_from_query",
         regress_position_offset=False,
+        symmetric_rotation_loss=False,
     ):
         assert position_loss in ["mse", "ce"]
         self.position_loss = position_loss
@@ -119,6 +120,7 @@ class LossAndMetrics:
         self.gripper_loss_coeff = gripper_loss_coeff
         self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
+        self.symmetric_rotation_loss = symmetric_rotation_loss
         task_file = Path(__file__).parent.parent / "tasks/82_all_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -135,7 +137,16 @@ class LossAndMetrics:
         self._compute_position_loss(pred, gt_action[:, :3], losses)
 
         if not self.position_prediction_only:
-            losses["rotation"] = F.mse_loss(pred["rotation"], gt_action[:, 3:7])
+            if self.symmetric_rotation_loss:
+                gt_quat = gt_action[:, 3:7]
+                gt_quat_ = -gt_quat.clone()
+                quat_loss = F.mse_loss(pred["rotation"], gt_quat, reduction='none').mean(1)
+                quat_loss_ = F.mse_loss(pred["rotation"], gt_quat_, reduction='none').mean(1)
+                select_mask = (quat_loss < quat_loss_).float()
+                losses['rotation'] = (select_mask * quat_loss + (1 - select_mask) * quat_loss_).mean()
+            else:
+                losses["rotation"] = F.mse_loss(pred["rotation"], gt_action[:, 3:7])
+
             losses["gripper"] = F.mse_loss(pred["gripper"], gt_action[:, 7:8])
 
             if pred["task"] is not None:
@@ -219,12 +230,23 @@ class LossAndMetrics:
             metrics[f"{task}/pos_l2_final<0.01"] = (task_l2 < 0.01).to(dtype).mean()
 
         if not self.position_prediction_only:
+            # gripper loss
             pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
             true_gripper = outputs[:, 7].bool()
             acc = pred_gripper == true_gripper
             metrics["gripper"] = acc.to(dtype).mean()
 
-            l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
+            # rotation loss
+            if self.symmetric_rotation_loss:
+                gt_quat = outputs[:, 3:7]
+                gt_quat_ = -gt_quat.clone()
+                l1 = (pred["rotation"] - gt_quat).abs().sum(1)
+                l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
+                select_mask = (l1 < l1_).float()
+                l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+            else:
+                l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
+                
             metrics["mean/rot_l1"] = l1.to(dtype).mean()
             metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
 
@@ -233,6 +255,7 @@ class LossAndMetrics:
                 metrics[f"{task}/rot_l1"] = task_l1.to(dtype).mean()
                 metrics[f"{task}/rot_l1<0.05"] = (task_l1 < 0.05).to(dtype).mean()
 
+            # task prediction
             if pred["task"] is not None:
                 task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
                 task = task.to(device).long()
