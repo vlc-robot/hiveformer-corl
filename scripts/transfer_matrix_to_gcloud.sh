@@ -2,8 +2,8 @@
 
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=home/theophile_gervet_gmail_com/hiveformer
-exp_src=03_03_MULTI_TASK
-exp_tgt=03_06_only_10_demos
+exp_src=03_06_task_specific_biases2
+exp_tgt=03_06_task_specific_biases2
 ckpt=best.pth
 
 # Get Tensorboard from source

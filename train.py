@@ -4,7 +4,6 @@ import os
 from collections import defaultdict
 from pathlib import Path
 import torch
-import json
 from torch import nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
@@ -77,6 +76,10 @@ class Arguments(tap.Tap):
     # Our non-analogical baseline parameters
     # ---------------------------------------------------------------
 
+    # Data augmentations
+    image_rescale: Tuple[float, float] = (0.75, 1.25)  # (min, max), (1.0, 1.0) for no rescaling
+    point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rotation
+
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
     single_task_gripper_loc_bounds: int = 0
     gripper_bounds_buffer: float = 0.0
@@ -91,13 +94,13 @@ class Arguments(tap.Tap):
     rotation_loss_coeff: float = 10.0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
-    regress_position_offset: int = 1
+    regress_position_offset: int = 0
     points_supervised_for_offset: str = "fine"  # one of "fine, "closest"
 
     # Ghost points
-    num_sampling_level: int = 2
+    num_sampling_level: int = 3
     fine_sampling_ball_diameter: float = 0.16
-    weight_tying: int = 0
+    weight_tying: int = 1
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
@@ -108,7 +111,7 @@ class Arguments(tap.Tap):
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
-    use_instruction: int = 1
+    use_instruction: int = 0
     task_specific_biases: int = 0
 
     # ---------------------------------------------------------------
@@ -374,7 +377,7 @@ def collate_fn(batch: List[Dict]):
     }
 
 
-def get_train_loader(args: Arguments) -> DataLoader:
+def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
     instruction = load_instructions(
         args.instructions, tasks=args.tasks, variations=args.variations
     )
@@ -401,6 +404,9 @@ def get_train_loader(args: Arguments) -> DataLoader:
             cache_size=args.cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
+            image_rescale=args.image_rescale,
+            point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
+            gripper_loc_bounds=gripper_loc_bounds,
         )
     elif args.model == "analogical":
         # During train, the training split is both the main dataset and the support dataset
@@ -429,7 +435,7 @@ def get_train_loader(args: Arguments) -> DataLoader:
     return loader
 
 
-def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
+def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLoader]]:
     if args.valset is None:
         return None
 
@@ -461,6 +467,9 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
                 cache_size=args.cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,
+                image_rescale=args.image_rescale,
+                point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
+                gripper_loc_bounds=gripper_loc_bounds,
             )
         elif args.model == "analogical":
             # During evaluation, the main dataset is the validation split and the support dataset
@@ -490,16 +499,8 @@ def get_val_loaders(args: Arguments) -> Optional[List[DataLoader]]:
     return loaders
 
 
-def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
+def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiveformer]:
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
-
-    # Gripper workspace is the union of workspaces for all tasks
-    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
-        task = args.tasks[0]
-    else:
-        task = None
-    gripper_loc_bounds = get_gripper_loc_bounds(
-        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=args.gripper_bounds_buffer)
 
     if args.model == "original":
         _model = Hiveformer(
@@ -615,7 +616,15 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    optimizer, model = get_model(args)
+    # Gripper workspace is the union of workspaces for all tasks
+    if args.single_task_gripper_loc_bounds and len(args.tasks) == 1:
+        task = args.tasks[0]
+    else:
+        task = None
+    gripper_loc_bounds = get_gripper_loc_bounds(
+        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=0.0)
+
+    optimizer, model = get_model(args, gripper_loc_bounds)
 
     print()
     print("-" * 100)
@@ -650,10 +659,10 @@ if __name__ == "__main__":
     )
     model.train()
 
-    val_loaders = get_val_loaders(args)
+    val_loaders = get_val_loaders(args, gripper_loc_bounds)
 
     if args.train_iters > 0:
-        train_loader = get_train_loader(args)
+        train_loader = get_train_loader(args, gripper_loc_bounds)
         training(
             model,
             optimizer,

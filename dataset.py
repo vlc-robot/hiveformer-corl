@@ -21,6 +21,7 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
 from torch.utils.data._utils.collate import default_collate
 import einops
+from pytorch3d import transforms as torch3d_tf
 
 from utils.utils_without_rlbench import Instructions, Sample, Camera, TASK_TO_ID
 
@@ -123,39 +124,40 @@ def loader(file: Path) -> Optional[np.ndarray]:
     return None
 
 
-class DataTransform(object):
+class Resize:
+    """
+    Resize and pad/crop the image and aligned point cloud.
+    """
     def __init__(self, scales):
         self.scales = scales
 
     def __call__(self, **kwargs: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
-        Except tensors as T, N, C, H, W
+        Accept tensors as T, N, C, H, W
         """
         keys = list(kwargs.keys())
 
         if len(keys) == 0:
             raise RuntimeError("No args")
 
-        # Continuous range of scales
+        # Sample resize scale from continuous range
         sc = np.random.uniform(*self.scales)
 
         t, n, c, raw_h, raw_w = kwargs[keys[0]].shape
         kwargs = {n: arg.flatten(0, 1) for n, arg in kwargs.items()}
         resized_size = [int(raw_h * sc), int(raw_w * sc)]
 
-        # Resize based on randomly sampled scale
+        # Resize
         kwargs = {
             n: transforms_f.resize(
                 arg,
                 resized_size,
                 transforms.InterpolationMode.NEAREST
-                # if "pc" in n
-                # else transforms.InterpolationMode.BILINEAR,
             )
             for n, arg in kwargs.items()
         }
 
-        # Adding padding if crop size is smaller than the resized size
+        # If resized image is smaller than original, pad it with a reflection
         if raw_h > resized_size[0] or raw_w > resized_size[1]:
             right_pad, bottom_pad = max(raw_h - resized_size[1], 0), max(
                 raw_w - resized_size[0], 0
@@ -169,11 +171,10 @@ class DataTransform(object):
                 for n, arg in kwargs.items()
             }
 
-        # Random Cropping
+        # If resized image is larger than original, crop it
         i, j, h, w = transforms.RandomCrop.get_params(
             kwargs[keys[0]], output_size=(raw_h, raw_w)
         )
-
         kwargs = {n: transforms_f.crop(arg, i, j, h, w) for n, arg in kwargs.items()}
 
         kwargs = {
@@ -182,6 +183,26 @@ class DataTransform(object):
         }
 
         return kwargs
+
+
+class Rotate:
+    """
+    Rotate the point cloud, current gripper, and next ground-truth gripper, while
+    ensuring the current gripper and next ground-truth gripper stay within bounds.
+    """
+    def __init__(self, gripper_loc_bounds, yaw_range):
+        self.gripper_loc_bounds = gripper_loc_bounds
+        self.yaw_range = np.deg2rad(yaw_range)
+
+    def __call__(self, pcds, gripper, action):
+        history_length = pcds.shape[0]
+        yaw = 2 * self.yaw_range * torch.rand(1) - self.yaw_range
+        roll = torch.zeros_like(yaw)
+        pitch = torch.zeros_like(yaw)
+        rot_3x3 = torch3d_tf.euler_angles_to_matrix(torch.stack([roll, pitch, yaw], dim=1), "XYZ")
+        rot_4x4 = torch.eye(4).unsqueeze(0).repeat(history_length, 1, 1)
+        rot_4x4[:, :3, :3] = rot_3x3
+        raise NotImplementedError
 
 
 class RLBenchDataset(data.Dataset):
@@ -198,9 +219,12 @@ class RLBenchDataset(data.Dataset):
         max_episode_length: int,
         cache_size: int,
         max_episodes_per_taskvar: int,
+        gripper_loc_bounds,
         num_iters: Optional[int] = None,
         cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
         training: bool = True,
+        image_rescale=(0.75, 1.25),
+        point_cloud_rotate_yaw_range=0.45,
     ):
         self._cache = Cache(cache_size, loader)
         self._cameras = cameras
@@ -219,7 +243,11 @@ class RLBenchDataset(data.Dataset):
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
 
-        self._transform = DataTransform((0.75, 1.25))
+        self._resize = Resize(scales=image_rescale)
+        self._rotate = Rotate(
+            gripper_loc_bounds=gripper_loc_bounds,
+            yaw_range=point_cloud_rotate_yaw_range
+        )
 
         self._data_dirs = []
         self._episodes = []
@@ -281,11 +309,6 @@ class RLBenchDataset(data.Dataset):
         attns = F.pad(attns, pad_vec)
         rgbs = torch.cat([rgbs, attns], 2)
 
-        if self._training:
-            modals = self._transform(rgbs=rgbs, pcds=pcds)
-            rgbs = modals["rgbs"]
-            pcds = modals["pcds"]
-
         action = torch.cat([episode[2][i] for i in frame_ids])
         shape = [0, 0] * action.dim()
         shape[-1] = pad_len
@@ -302,6 +325,12 @@ class RLBenchDataset(data.Dataset):
 
         tframe_ids = torch.tensor(frame_ids)
         tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
+
+        if self._training:
+            # pcds, gripper, action = self._rotate(pcds, gripper, action)
+            modals = self._resize(rgbs=rgbs, pcds=pcds)
+            rgbs = modals["rgbs"]
+            pcds = modals["pcds"]
 
         return {
             "frame_id": tframe_ids,
@@ -376,7 +405,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
 
-        self._transform = DataTransform((0.75, 1.25))
+        self._resize = Resize(scales=(0.75, 1.25))
 
         self._main_data_dirs = []
         self._main_episodes = []  # Indexed by episode ID
@@ -479,7 +508,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         rgbs = torch.cat([rgbs, attns], 2)
 
         if augment:
-            modals = self._transform(rgbs=rgbs, pcds=pcds)
+            modals = self._resize(rgbs=rgbs, pcds=pcds)
             rgbs = modals["rgbs"]
             pcds = modals["pcds"]
 
