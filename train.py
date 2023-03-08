@@ -95,7 +95,6 @@ class Arguments(tap.Tap):
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
     regress_position_offset: int = 0
-    points_supervised_for_offset: str = "fine"  # one of "fine, "closest"
 
     # Ghost points
     num_sampling_level: int = 3
@@ -643,7 +642,6 @@ if __name__ == "__main__":
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_parametrization=args.rotation_parametrization,
         regress_position_offset=bool(args.regress_position_offset),
-        points_supervised_for_offset=args.points_supervised_for_offset
     )
 
     model_dict = {

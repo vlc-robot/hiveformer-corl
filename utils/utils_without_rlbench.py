@@ -106,7 +106,6 @@ class LossAndMetrics:
         gripper_loss_coeff=1.0,
         rotation_parametrization="quat_from_query",
         regress_position_offset=False,
-        points_supervised_for_offset="fine"
     ):
         assert position_loss in ["mse", "ce"]
         self.position_loss = position_loss
@@ -120,7 +119,6 @@ class LossAndMetrics:
         self.gripper_loss_coeff = gripper_loss_coeff
         self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
-        self.points_supervised_for_offset = points_supervised_for_offset
         task_file = Path(__file__).parent.parent / "tasks/82_all_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
@@ -171,27 +169,19 @@ class LossAndMetrics:
             for j in loss_layers:
                 for i, ghost_pcd_masks_i in enumerate(pred["ghost_pcd_masks_pyramid"]):
                     losses[f"position_ce_level{i}"] = F.cross_entropy(
-                        ghost_pcd_masks_i[j], label_pyramid[i], label_smoothing=self.label_smoothing).mean() * self.position_loss_coeff / len(pred["ghost_pcd_masks_pyramid"])
-
+                        ghost_pcd_masks_i[j], label_pyramid[i],
+                        label_smoothing=self.label_smoothing
+                    ).mean() * self.position_loss_coeff / len(pred["ghost_pcd_masks_pyramid"])
 
             # Supervise offset from the ghost point's position to the predicted position
             num_sampling_level = len(pred['ghost_pcd_masks_pyramid'])
             if pred.get("fine_ghost_pcd_offsets") is not None:
-                if self.points_supervised_for_offset == "fine":
-                    npts = pred["ghost_pcd_pyramid"][-1].shape[-1] // num_sampling_level
-                    pred_with_offset = (pred["ghost_pcd_pyramid"][-1] + pred["fine_ghost_pcd_offsets"])[:, :, -npts:]
-                    losses["position_offset"] = F.mse_loss(
-                        pred_with_offset,
-                        gt_position.unsqueeze(-1).repeat(1, 1, pred_with_offset.shape[-1])
-                    )
-                elif self.points_supervised_for_offset == "closest":
-                    assert False
-                    # b = pred["fine_ghost_pcd"].shape[0]
-                    # losses["position_offset"] = F.mse_loss(
-                    #     (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[
-                    #         torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
-                    #     gt_position
-                    # )
+                npts = pred["ghost_pcd_pyramid"][-1].shape[-1] // num_sampling_level
+                pred_with_offset = (pred["ghost_pcd_pyramid"][-1] + pred["fine_ghost_pcd_offsets"])[:, :, -npts:]
+                losses["position_offset"] = F.mse_loss(
+                    pred_with_offset,
+                    gt_position.unsqueeze(-1).repeat(1, 1, pred_with_offset.shape[-1])
+                )
                 losses["position_offset"] *= (self.position_offset_loss_coeff * self.position_loss_coeff)
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't
@@ -216,20 +206,17 @@ class LossAndMetrics:
         tasks = np.repeat(tasks, padding_mask.shape[-1], axis=-1)[padding_mask.cpu()]
 
         final_pos_l2 = ((pred["position"] - outputs[:, :3]) ** 2).sum(1).sqrt()
-        metrics["mean/final_pos_l2"] = final_pos_l2.to(dtype).mean()
-        metrics["mean/final_pos_l2<0.01"] = (final_pos_l2 < 0.01).to(dtype).mean()
+        metrics["mean/pos_l2_final"] = final_pos_l2.to(dtype).mean()
+        metrics["mean/pos_l2_final<0.01"] = (final_pos_l2 < 0.01).to(dtype).mean()
 
-        if "coarse_position" in pred:
-            coarse_pos_l2 = ((pred["coarse_position"].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
-            metrics["mean/coarse_pos_l2"] = coarse_pos_l2.to(dtype).mean()
-        if "fine_position" in pred:
-            fine_pos_l2 = ((pred["fine_position"].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
-            metrics["mean/fine_pos_l2"] = fine_pos_l2.to(dtype).mean()
+        for i in range(len(pred["position_pyramid"])):
+            pos_l2_i = ((pred["position_pyramid"][i].squeeze(1) - outputs[:, :3]) ** 2).sum(1).sqrt()
+            metrics[f"mean/pos_l2_level{i}"] = pos_l2_i.to(dtype).mean()
 
         for task in np.unique(tasks):
             task_l2 = final_pos_l2[tasks == task]
-            metrics[f"{task}/final_pos_l2"] = task_l2.to(dtype).mean()
-            metrics[f"{task}/final_pos_l2<0.01"] = (task_l2 < 0.01).to(dtype).mean()
+            metrics[f"{task}/pos_l2_final"] = task_l2.to(dtype).mean()
+            metrics[f"{task}/pos_l2_final<0.01"] = (task_l2 < 0.01).to(dtype).mean()
 
         if not self.position_prediction_only:
             pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)

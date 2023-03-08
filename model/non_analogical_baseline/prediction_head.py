@@ -193,12 +193,11 @@ class PredictionHead(nn.Module):
         curr_gripper_features = self.curr_gripper_embed.weight.repeat(batch_size, 1).unsqueeze(0)
 
         ghost_pcd_features_pyramid = []
-        ghost_pcd_features_pyramid_ = []
         ghost_pcd_pyramid = []
-        ghost_pcd_pyramid_ = []
+        ghost_pcd_pyramid_all = []
         position_pyramid = []
         visible_rgb_mask_pyramid = []
-        ghost_pcd_masks_pyramid = []
+        ghost_pcd_masks_pyramid_all = []
 
         for i in range(self.num_sampling_level):
             # Sample ghost points
@@ -247,16 +246,15 @@ class PredictionHead(nn.Module):
                 task_id, batch_size, level=i
             )
 
+            ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
+            ghost_pcd_features_i_all = torch.cat(ghost_pcd_features_pyramid, dim=0)
+
             # Initialize query features
             if i == 0:
                 query_features = self.query_embed.weight.unsqueeze(1).repeat(1, batch_size, 1)
 
-            ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
-            ghost_pcd_features_i_ = torch.cat(ghost_pcd_features_pyramid, dim=0)
-            ghost_pcd_features_pyramid_.append(ghost_pcd_features_i_)
-
-            query_context_features_i = torch.cat([ghost_pcd_context_features_i], dim=0)
-            query_context_pos_i = torch.cat([ghost_pcd_context_pos_i], dim=1)
+            query_context_features_i = ghost_pcd_context_features_i
+            query_context_pos_i = ghost_pcd_context_pos_i
             
             if i == 0:
                 # Given the query is not localized yet, we don't use positional embeddings
@@ -267,32 +265,32 @@ class PredictionHead(nn.Module):
                 query_pos_i = self.pcd_pe_layer(position_pyramid[-1])
                 context_pos_i = query_context_pos_i
 
-            query_features, ghost_pcd_masks_i, visible_rgb_mask_i = self._decode_mask(
-                ghost_pcd_features_i_, ghost_pcd_to_visible_rgb_attn_i, task_id, height, width,
+            query_features, ghost_pcd_masks_i_all, visible_rgb_mask_i = self._decode_mask(
+                ghost_pcd_features_i_all, ghost_pcd_to_visible_rgb_attn_i, task_id, height, width,
                 query_features, query_context_features_i, query_pos=query_pos_i, context_pos=context_pos_i, level=i
             )
 
             ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
             ghost_pcd_pyramid.append(ghost_pcd_i)
-            ghost_pcd_i_ = torch.cat(ghost_pcd_pyramid, dim=-1)
-            ghost_pcd_pyramid_.append(ghost_pcd_i_)
+            ghost_pcd_i_all = torch.cat(ghost_pcd_pyramid, dim=-1)
+            ghost_pcd_pyramid_all.append(ghost_pcd_i_all)
 
-            top_idx = torch.max(ghost_pcd_masks_i[-1], dim=-1).indices
-            position_i = ghost_pcd_i_[torch.arange(batch_size), :, top_idx].unsqueeze(1)
+            top_idx = torch.max(ghost_pcd_masks_i_all[-1], dim=-1).indices
+            position_i = ghost_pcd_i_all[torch.arange(batch_size), :, top_idx].unsqueeze(1)
             position_pyramid.append(position_i)
             visible_rgb_mask_pyramid.append(visible_rgb_mask_i)
-            ghost_pcd_masks_pyramid.append(ghost_pcd_masks_i)
+            ghost_pcd_masks_pyramid_all.append(ghost_pcd_masks_i_all)
 
         # Regress an offset from the ghost point's position to the predicted position
         if self.regress_position_offset:
-            fine_ghost_pcd_offsets = self.ghost_point_offset_predictor(ghost_pcd_features_i_)
+            fine_ghost_pcd_offsets = self.ghost_point_offset_predictor(ghost_pcd_features_i_all)
             fine_ghost_pcd_offsets = einops.rearrange(fine_ghost_pcd_offsets, "npts b c -> b c npts")
         else:
             fine_ghost_pcd_offsets = None
 
-        ghost_pcd = ghost_pcd_i_
-        ghost_pcd_masks = ghost_pcd_masks_i
-        ghost_pcd_features = ghost_pcd_features_i_
+        ghost_pcd = ghost_pcd_i_all
+        ghost_pcd_masks = ghost_pcd_masks_i_all
+        ghost_pcd_features = ghost_pcd_features_i_all
 
         # Predict the next gripper action (position, rotation, gripper opening)
         position, rotation, gripper = self._predict_action(
@@ -308,9 +306,8 @@ class PredictionHead(nn.Module):
             # Auxiliary outputs used to compute the loss or for visualization
             "position_pyramid": position_pyramid,
             "visible_rgb_mask_pyramid": visible_rgb_mask_pyramid,
-            "ghost_pcd_masks_pyramid":  ghost_pcd_masks_pyramid,
-            "ghost_pcd_pyramid": ghost_pcd_pyramid_,
-            "ghost_pcd_features_pyramid": ghost_pcd_features_pyramid_,
+            "ghost_pcd_masks_pyramid":  ghost_pcd_masks_pyramid_all,
+            "ghost_pcd_pyramid": ghost_pcd_pyramid_all,
             "fine_ghost_pcd_offsets": fine_ghost_pcd_offsets if self.regress_position_offset else None,
         }
 
