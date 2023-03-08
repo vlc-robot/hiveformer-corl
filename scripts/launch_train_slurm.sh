@@ -118,10 +118,12 @@ main_dir=exp
 #     --run_log_dir $task
 #done
 
-main_dir=03_08_data_augmentations
+main_dir=03_08_data_augmentations2
 num_workers=2
 batch_size=3
 accumulate_grad_batches=2
+num_sampling_level=2
+regress_position_offset=1
 for task in pick_and_lift pick_up_cup; do
   for image_rescale in "1.0,1.0" "0.75,1.25"; do
     for point_cloud_rotate_yaw_range in 0.0 45.0; do
@@ -133,6 +135,8 @@ for task in pick_and_lift pick_up_cup; do
        --num_workers $num_workers \
        --batch_size $batch_size \
        --accumulate_grad_batches $accumulate_grad_batches \
+       --num_sampling_level $num_sampling_level \
+       --regress_position_offset $regress_position_offset \
        --image_rescale $image_rescale \
        --point_cloud_rotate_yaw_range $point_cloud_rotate_yaw_range \
        --run_log_dir $task-rescale-$image_rescale-rotate-$point_cloud_rotate_yaw_range
