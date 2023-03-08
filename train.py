@@ -79,6 +79,7 @@ class Arguments(tap.Tap):
 
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
     single_task_gripper_loc_bounds: int = 0
+    gripper_bounds_buffer: float = 0.0
 
     # Loss
     position_prediction_only: int = 0
@@ -94,8 +95,9 @@ class Arguments(tap.Tap):
     points_supervised_for_offset: str = "fine"  # one of "fine, "closest"
 
     # Ghost points
-    coarse_to_fine_sampling: int = 1
+    num_sampling_level: int = 2
     fine_sampling_ball_diameter: float = 0.16
+    weight_tying: int = 0
     num_ghost_points: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
@@ -105,7 +107,6 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
-    separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
     use_instruction: int = 1
     task_specific_biases: int = 0
@@ -498,7 +499,7 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
     else:
         task = None
     gripper_loc_bounds = get_gripper_loc_bounds(
-        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=0.0)
+        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=args.gripper_bounds_buffer)
 
     if args.model == "original":
         _model = Hiveformer(
@@ -520,9 +521,9 @@ def get_model(args: Arguments) -> Tuple[optim.Optimizer, Hiveformer]:
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
-            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            weight_tying=bool(args.weight_tying),
+            num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
             use_instruction=bool(args.use_instruction),

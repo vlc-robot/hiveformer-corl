@@ -156,44 +156,42 @@ class LossAndMetrics:
             losses["position_mse"] = F.mse_loss(pred["position"], gt_position) * self.position_loss_coeff
 
         elif self.position_loss == "ce":
-            losses["position_ce"] = []
-
             # Select a normalized Gaussian ball around the ground-truth as a proxy label
             # for a soft cross-entropy loss
-            coarse_l2 = ((pred["coarse_ghost_pcd"] - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
-            coarse_label = torch.softmax(-coarse_l2 / self.ground_truth_gaussian_spread, dim=-1).detach()
-            if pred.get("fine_ghost_pcd") is not None:
-                fine_l2 = ((pred["fine_ghost_pcd"] - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
-                fine_label = torch.softmax(-fine_l2 / self.ground_truth_gaussian_spread, dim=-1).detach()
+            l2_pyramid = []
+            label_pyramid = []
+            for ghost_pcd_i in pred['ghost_pcd_pyramid']:
+                l2_i = ((ghost_pcd_i - gt_position.unsqueeze(-1)) ** 2).sum(1).sqrt()
+                label_i = torch.softmax(-l2_i / self.ground_truth_gaussian_spread, dim=-1).detach()
+                l2_pyramid.append(l2_i)
+                label_pyramid.append(label_i)
 
-            loss_layers = range(
-                len(pred["coarse_ghost_pcd_masks"])) if self.compute_loss_at_all_layers else [-1]
+            loss_layers = range(len(pred['ghost_pcd_masks_pyramid'][0])) if self.compute_loss_at_all_layers else [-1]
 
-            for i in loss_layers:
-                losses["position_ce"].append(F.cross_entropy(
-                    pred["coarse_ghost_pcd_masks"][i], coarse_label, label_smoothing=self.label_smoothing))
-                if pred.get("fine_ghost_pcd") is not None:
-                    losses["position_ce"].append(F.cross_entropy(
-                        pred["fine_ghost_pcd_masks"][i], fine_label, label_smoothing=self.label_smoothing))
+            for j in loss_layers:
+                for i, ghost_pcd_masks_i in enumerate(pred["ghost_pcd_masks_pyramid"]):
+                    losses[f"position_ce_level{i}"] = F.cross_entropy(
+                        ghost_pcd_masks_i[j], label_pyramid[i], label_smoothing=self.label_smoothing).mean() * self.position_loss_coeff / len(pred["ghost_pcd_masks_pyramid"])
 
-            losses["position_ce"] = torch.stack(losses["position_ce"]).mean() * self.position_loss_coeff
 
             # Supervise offset from the ghost point's position to the predicted position
+            num_sampling_level = len(pred['ghost_pcd_masks_pyramid'])
             if pred.get("fine_ghost_pcd_offsets") is not None:
                 if self.points_supervised_for_offset == "fine":
-                    npts = pred["fine_ghost_pcd"].shape[-1] // 2
-                    pred_with_offset = (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[:, :, npts:]
+                    npts = pred["ghost_pcd_pyramid"][-1].shape[-1] // num_sampling_level
+                    pred_with_offset = (pred["ghost_pcd_pyramid"][-1] + pred["fine_ghost_pcd_offsets"])[:, :, -npts:]
                     losses["position_offset"] = F.mse_loss(
                         pred_with_offset,
                         gt_position.unsqueeze(-1).repeat(1, 1, pred_with_offset.shape[-1])
                     )
                 elif self.points_supervised_for_offset == "closest":
-                    b = pred["fine_ghost_pcd"].shape[0]
-                    losses["position_offset"] = F.mse_loss(
-                        (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[
-                            torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
-                        gt_position
-                    )
+                    assert False
+                    # b = pred["fine_ghost_pcd"].shape[0]
+                    # losses["position_offset"] = F.mse_loss(
+                    #     (pred["fine_ghost_pcd"] + pred["fine_ghost_pcd_offsets"])[
+                    #         torch.arange(b), :, torch.min(fine_l2, dim=-1).indices],
+                    #     gt_position
+                    # )
                 losses["position_offset"] *= (self.position_offset_loss_coeff * self.position_loss_coeff)
 
             # Clear gradient on pred["position"] to avoid a memory leak since we don't

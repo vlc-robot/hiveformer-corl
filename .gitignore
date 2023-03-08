@@ -16,3 +16,7 @@ __pycache__
 *.pkl
 experiments/
 xp/
+train_logs
+eval_logs
+02_*
+03_*
