@@ -21,7 +21,10 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as transforms_f
 from torch.utils.data._utils.collate import default_collate
 import einops
-from pytorch3d import transforms as torch3d_tf
+try:
+    from pytorch3d import transforms as torch3d_tf
+except:
+    pass
 
 from utils.utils_without_rlbench import Instructions, Sample, Camera, TASK_TO_ID
 

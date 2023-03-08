@@ -3,7 +3,8 @@
 import torch
 from torchvision import transforms
 from typing import Type, Union, List, Any
-from torchvision.models.resnet import _resnet, BasicBlock, Bottleneck, ResNet, load_state_dict_from_url, model_urls
+from torchvision.models.resnet import _resnet, BasicBlock, Bottleneck, ResNet, model_urls
+from torch.hub import load_state_dict_from_url
 
 
 def load_resnet50(pretrained: bool = False):

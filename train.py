@@ -92,6 +92,7 @@ class Arguments(tap.Tap):
     position_loss_coeff: float = 1.0
     position_offset_loss_coeff: float = 10000.0
     rotation_loss_coeff: float = 10.0
+    symmetric_rotation_loss: int = 0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
     regress_position_offset: int = 0
@@ -642,6 +643,7 @@ if __name__ == "__main__":
         gripper_loss_coeff=args.gripper_loss_coeff,
         rotation_parametrization=args.rotation_parametrization,
         regress_position_offset=bool(args.regress_position_offset),
+        symmetric_rotation_loss=bool(args.symmetric_rotation_loss)
     )
 
     model_dict = {
