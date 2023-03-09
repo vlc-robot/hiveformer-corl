@@ -242,8 +242,7 @@ class Rotate:
 
     def _gripper_action_to_matrix(self, action):
         position = action[:, :3]
-        quaternion = action[:, 3:7]
-        # TODO Is the quaternion in the right order?
+        quaternion = action[:, [6, 3, 4, 5]]
         rot_3x3 = torch3d_tf.quaternion_to_matrix(quaternion)
         rot_4x4 = torch.eye(4).unsqueeze(0).repeat(position.shape[0], 1, 1)
         rot_4x4[:, :3, :3] = rot_3x3
@@ -253,8 +252,7 @@ class Rotate:
     def _gripper_matrix_to_action(self, matrix):
         position = matrix[:, :3, 3]
         rot_3x3 = matrix[:, :3, :3]
-        # TODO Is the quaternion in the right order?
-        quaternion = torch3d_tf.matrix_to_quaternion(rot_3x3)
+        quaternion = torch3d_tf.matrix_to_quaternion(rot_3x3)[:, [1, 2, 3, 0]]
         return position, quaternion
 
 
