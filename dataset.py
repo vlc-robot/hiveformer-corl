@@ -272,7 +272,7 @@ class RLBenchDataset(data.Dataset):
         max_episode_length: int,
         cache_size: int,
         max_episodes_per_taskvar: int,
-        gripper_loc_bounds,
+        gripper_loc_bounds=None,
         num_iters: Optional[int] = None,
         cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
         training: bool = True,
@@ -296,11 +296,12 @@ class RLBenchDataset(data.Dataset):
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
 
-        self._resize = Resize(scales=image_rescale)
-        self._rotate = Rotate(
-            gripper_loc_bounds=gripper_loc_bounds,
-            yaw_range=point_cloud_rotate_yaw_range
-        )
+        if self._training:
+            self._resize = Resize(scales=image_rescale)
+            self._rotate = Rotate(
+                gripper_loc_bounds=gripper_loc_bounds,
+                yaw_range=point_cloud_rotate_yaw_range
+            )
 
         self._data_dirs = []
         self._episodes = []

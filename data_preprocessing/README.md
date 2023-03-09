@@ -61,7 +61,7 @@ done
 cd $root/hiveformer
 task_file=tasks/74_hiveformer_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
-    --dataset $output_dir/$train_root \
+    --dataset $output_dir/$train_dir \
     --out_file 74_hiveformer_tasks_location_bounds.json
 ```
 
@@ -123,7 +123,7 @@ done
 cd $root/hiveformer
 task_file=tasks/18_peract_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
-    --dataset $output_dir/$train_root \
+    --dataset $output_dir/$train_dir \
     --out_file 18_peract_tasks_location_bounds.json
 ```
 

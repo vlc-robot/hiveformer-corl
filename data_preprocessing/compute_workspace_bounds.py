@@ -64,6 +64,7 @@ if __name__ == "__main__":
         max_episodes_per_taskvar=args.max_episodes_per_taskvar,
         cache_size=args.cache_size,
         cameras=args.cameras,  # type: ignore
+        training=False
     )
 
     bounds = {task: [] for task in args.tasks}
