@@ -309,12 +309,14 @@ class RLBenchDataset(data.Dataset):
         for root, (task, var) in itertools.product(self._root, taskvar):
             data_dir = root / f"{task}+{var}"
             if not data_dir.is_dir():
-                raise ValueError(f"Can't find dataset folder {data_dir}")
+                print(f"Can't find dataset folder {data_dir}")
+                continue
             episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
             episodes = episodes[: self._max_episodes_per_taskvar]
             num_episodes = len(episodes)
             if num_episodes == 0:
-                raise ValueError(f"Can't find episodes at folder {data_dir}")
+                print(f"Can't find episodes at folder {data_dir}")
+                continue
             self._data_dirs.append(data_dir)
             self._episodes += episodes
             self._num_episodes += num_episodes
