@@ -73,8 +73,9 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     visualize_rgb_attn: int = 0
+    gripper_loc_bounds_file: str = "tasks/10_autolambda_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
-    gripper_bounds_buffer: float = 0.0
+    gripper_bounds_buffer: float = 0.01
 
     position_prediction_only: int = 0
     regress_position_offset: int = 0
@@ -165,7 +166,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     else:
         task = None
     gripper_loc_bounds = get_gripper_loc_bounds(
-        "tasks/10_autolambda_tasks_location_bounds.json", task=task, buffer=args.gripper_bounds_buffer)
+        args.gripper_loc_bounds_file, task=task, buffer=args.gripper_bounds_buffer)
 
     if args.model == "original":
         model = Hiveformer(
