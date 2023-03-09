@@ -74,6 +74,7 @@ if __name__ == "__main__":
 
     for i in range(len(dataset)):
         ep = dataset[i]
+        print(i, dataset[i]["task"])
         bounds[ep["task"]].append(ep["action"][ep["padding_mask"], :3])
 
     bounds = {
