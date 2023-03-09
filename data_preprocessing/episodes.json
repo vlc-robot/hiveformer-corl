@@ -79,6 +79,7 @@
 	    "slide_cabinet_open_and_place_cups": 9,
         "solve_puzzle": 7,
         "sweep_to_dustpan": 5,
+        "sweep_to_dustpan_of_size": 5,
         "push_button": 2,
         "push_buttons": 6,
         "push_repeated_buttons": 8,
