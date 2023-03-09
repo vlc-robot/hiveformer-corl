@@ -44,38 +44,38 @@ class Arguments(tap.Tap):
 if __name__ == "__main__":
     args = Arguments().parse_args()
 
-    instruction = load_instructions(
-        args.instructions, tasks=args.tasks, variations=args.variations
-    )
-
-    taskvar = [
-        (task, var)
-        for task, var_instr in instruction.items()
-        for var in var_instr.keys()
-    ]
-    max_episode_length = get_max_episode_length(args.tasks, args.variations)
-
-    dataset = RLBenchDataset(
-        root=args.dataset,
-        image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
-        taskvar=taskvar,
-        instructions=instruction,
-        max_episode_length=max_episode_length,
-        max_episodes_per_taskvar=args.max_episodes_per_taskvar,
-        cache_size=args.cache_size,
-        cameras=args.cameras,  # type: ignore
-        training=False
-    )
-
     bounds = {task: [] for task in args.tasks}
 
-    print(f"Computing gripper location bounds for tasks {args.tasks} from dataset of "
-          f"length {len(dataset)}")
+    for task in args.tasks:
+        instruction = load_instructions(
+            args.instructions, tasks=[task], variations=args.variations
+        )
 
-    for i in range(len(dataset)):
-        ep = dataset[i]
-        print(i, dataset[i]["task"])
-        bounds[ep["task"]].append(ep["action"][ep["padding_mask"], :3])
+        taskvar = [
+            (task, var)
+            for task, var_instr in instruction.items()
+            for var in var_instr.keys()
+        ]
+        max_episode_length = get_max_episode_length([task], args.variations)
+
+        dataset = RLBenchDataset(
+            root=args.dataset,
+            image_size=tuple(int(x) for x in args.image_size.split(",")),  # type: ignore
+            taskvar=taskvar,
+            instructions=instruction,
+            max_episode_length=max_episode_length,
+            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            cache_size=args.cache_size,
+            cameras=args.cameras,  # type: ignore
+            training=False
+        )
+
+        print(f"Computing gripper location bounds for task {task} from dataset of "
+              f"length {len(dataset)}")
+
+        for i in range(len(dataset)):
+            ep = dataset[i]
+            bounds[ep["task"]].append(ep["action"][ep["padding_mask"], :3])
 
     bounds = {
         task: [
