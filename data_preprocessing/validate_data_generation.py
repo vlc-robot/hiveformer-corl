@@ -3,12 +3,14 @@ import glob
 
 RAW_DIR = f"/projects/katefgroup/analogical_manipulation/rlbench/raw"
 PACKAGED_DIR = f"/projects/katefgroup/analogical_manipulation/rlbench/packaged"
-TRAIN_DIR = "18_peract_tasks_train"
-VAL_DIR = "18_peract_tasks_val"
+# TRAIN_DIR = "18_peract_tasks_train"
+# VAL_DIR = "18_peract_tasks_val"
+TRAIN_DIR = "74_hiveformer_tasks_train"
+VAL_DIR = "74_hiveformer_tasks_val"
 
 
 if __name__ == "__main__":
-    for split in [TRAIN_DIR, VAL_DIR]:
+    for split in [TRAIN_DIR]:
         print()
         print()
         print()
