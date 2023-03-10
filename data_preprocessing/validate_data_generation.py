@@ -1,24 +1,30 @@
 import glob
 
 
-ROOT = "/home/zhouxian/git"
-DATA_DIR = f"{ROOT}/datasets/raw"
-OUTPUT_DIR = f"{ROOT}/datasets/packaged"
+RAW_DIR = f"/projects/katefgroup/analogical_manipulation/rlbench/raw"
+PACKAGED_DIR = f"/projects/katefgroup/analogical_manipulation/rlbench/packaged"
 TRAIN_DIR = "18_peract_tasks_train"
 VAL_DIR = "18_peract_tasks_val"
-TASK_FILE = "tasks/74_hiveformer_tasks.csv"
 
 
 if __name__ == "__main__":
-    raw_val_dirs = glob.glob(f"{DATA_DIR}/{VAL_DIR}/*")
-    for raw_val_dir in raw_val_dirs:
-        task = raw_val_dir.split("/")[-1]
-        variation_dirs = glob.glob(f"{raw_val_dir}/*")
-        eps_per_variation = [len(glob.glob(f"{variation_dir}/episodes/*"))
-                             for variation_dir in variation_dirs]
-        print("=========================================")
-        print(task)
-        print(f"Variations: {len(variation_dirs)}")
-        print(f"Episodes per variation: {eps_per_variation}")
-        print(f"Total episodes: {sum(eps_per_variation)}")
+    for split in [TRAIN_DIR, VAL_DIR]:
         print()
+        print()
+        print()
+        print(split)
+
+        raw_dirs = glob.glob(f"{RAW_DIR}/{split}/*")
+
+        for raw_val_dir in raw_dirs:
+            task = raw_val_dir.split("/")[-1]
+            raw_variation_dirs = glob.glob(f"{raw_val_dir}/*")
+            packaged_variation_dirs = glob.glob(f"{PACKAGED_DIR}/{split}/{task}*")
+            raw_eps_per_variation = [len(glob.glob(f"{d}/episodes/*")) for d in raw_variation_dirs]
+            packaged_eps_per_variation = [len(glob.glob(f"{d}/*")) for d in packaged_variation_dirs]
+            print("=========================================")
+            print(task)
+            print(f"Variations: {len(raw_variation_dirs)} raw, {len(packaged_variation_dirs)} packaged")
+            print(f"Episodes per variation: {raw_eps_per_variation}")
+            print(f"Total episodes: {sum(raw_eps_per_variation)}")
+            print()
