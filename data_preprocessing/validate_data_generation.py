@@ -28,4 +28,3 @@ if __name__ == "__main__":
             print(f"Variations: {len(raw_variation_dirs)} raw, {len(packaged_variation_dirs)} packaged")
             print(f"Episodes per variation: {raw_eps_per_variation} raw, {packaged_eps_per_variation} packaged")
             print(f"Total episodes: {sum(raw_eps_per_variation)} raw, {sum(packaged_eps_per_variation)} packaged")
-            print()
