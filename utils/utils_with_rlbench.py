@@ -390,7 +390,7 @@ class RLBenchEnv:
         max_tries: int = 1,
         save_attn: bool = False,
         record_videos: bool = False,
-        num_videos: int = 3,
+        num_videos: int = 10,
         record_demo_video: bool = False,
         offline: bool = True,
         position_prediction_only: bool = False

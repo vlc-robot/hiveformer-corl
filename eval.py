@@ -57,6 +57,8 @@ class Arguments(tap.Tap):
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
 
+    record_videos: int = 0
+
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
     # ---------------------------------------------------------------
@@ -290,7 +292,7 @@ if __name__ == "__main__":
                 log_dir=log_dir / task_str if args.save_img else None,
                 max_tries=args.max_tries,
                 save_attn=False,
-                record_videos=False,
+                record_videos=bool(args.record_videos),
                 position_prediction_only=bool(args.position_prediction_only),
                 offline=bool(args.offline)
             )

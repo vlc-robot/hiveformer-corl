@@ -1,24 +1,20 @@
-exp=03_08_data_augmentations3
+exp=03_05_baseline_single_task_vs_multi_task
 ckpts=(
-  pick_and_lift-rescale-1.0,1.0-rotate-0.0_version156509
-  pick_and_lift-rescale-1.0,1.0-rotate-45.0_version156510
-  pick_up_cup-rescale-1.0,1.0-rotate-0.0_version156511
-  pick_up_cup-rescale-1.0,1.0-rotate-45.0_version156512
+  pick_and_lift_version155686
+  pick_up_cup_version155687
 )
 tasks=(
   pick_and_lift
-  pick_and_lift
-  pick_up_cup
   pick_up_cup
 )
 data_dir=/home/theophile_gervet_gmail_com/datasets/raw/10_hiveformer_tasks_val
-num_episodes=50
+num_episodes=10
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
     --data_dir $data_dir --offline 0 --num_episodes $num_episodes --num_sampling_level 2 --regress_position_offset 1 \
-    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE
+    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 1
 done
 
 
