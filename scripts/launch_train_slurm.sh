@@ -122,50 +122,54 @@ main_dir=exp
 #     --run_log_dir $task
 #done
 
-main_dir=03_08_data_augmentations3
+#main_dir=03_08_data_augmentations3
+#num_workers=2
+#batch_size=3
+#accumulate_grad_batches=2
+#num_sampling_level=2
+#regress_position_offset=1
+#for task in pick_and_lift pick_up_cup; do
+#  for image_rescale in "1.0,1.0"; do
+#    for point_cloud_rotate_yaw_range in 0.0 45.0; do
+#      sbatch train_1gpu_12gb.sh \
+#       --tasks $task \
+#       --dataset $dataset \
+#       --valset $valset \
+#       --exp_log_dir $main_dir \
+#       --num_workers $num_workers \
+#       --batch_size $batch_size \
+#       --accumulate_grad_batches $accumulate_grad_batches \
+#       --num_sampling_level $num_sampling_level \
+#       --regress_position_offset $regress_position_offset \
+#       --image_rescale $image_rescale \
+#       --point_cloud_rotate_yaw_range $point_cloud_rotate_yaw_range \
+#       --run_log_dir $task-rescale-$image_rescale-rotate-$point_cloud_rotate_yaw_range
+#    done
+#  done
+#done
+
+main_dir=03_09_peract_setting
 num_workers=2
 batch_size=3
 accumulate_grad_batches=2
 num_sampling_level=2
 regress_position_offset=1
-for task in pick_and_lift pick_up_cup; do
-  for image_rescale in "1.0,1.0"; do
-    for point_cloud_rotate_yaw_range in 0.0 45.0; do
-      sbatch train_1gpu_12gb.sh \
-       --tasks $task \
-       --dataset $dataset \
-       --valset $valset \
-       --exp_log_dir $main_dir \
-       --num_workers $num_workers \
-       --batch_size $batch_size \
-       --accumulate_grad_batches $accumulate_grad_batches \
-       --num_sampling_level $num_sampling_level \
-       --regress_position_offset $regress_position_offset \
-       --image_rescale $image_rescale \
-       --point_cloud_rotate_yaw_range $point_cloud_rotate_yaw_range \
-       --run_log_dir $task-rescale-$image_rescale-rotate-$point_cloud_rotate_yaw_range
-    done
-  done
+task_file=tasks/18_peract_tasks.csv
+gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
+valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
+for task in $(cat $task_file | tr '\n' ' '); do
+  sbatch train_1gpu_12gb.sh \
+   --tasks $task \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --num_workers $num_workers \
+   --batch_size $batch_size \
+   --num_sampling_level $num_sampling_level \
+   --regress_position_offset $regress_position_offset \
+   --accumulate_grad_batches $accumulate_grad_batches \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --variations {0..199} \
+   --run_log_dir $task
 done
-
-#main_dir=03_09_peract_setting
-#num_workers=2
-#batch_size=3
-#accumulate_grad_batches=2
-#task_file=tasks/18_peract_tasks.csv
-#gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
-#dataset=TODO
-#valset=TODO
-#for task in $(cat $task_file | tr '\n' ' '); do
-#  sbatch train_1gpu_12gb.sh \
-#   --tasks $task \
-#   --dataset $dataset \
-#   --valset $valset \
-#   --exp_log_dir $main_dir \
-#   --num_workers $num_workers \
-#   --batch_size $batch_size \
-#   --accumulate_grad_batches $accumulate_grad_batches \
-#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-#   --variations {0..199} \
-#   --run_log_dir $task
-#done

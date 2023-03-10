@@ -1,29 +1,23 @@
-exp=03_06_only_10_demos
+exp=03_08_data_augmentations3
 ckpts=(
-  pick_and_lift_version155686
-  put_knife_on_chopping_board_version155688
-  take_money_out_safe_version155691
-  take_umbrella_out_of_umbrella_stand_version155692
-  put_money_in_safe_version155689
-  slide_block_to_target_version155690
-  pick_up_cup_version155687
+  pick_and_lift-rescale-1.0,1.0-rotate-0.0_version156509
+  pick_and_lift-rescale-1.0,1.0-rotate-45.0_version156510
+  pick_up_cup-rescale-1.0,1.0-rotate-0.0_version156511
+  pick_up_cup-rescale-1.0,1.0-rotate-45.0_version156512
 )
 tasks=(
   pick_and_lift
-  put_knife_on_chopping_board
-  take_money_out_safe
-  take_umbrella_out_of_umbrella_stand
-  put_money_in_safe
-  slide_block_to_target
+  pick_and_lift
+  pick_up_cup
   pick_up_cup
 )
-data_dir=/home/theophile_gervet_gmail_com/datasets/hiveformer/raw/3
+data_dir=/home/theophile_gervet_gmail_com/datasets/raw/10_hiveformer_tasks_val
 num_episodes=50
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
-    --data_dir $data_dir --offline 0 --use_instruction 0 --num_episodes $num_episodes \
+    --data_dir $data_dir --offline 0 --num_episodes $num_episodes --num_sampling_level 2 --regress_position_offset 1 \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE
 done
 
