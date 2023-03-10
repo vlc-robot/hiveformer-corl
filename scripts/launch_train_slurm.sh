@@ -184,8 +184,8 @@ num_workers=2
 batch_size=3
 accumulate_grad_batches=2
 gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
-dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
-valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+dataset=/home/tgervet/datasets/hiveformer/packaged/2
+valset=/home/tgervet/datasets/hiveformer/packaged/3
 
 num_sampling_level=2
 regress_position_offset=1
