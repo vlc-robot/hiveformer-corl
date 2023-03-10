@@ -10,5 +10,5 @@ TASK_FILE = "tasks/74_hiveformer_tasks.csv"
 
 
 if __name__ == "__main__":
-    raw_files = glob.glob(f"{DATA_DIR}/{TRAIN_DIR}/*")
+    raw_files = glob.glob(f"{DATA_DIR}/{VAL_DIR}/*")
     print(raw_files)
