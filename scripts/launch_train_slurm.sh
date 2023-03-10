@@ -167,6 +167,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --exp_log_dir $main_dir \
    --num_workers $num_workers \
    --batch_size $batch_size \
+   --batch_size_val $batch_size \
    --num_sampling_level $num_sampling_level \
    --regress_position_offset $regress_position_offset \
    --accumulate_grad_batches $accumulate_grad_batches \
@@ -196,6 +197,7 @@ done
 #   --exp_log_dir $main_dir \
 #   --num_workers $num_workers \
 #   --batch_size $batch_size \
+#   --batch_size_val $batch_size_val \
 #   --num_sampling_level $num_sampling_level \
 #   --regress_position_offset $regress_position_offset \
 #   --accumulate_grad_batches $accumulate_grad_batches \
@@ -212,7 +214,7 @@ done
 #   --valset $valset \
 #   --exp_log_dir $main_dir \
 #   --num_workers $num_workers \
-#   --batch_size $batch_size \
+#   --batch_size_val $batch_size_val \
 #   --num_sampling_level $num_sampling_level \
 #   --regress_position_offset $regress_position_offset \
 #   --accumulate_grad_batches $accumulate_grad_batches \
