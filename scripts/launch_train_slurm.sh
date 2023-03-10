@@ -154,6 +154,7 @@ batch_size=3
 accumulate_grad_batches=2
 num_sampling_level=2
 regress_position_offset=1
+use_instruction=1
 task_file=tasks/18_peract_tasks.csv
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
@@ -171,5 +172,50 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --accumulate_grad_batches $accumulate_grad_batches \
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
    --variations {0..199} \
-   --run_log_dir $task
+   --use_instruction $use_instruction \
+   --run_log_dir $task-WITH-INSTRUCTION
 done
+
+
+
+#main_dir=03_10_improve_pick
+#num_workers=2
+#batch_size=3
+#accumulate_grad_batches=2
+#gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
+#dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+#
+#num_sampling_level=2
+#regress_position_offset=1
+#for task in pick_and_lift pick_up_cup; do
+#  sbatch train_1gpu_12gb.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --num_workers $num_workers \
+#   --batch_size $batch_size \
+#   --num_sampling_level $num_sampling_level \
+#   --regress_position_offset $regress_position_offset \
+#   --accumulate_grad_batches $accumulate_grad_batches \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --run_log_dir $task-two-levels-with-offset
+#done
+#
+#num_sampling_level=3
+#regress_position_offset=0
+#for task in pick_and_lift pick_up_cup; do
+#  sbatch train_1gpu_12gb.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --num_workers $num_workers \
+#   --batch_size $batch_size \
+#   --num_sampling_level $num_sampling_level \
+#   --regress_position_offset $regress_position_offset \
+#   --accumulate_grad_batches $accumulate_grad_batches \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --run_log_dir $task-three-levels-no-offset
+#done
