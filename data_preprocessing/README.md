@@ -3,8 +3,8 @@
 ## 1 - HiveFormer Data Generation
 ```
 root=/home/theophile_gervet_gmail_com
-data_dir=$root/datasets/hiveformer/raw
-output_dir=$root/datasets/hiveformer/packaged
+data_dir=$root/datasets/raw
+output_dir=$root/datasets/packaged
 train_dir=74_hiveformer_tasks_train
 val_dir=74_hiveformer_tasks_val
 train_episodes_per_task=100
@@ -59,8 +59,8 @@ done
 ## 1 - PerAct Data Generation
 ```
 root=/home/theophile_gervet_gmail_com
-data_dir=$root/datasets/peract/raw
-output_dir=$root/datasets/peract/packaged
+data_dir=$root/datasets/raw
+output_dir=$root/datasets/packaged
 train_dir=18_peract_tasks_train
 val_dir=18_peract_tasks_val
 train_episodes_per_task=100
@@ -127,7 +127,7 @@ python -m data_preprocessing.preprocess_instructions \
 root=/home/theophile_gervet_gmail_com
 cd $root/hiveformer
 
-output_dir=$root/datasets/hiveformer/packaged
+output_dir=$root/datasets/packaged
 train_dir=74_hiveformer_tasks_train
 task_file=tasks/74_hiveformer_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
@@ -135,7 +135,7 @@ python -m data_preprocessing.compute_workspace_bounds \
     --out_file 74_hiveformer_tasks_location_bounds.json \
     --tasks $(cat $task_file | tr '\n' ' ')
 
-output_dir=$root/datasets/peract/packaged
+output_dir=$root/datasets/packaged
 train_dir=18_peract_tasks_train
 task_file=tasks/18_peract_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
