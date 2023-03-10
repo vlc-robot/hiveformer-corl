@@ -14,6 +14,6 @@ if __name__ == "__main__":
     for raw_val_dir in raw_val_dirs:
         task = raw_val_dir.split("/")[-1]
         variation_dirs = glob.glob(f"{raw_val_dir}/*")
-        eps_per_variation = [len(glob.glob(f"{variation_dir}/*/episodes/*"))
+        eps_per_variation = [len(glob.glob(f"{variation_dir}/episodes/*"))
                              for variation_dir in variation_dirs]
         print(f"{task}: {len(variation_dirs)} variations, {eps_per_variation} episodes per variation")
