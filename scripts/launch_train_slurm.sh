@@ -181,30 +181,31 @@ main_dir=exp
 
 main_dir=03_10_improve_pick
 num_workers=2
-batch_size=3
 accumulate_grad_batches=2
 gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 
-num_sampling_level=2
-regress_position_offset=1
-for task in pick_and_lift pick_up_cup; do
-  sbatch train_1gpu_12gb.sh \
-   --tasks $task \
-   --dataset $dataset \
-   --valset $valset \
-   --exp_log_dir $main_dir \
-   --num_workers $num_workers \
-   --batch_size $batch_size \
-   --batch_size_val $batch_size \
-   --num_sampling_level $num_sampling_level \
-   --regress_position_offset $regress_position_offset \
-   --accumulate_grad_batches $accumulate_grad_batches \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --run_log_dir $task-two-levels-with-offset
-done
+#batch_size=3
+#num_sampling_level=2
+#regress_position_offset=1
+#for task in pick_and_lift pick_up_cup; do
+#  sbatch train_1gpu_12gb.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --num_workers $num_workers \
+#   --batch_size $batch_size \
+#   --batch_size_val $batch_size \
+#   --num_sampling_level $num_sampling_level \
+#   --regress_position_offset $regress_position_offset \
+#   --accumulate_grad_batches $accumulate_grad_batches \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --run_log_dir $task-two-levels-with-offset
+#done
 
+batch_size=2
 num_sampling_level=3
 regress_position_offset=0
 for task in pick_and_lift pick_up_cup; do
