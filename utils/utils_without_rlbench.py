@@ -249,11 +249,13 @@ class LossAndMetrics:
                 
             metrics["mean/rot_l1"] = l1.to(dtype).mean()
             metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
+            metrics["mean/rot_l1<0.025"] = (l1 < 0.025).to(dtype).mean()
 
             for task in np.unique(tasks):
                 task_l1 = l1[tasks == task]
                 metrics[f"{task}/rot_l1"] = task_l1.to(dtype).mean()
                 metrics[f"{task}/rot_l1<0.05"] = (task_l1 < 0.05).to(dtype).mean()
+                metrics[f"{task}/rot_l1<0.025"] = (task_l1 < 0.025).to(dtype).mean()
 
             # task prediction
             if pred["task"] is not None:

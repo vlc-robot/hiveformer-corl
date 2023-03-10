@@ -55,6 +55,7 @@ class Arguments(tap.Tap):
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     num_workers: int = 2
     batch_size: int = 16
+    batch_size_val: int = 16
     lr: float = 1e-4
     train_iters: int = 200_000
 
@@ -103,6 +104,7 @@ class Arguments(tap.Tap):
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1
     num_ghost_points: int = 1000
+    num_ghost_points_val: int = 1000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
@@ -357,7 +359,7 @@ def validation_step(
             for n, l in metrics.items():
                 key = f"val-metrics-{val_id}/{n}"
                 writer.add_scalar(key, l, step_id + i)
-                if key not in metrics:
+                if key not in values:
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
@@ -490,7 +492,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
             )
         loader = DataLoader(
             dataset=dataset,
-            batch_size=args.batch_size,
+            batch_size=args.batch_size_val,
             shuffle=True,
             num_workers=0,
             collate_fn=collate_fn,
@@ -523,6 +525,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
+            num_ghost_points_val=args.num_ghost_points_val,
             weight_tying=bool(args.weight_tying),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
@@ -573,7 +576,15 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
 
     if args.checkpoint is not None:
         model_dict = torch.load(args.checkpoint, map_location="cpu")
-        _model.load_state_dict(model_dict["weight"])
+        model_dict_weight = {}
+        for key in model_dict["weight"]:
+            _key = key[7:]
+            if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+                _key = _key[:46] + _key[48:]
+            if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+                _key = _key[:46] + _key[48:]
+            model_dict_weight[_key] = model_dict["weight"][key]
+        _model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])
 
     model_params = count_parameters(_model)

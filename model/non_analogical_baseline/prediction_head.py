@@ -26,6 +26,7 @@ class PredictionHead(nn.Module):
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
+                 num_ghost_points_val=1000,
                  weight_tying=False,
                  num_sampling_level=2,
                  fine_sampling_ball_diameter=0.08,
@@ -43,6 +44,7 @@ class PredictionHead(nn.Module):
         self.image_size = image_size
         self.rotation_parametrization = rotation_parametrization
         self.num_ghost_points = num_ghost_points // num_sampling_level
+        self.num_ghost_points_val = num_ghost_points_val // num_sampling_level
         self.num_sampling_level = num_sampling_level
         self.sampling_ball_diameter_pyramid = [None, fine_sampling_ball_diameter, fine_sampling_ball_diameter/4.0, fine_sampling_ball_diameter/10.0]
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
@@ -352,12 +354,17 @@ class PredictionHead(nn.Module):
         If level>0, sample points uniformly within a local sphere
         of the workspace bounds centered around the anchor.
         """
+        if self.training:
+            num_ghost_points = self.num_ghost_points
+        else:
+            num_ghost_points = self.num_ghost_points_val
+
         if level == 0:
             bounds = np.stack([self.gripper_loc_bounds for _ in range(batch_size)])
             uniform_pcd = np.stack([
                 sample_ghost_points_uniform_cube(
                     bounds=bounds[i],
-                    num_points=self.num_ghost_points
+                    num_points=num_ghost_points
                 )
                 for i in range(batch_size)
             ])
@@ -378,7 +385,7 @@ class PredictionHead(nn.Module):
                     center=anchor_[i],
                     radius=self.sampling_ball_diameter_pyramid[level] / 2,
                     bounds=bounds[i],
-                    num_points=self.num_ghost_points
+                    num_points=num_ghost_points
                 )
                 for i in range(batch_size)
             ])
