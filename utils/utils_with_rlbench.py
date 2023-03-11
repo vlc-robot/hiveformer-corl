@@ -585,7 +585,12 @@ class RLBenchEnv:
         variation: int,
         num_demos: int,
         max_tries: int = 1,
+        verbose: bool = False,
     ):
+        if verbose:
+            print()
+            print(f"{task_str}, variation {variation}, {num_demos} demos")
+
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
@@ -594,7 +599,8 @@ class RLBenchEnv:
         success_rate = 0.0
 
         for demo_id in range(num_demos):
-            print(f"Starting demo {demo_id}")
+            if verbose:
+                print(f"Starting demo {demo_id}")
 
             demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
             task.reset_to_demo(demo)
@@ -608,14 +614,15 @@ class RLBenchEnv:
             move = Mover(task, max_tries=max_tries)
 
             for step_id, action in enumerate(gt_keyframe_actions):
-                print(f"Step {step_id}")
+                if verbose:
+                    print(f"Step {step_id}")
 
                 try:
                     obs, reward, terminate, step_images = move(action)
                     if reward == 1:
                         success_rate += 1 / num_demos
                         break
-                    if terminate:
+                    if terminate and verbose:
                         print("The episode has terminated!")
 
                 except (IKError, ConfigurationPathError, InvalidActionError) as e:
@@ -623,7 +630,8 @@ class RLBenchEnv:
                     reward = 0
                     break
 
-            print(f"Finished demo {demo_id}, SR: {success_rate}")
+            if verbose:
+                print(f"Finished demo {demo_id}, SR: {success_rate}")
 
         self.env.shutdown()
         return success_rate

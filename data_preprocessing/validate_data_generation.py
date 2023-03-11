@@ -80,16 +80,19 @@ if __name__ == "__main__":
                 task_str = task_dir.split("/")[-1]
                 var_dirs = glob.glob(f"{task_dir}/*")
 
+                print("=========================================")
+                print(f"{task_str}, {var_dirs} variations")
+                success_rates = {}
                 for var_dir in var_dirs:
                     variation = int(var_dir.split("variation")[-1])
                     ep_dirs = glob.glob(f"{var_dir}/episodes/*")
                     num_demos = len(ep_dirs)
-
-                    print("=========================================")
-                    print(f"Task {task_str}, variation {variation}, {num_demos} demos")
-                    env.verify_demos(
+                    success_rate = env.verify_demos(
                         task_str=task_str,
                         variation=variation,
                         num_demos=num_demos,
-                        max_tries=args.max_tries
+                        max_tries=args.max_tries,
+                        verbose=True
                     )
+                    success_rates[variation] = success_rate
+                print("Success rates:", success_rates)
