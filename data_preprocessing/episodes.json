@@ -57,7 +57,7 @@
         "put_knife_on_chopping_board": 4,
 	    "put_groceries_in_cupboard": 5,
 	    "put_knife_in_knife_block": 5,
-        "put_item_in_drawer": 10,
+        "put_item_in_drawer": 12,
         "put_money_in_safe": 5,
         "put_plate_in_colored_dish_rack": 5,
         "put_rubbish_in_bin": 4,
@@ -127,7 +127,8 @@
 	"tower",
 	"tower2",
 	"tower3",
-	"tower4"
+	"tower4",
+    "stack_blocks"
 ],
 "broken": [
 	"empty_container",
