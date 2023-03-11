@@ -50,5 +50,9 @@ if __name__ == "__main__":
             print("Split: ", split)
             print()
 
-            packaged_variation_dirs = glob.glob(f"{PACKAGED_DIR}/{split}/*")
-            print(packaged_variation_dirs)
+            raw_dirs = glob.glob(f"{RAW_DIR}/{split}/*")
+
+            for raw_val_dir in raw_dirs:
+                task = raw_val_dir.split("/")[-1]
+                raw_variation_dirs = glob.glob(f"{raw_val_dir}/*")
+                print(raw_variation_dirs)
