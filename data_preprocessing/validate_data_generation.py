@@ -81,7 +81,7 @@ if __name__ == "__main__":
                 var_dirs = glob.glob(f"{task_dir}/*")
 
                 print("=========================================")
-                print(f"{task_str}, {var_dirs} variations")
+                print(f"{task_str} with {len(var_dirs)} variations")
                 success_rates = {}
                 for var_dir in var_dirs:
                     variation = int(var_dir.split("variation")[-1])
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                         variation=variation,
                         num_demos=num_demos,
                         max_tries=args.max_tries,
-                        verbose=True
+                        verbose=False
                     )
                     success_rates[variation] = success_rate
                 print("Success rates:", success_rates)

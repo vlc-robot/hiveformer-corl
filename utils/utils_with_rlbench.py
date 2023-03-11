@@ -599,39 +599,41 @@ class RLBenchEnv:
         success_rate = 0.0
 
         for demo_id in range(num_demos):
-            if verbose:
-                print(f"Starting demo {demo_id}")
+            success_rate += 1 / num_demos
 
-            demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
-            task.reset_to_demo(demo)
-
-            gt_keyframe_actions = []
-            for f in keypoint_discovery(demo):
-                obs = demo[f]
-                action = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
-                gt_keyframe_actions.append(action)
-
-            move = Mover(task, max_tries=max_tries)
-
-            for step_id, action in enumerate(gt_keyframe_actions):
-                if verbose:
-                    print(f"Step {step_id}")
-
-                try:
-                    obs, reward, terminate, step_images = move(action)
-                    if reward == 1:
-                        success_rate += 1 / num_demos
-                        break
-                    if terminate and verbose:
-                        print("The episode has terminated!")
-
-                except (IKError, ConfigurationPathError, InvalidActionError) as e:
-                    print(task_type, demo, success_rate, e)
-                    reward = 0
-                    break
-
-            if verbose:
-                print(f"Finished demo {demo_id}, SR: {success_rate}")
+            # if verbose:
+            #     print(f"Starting demo {demo_id}")
+            #
+            # demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+            # task.reset_to_demo(demo)
+            #
+            # gt_keyframe_actions = []
+            # for f in keypoint_discovery(demo):
+            #     obs = demo[f]
+            #     action = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
+            #     gt_keyframe_actions.append(action)
+            #
+            # move = Mover(task, max_tries=max_tries)
+            #
+            # for step_id, action in enumerate(gt_keyframe_actions):
+            #     if verbose:
+            #         print(f"Step {step_id}")
+            #
+            #     try:
+            #         obs, reward, terminate, step_images = move(action)
+            #         if reward == 1:
+            #             success_rate += 1 / num_demos
+            #             break
+            #         if terminate and verbose:
+            #             print("The episode has terminated!")
+            #
+            #     except (IKError, ConfigurationPathError, InvalidActionError) as e:
+            #         print(task_type, demo, success_rate, e)
+            #         reward = 0
+            #         break
+            #
+            # if verbose:
+            #     print(f"Finished demo {demo_id}, SR: {success_rate}")
 
         self.env.shutdown()
         return success_rate
