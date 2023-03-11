@@ -82,9 +82,10 @@ if __name__ == "__main__":
 
                 for var_dir in var_dirs:
                     variation = int(var_dir.split("variation")[-1])
-
                     ep_dirs = glob.glob(f"{var_dir}/episodes/*")
+                    num_demos = len(ep_dirs)
 
+                    print(f"Task {task_str}, variation {variation}, {num_demos} demos")
                     env.verify_demos(
                         task_str=task_str,
                         variation=variation,

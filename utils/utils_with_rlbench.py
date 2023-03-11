@@ -597,6 +597,7 @@ class RLBenchEnv:
             print(f"Starting demo {demo_id}")
 
             demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+            task.reset_to_demo(demo)
 
             gt_keyframe_actions = []
             for f in keypoint_discovery(demo):
