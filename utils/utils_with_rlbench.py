@@ -382,7 +382,7 @@ class RLBenchEnv:
     def evaluate(
         self,
         task_str: str,
-        max_episodes: int,
+        max_steps: int,
         variation: int,
         num_demos: int,
         log_dir: Optional[Path],
@@ -395,16 +395,6 @@ class RLBenchEnv:
         offline: bool = True,
         position_prediction_only: bool = False
     ):
-        """
-        Evaluate the policy network on the desired demo or test environments
-            :param task_type: type of task to evaluate
-            :param max_episodes: maximum episodes to finish a task
-            :param num_demos: number of test demos for evaluation
-            :param model: the policy network
-            :param record_videos: whether to record videos
-            :return: success rate
-        """
-
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
@@ -490,7 +480,7 @@ class RLBenchEnv:
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
 
-                for step_id in range(max_episodes):
+                for step_id in range(max_steps):
                     # fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
 
@@ -587,6 +577,61 @@ class RLBenchEnv:
         # Compensate for failed demos
         success_rate = success_rate * num_demos / (num_demos - failed_demos)
 
+        return success_rate
+
+    def verify_demos(
+        self,
+        task_str: str,
+        variation: int,
+        num_demos: int,
+        max_tries: int = 1,
+    ):
+        self.env.launch()
+        task_type = task_file_to_task_class(task_str)
+        task = self.env.get_task(task_type)
+        task.set_variation(variation)  # type: ignore
+
+        success_rate = 0.0
+
+        for demo_id in range(num_demos):
+            print(f"Starting demo {demo_id}")
+
+            demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+
+            gt_keyframe_actions = []
+            for f in keypoint_discovery(demo):
+                obs = demo[f]
+                action = np.concatenate([obs.gripper_pose, [obs.gripper_open]])
+                gt_keyframe_actions.append(action)
+
+            move = Mover(task, max_tries=max_tries)
+
+            for action in gt_keyframe_actions:
+                try:
+                    obs, reward, terminate, step_images = move(action)
+                    if reward == 1:
+                        success_rate += 1 / num_demos
+                        break
+                    if terminate:
+                        print("The episode has terminated!")
+
+                except (IKError, ConfigurationPathError, InvalidActionError) as e:
+                    print(task_type, demo, success_rate, e)
+                    reward = 0
+                    break
+
+                print(
+                    task_str,
+                    "Reward",
+                    reward,
+                    "Variation",
+                    variation,
+                    "Step",
+                    demo_id,
+                    "SR: %.2f" % (success_rate * 100),
+                )
+
+        self.env.shutdown()
         return success_rate
 
     def create_obs_config(
