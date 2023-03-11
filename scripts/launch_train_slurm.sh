@@ -205,7 +205,7 @@ valset=/home/tgervet/datasets/hiveformer/packaged/3
 #   --run_log_dir $task-two-levels-with-offset
 #done
 
-batch_size=2
+batch_size=3
 num_sampling_level=3
 regress_position_offset=0
 for task in pick_and_lift pick_up_cup; do
@@ -215,6 +215,7 @@ for task in pick_and_lift pick_up_cup; do
    --valset $valset \
    --exp_log_dir $main_dir \
    --num_workers $num_workers \
+   --batch_size $batch_size \
    --batch_size_val $batch_size \
    --num_sampling_level $num_sampling_level \
    --regress_position_offset $regress_position_offset \
