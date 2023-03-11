@@ -607,7 +607,9 @@ class RLBenchEnv:
 
             move = Mover(task, max_tries=max_tries)
 
-            for action in gt_keyframe_actions:
+            for step_id, action in enumerate(gt_keyframe_actions):
+                print(f"Step {step_id}")
+
                 try:
                     obs, reward, terminate, step_images = move(action)
                     if reward == 1:
@@ -621,16 +623,7 @@ class RLBenchEnv:
                     reward = 0
                     break
 
-                print(
-                    task_str,
-                    "Reward",
-                    reward,
-                    "Variation",
-                    variation,
-                    "Step",
-                    demo_id,
-                    "SR: %.2f" % (success_rate * 100),
-                )
+            print(f"Finished demo {demo_id}, SR: {success_rate}")
 
         self.env.shutdown()
         return success_rate

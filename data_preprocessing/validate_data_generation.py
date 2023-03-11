@@ -85,10 +85,11 @@ if __name__ == "__main__":
                     ep_dirs = glob.glob(f"{var_dir}/episodes/*")
                     num_demos = len(ep_dirs)
 
+                    print("=========================================")
                     print(f"Task {task_str}, variation {variation}, {num_demos} demos")
                     env.verify_demos(
                         task_str=task_str,
                         variation=variation,
-                        num_demos=len(ep_dirs),
+                        num_demos=num_demos,
                         max_tries=args.max_tries
                     )
