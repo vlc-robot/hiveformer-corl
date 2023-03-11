@@ -121,6 +121,7 @@
 	"put_tray_in_oven",
 	"solve_puzzle",
 	"sweep_to_dustpan",
+    "sweep_to_dustpan_of_size",
 	"take_off_weighing_scales",
 	"take_tray_out_of_oven",
 	"tower",
