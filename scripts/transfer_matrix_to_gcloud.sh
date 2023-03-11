@@ -2,8 +2,8 @@
 
 #source_prefix=home/tgervet/hiveformer/train_logs
 #target_prefix=home/theophile_gervet_gmail_com/hiveformer
-#exp_src=03_08_data_augmentations
-#exp_tgt=03_08_data_augmentations
+#exp_src=03_09_peract_setting
+#exp_tgt=03_09_peract_setting
 #ckpt=best.pth
 #
 ## Get Tensorboard from source
@@ -20,8 +20,8 @@
 
 source_prefix=home/tgervet/hiveformer/train_logs
 target_prefix=/home/zhouxian/git/hiveformer
-exp_src=03_08_data_augmentations
-exp_tgt=03_08_data_augmentations
+exp_src=03_09_peract_setting
+exp_tgt=03_09_peract_setting
 ckpt=best.pth
 
 scp -r "/$source_prefix/$exp_src" $LAB:$target_prefix
