@@ -24,8 +24,8 @@ class Arguments(tap.Tap):
     train_dir: str = "peract_problematic_tasks_train"
     val_dir: str = "peract_problematic_tasks_val"
 
-    validate_num_episodes: int = 0
-    validate_successful_demos: int = 1
+    validate_num_episodes: int = 1
+    validate_successful_demos: int = 0
 
 
 if __name__ == "__main__":
