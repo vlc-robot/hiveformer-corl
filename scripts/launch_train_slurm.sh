@@ -98,6 +98,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
    --variations {0..199} \
    --use_instruction $use_instruction \
+   --logger wandb \
    --run_log_dir $task
 done
 
