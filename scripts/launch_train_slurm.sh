@@ -82,6 +82,7 @@ main_dir=03_13_peract_setting
 num_workers=1
 batch_size=2
 use_instruction=1
+train_iters=500_000
 task_file=tasks/14_peract_short_tasks.csv
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
@@ -95,6 +96,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --num_workers $num_workers \
    --batch_size $batch_size \
    --batch_size_val $batch_size \
+   --train_iters $train_iters \
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
    --variations {0..199} \
    --use_instruction $use_instruction \
