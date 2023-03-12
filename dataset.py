@@ -473,7 +473,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         self._resize = Resize(scales=(0.75, 1.25))
 
         self._main_data_dirs = []
-        self._main_episodes = []  # Indexed by episode ID
+        self._main_episodes_by_task = defaultdict(list)
         self._main_num_episodes = 0
         for root, (task, var) in itertools.product(self._main_root, taskvar):
             data_dir = root / f"{task}+{var}"
@@ -485,8 +485,15 @@ class RLBenchAnalogicalDataset(data.Dataset):
             if num_episodes == 0:
                 raise ValueError(f"Can't find episodes at folder {data_dir}")
             self._main_data_dirs.append(data_dir)
-            self._main_episodes += episodes
-            self._main_num_episodes += num_episodes
+            self._main_episodes_by_task[task] += episodes
+        self._main_episodes = []
+        for task, eps in self._main_episodes_by_task.items():
+            if len(eps) > self._max_episodes_per_task:
+                self._main_episodes += random.sample(eps, self._max_episodes_per_task)
+                self._main_num_episodes += self._max_episodes_per_task
+            else:
+                self._main_num_episodes += eps
+                self._main_num_episodes += len(eps)
 
         self._support_data_dirs = []
         self._support_episodes = defaultdict(list)  # Indexed by task
@@ -503,6 +510,10 @@ class RLBenchAnalogicalDataset(data.Dataset):
             self._support_data_dirs.append(data_dir)
             self._support_episodes[task] += episodes
             self._support_num_episodes += num_episodes
+        for task, eps in self._support_episodes.items():
+            if len(eps) > self._max_episodes_per_task:
+                self._support_episodes[task] = random.sample(eps, self._max_episodes_per_task)
+            self._support_num_episodes += len(self._support_episodes[task])
         self._support_episodes = dict(self._support_episodes)
 
         print(f"Created dataset from main root {main_root} and support root {support_root} "
