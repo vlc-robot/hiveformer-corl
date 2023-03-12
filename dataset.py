@@ -428,7 +428,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         instructions: Instructions,
         max_episode_length: int,
         cache_size: int,
-        max_episodes_per_taskvar: int,
+        max_episodes_per_task: int,
         num_iters: Optional[int] = None,
         cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
         training: bool = True,
@@ -443,7 +443,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         self._cameras = cameras
         self._image_size = image_size
         self._max_episode_length = max_episode_length
-        self._max_episodes_per_taskvar = max_episodes_per_taskvar
+        self._max_episodes_per_task = max_episodes_per_task
         self._num_iters = num_iters
         self._training = training
         self._taskvar = taskvar
@@ -458,8 +458,10 @@ class RLBenchAnalogicalDataset(data.Dataset):
 
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
+        self._num_vars = Counter()
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
+            self._num_vars[task] += 1
 
         self._resize = Resize(scales=(0.75, 1.25))
 
@@ -471,7 +473,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
             if not data_dir.is_dir():
                 raise ValueError(f"Can't find dataset folder {data_dir}")
             episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
-            episodes = episodes[: self._max_episodes_per_taskvar]
+            episodes = episodes[: self._max_episodes_per_task // self._num_vars[task] + 1]
             num_episodes = len(episodes)
             if num_episodes == 0:
                 raise ValueError(f"Can't find episodes at folder {data_dir}")
