@@ -643,6 +643,7 @@ if __name__ == "__main__":
         writer = SummaryWriter(log_dir=log_dir)
     elif args.logger == "wandb":
         wandb.init(project="analogical_manipulation")
+        wandb.run.name = args.run_log_dir
         wandb.config.update(args.__dict__)
         writer = None
     else:
