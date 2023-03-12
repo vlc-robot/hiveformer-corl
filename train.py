@@ -307,7 +307,7 @@ def validation_step(
     args: Arguments,
     writer: Optional[SummaryWriter] = None,
     use_ground_truth_position_for_sampling_val=False,
-    val_iters: int = 50,
+    val_iters: int = 10,
 ):
     values = {}
     device = next(model.parameters()).device
