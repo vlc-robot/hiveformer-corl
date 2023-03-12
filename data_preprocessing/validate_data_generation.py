@@ -12,17 +12,17 @@ class Arguments(tap.Tap):
     headless: bool = False
     max_tries: int = 10
 
-    # raw_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/raw"
-    # packaged_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/packaged"
-    raw_dir: str = "/home/zhouxian/git/datasets/raw"
-    packaged_dir: str = "/home/zhouxian/git/datasets/packaged"
+    raw_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/raw"
+    packaged_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/packaged"
+    # raw_dir: str = "/home/zhouxian/git/datasets/raw"
+    # packaged_dir: str = "/home/zhouxian/git/datasets/packaged"
 
-    # train_dir: str = "18_peract_tasks_train"
-    # val_dir: str = "18_peract_tasks_val"
+    train_dir: str = "18_peract_tasks_train"
+    val_dir: str = "18_peract_tasks_val"
     # train_dir: str = "74_hiveformer_tasks_train"
     # val_dir: str = "74_hiveformer_tasks_val"
-    train_dir: str = "peract_problematic_tasks_train"
-    val_dir: str = "peract_problematic_tasks_val"
+    # train_dir: str = "peract_problematic_tasks_train"
+    # val_dir: str = "peract_problematic_tasks_val"
 
     validate_num_episodes: int = 1
     validate_successful_demos: int = 0
