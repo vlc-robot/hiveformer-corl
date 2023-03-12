@@ -32,7 +32,7 @@ class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     image_size: str = "256,256"
     max_tries: int = 10
-    max_episodes_per_taskvar: int = 100
+    max_episodes_per_task: int = 100
     instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
     seed: int = 2
@@ -423,7 +423,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             taskvar=taskvar,
             instructions=instruction,
             max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            max_episodes_per_task=args.max_episodes_per_task,
             cache_size=args.cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
@@ -440,7 +440,7 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             taskvar=taskvar,
             instructions=instruction,
             max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            max_episodes_per_task=args.max_episodes_per_task,
             cache_size=args.cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
@@ -486,7 +486,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 taskvar=taskvar,
                 instructions=instruction,
                 max_episode_length=max_episode_length,
-                max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+                max_episodes_per_task=args.max_episodes_per_task,
                 cache_size=args.cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,
@@ -504,7 +504,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 taskvar=taskvar,
                 instructions=instruction,
                 max_episode_length=max_episode_length,
-                max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+                max_episodes_per_task=args.max_episodes_per_task,
                 cache_size=args.cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,

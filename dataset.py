@@ -11,7 +11,7 @@ from typing import (
     Generic,
 )
 from pickle import UnpicklingError
-from collections import defaultdict
+from collections import defaultdict, Counter
 from pathlib import Path
 import numpy as np
 import torch
@@ -269,7 +269,7 @@ class RLBenchDataset(data.Dataset):
         instructions: Instructions,
         max_episode_length: int,
         cache_size: int,
-        max_episodes_per_taskvar: int,
+        max_episodes_per_task: int,
         gripper_loc_bounds=None,
         num_iters: Optional[int] = None,
         cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
@@ -281,7 +281,7 @@ class RLBenchDataset(data.Dataset):
         self._cameras = cameras
         self._image_size = image_size
         self._max_episode_length = max_episode_length
-        self._max_episodes_per_taskvar = max_episodes_per_taskvar
+        self._max_episodes_per_task = max_episodes_per_task
         self._num_iters = num_iters
         self._training = training
         self._taskvar = taskvar
@@ -291,8 +291,10 @@ class RLBenchDataset(data.Dataset):
 
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
+        self._num_vars = Counter()
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
+            self._num_vars[task] += 1
 
         if self._training:
             self._resize = Resize(scales=image_rescale)
@@ -310,7 +312,7 @@ class RLBenchDataset(data.Dataset):
                 print(f"Can't find dataset folder {data_dir}")
                 continue
             episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
-            episodes = episodes[: self._max_episodes_per_taskvar]
+            episodes = episodes[: self._max_episodes_per_task // self._num_vars[task] + 1]
             num_episodes = len(episodes)
             if num_episodes == 0:
                 print(f"Can't find episodes at folder {data_dir}")
