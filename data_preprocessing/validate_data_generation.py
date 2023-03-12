@@ -2,9 +2,6 @@ import glob
 import tap
 from typing import Tuple
 
-from utils.utils_with_rlbench import RLBenchEnv
-from utils.utils_without_rlbench import load_episodes
-
 
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
@@ -56,6 +53,9 @@ if __name__ == "__main__":
 
     # Validate that the generated demos are successful
     if args.validate_successful_demos:
+        from utils.utils_with_rlbench import RLBenchEnv
+        from utils.utils_without_rlbench import load_episodes
+
         max_eps_dict = load_episodes()["max_episode_length"]
 
         for split in [args.train_dir, args.val_dir]:
