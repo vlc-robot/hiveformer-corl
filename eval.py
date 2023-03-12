@@ -80,10 +80,10 @@ class Arguments(tap.Tap):
     gripper_bounds_buffer: float = 0.01
 
     position_prediction_only: int = 0
-    regress_position_offset: int = 0
+    regress_position_offset: int = 1
 
     # Ghost points
-    num_sampling_level: int = 3
+    num_sampling_level: int = 2
     coarse_to_fine_sampling: int = 1
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1

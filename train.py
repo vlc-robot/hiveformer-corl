@@ -12,6 +12,7 @@ from torch.utils.data._utils.collate import default_collate
 import numpy as np
 from tqdm import tqdm, trange
 import tap
+import wandb
 
 from utils.utils_without_rlbench import (
     LossAndMetrics,
@@ -47,6 +48,7 @@ class Arguments(tap.Tap):
     valset: Optional[Tuple[Path, ...]] = None
 
     # Logging to base_log_dir/exp_log_dir/run_log_dir
+    logger: Optional[str] = "tensorboard"  # One of "wandb", "tensorboard", None
     base_log_dir: Path = Path(__file__).parent / "train_logs"
     exp_log_dir: str = "exp"
     run_log_dir: str = "run"
@@ -97,10 +99,10 @@ class Arguments(tap.Tap):
     symmetric_rotation_loss: int = 0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
-    regress_position_offset: int = 0
+    regress_position_offset: int = 1
 
     # Ghost points
-    num_sampling_level: int = 3
+    num_sampling_level: int = 2
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1
     num_ghost_points: int = 1000
@@ -135,7 +137,7 @@ def training(
     checkpointer,
     loss_and_metrics,
     args: Arguments,
-    writer: SummaryWriter,
+    writer: Optional[SummaryWriter] = None,
     use_ground_truth_position_for_sampling_train=True,
     use_ground_truth_position_for_sampling_val=False,
 ):
@@ -205,28 +207,35 @@ def training(
             if step_id % args.accumulate_grad_batches == args.accumulate_grad_batches - 1:
                 optimizer.step()
 
-            if (step_id + 1) % args.val_freq == 0:
-                writer.add_scalar(f"lr/", args.lr, step_id)
+            if args.logger == "wandb":
+                wandb.log(
+                    {
+                        "lr": args.lr,
+                        **{f"train-loss/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_losses.items()},
+                        **{f"train-metrics/{n}": torch.mean(torch.stack(l)) for n, l in aggregated_metrics.items()},
+                    },
+                    step=step_id,
+                )
 
-                for n, l in aggregated_losses.items():
-                    writer.add_scalar(f"train-loss/{n}", torch.mean(torch.stack(l)), step_id)
-                for n, l in aggregated_metrics.items():
-                    writer.add_scalar(f"train-metrics/{n}", torch.mean(torch.stack(l)), step_id)
+            if (step_id + 1) % args.val_freq == 0:
+                if args.logger == "tensorboard":
+                    writer.add_scalar(f"lr/", args.lr, step_id)
+                    for n, l in aggregated_losses.items():
+                        writer.add_scalar(f"train-loss/{n}", torch.mean(torch.stack(l)), step_id)
+                    for n, l in aggregated_metrics.items():
+                        writer.add_scalar(f"train-metrics/{n}", torch.mean(torch.stack(l)), step_id)
+
                 aggregated_losses = defaultdict(list)
                 aggregated_metrics = defaultdict(list)
-
-                for n, l in train_losses.items():
-                    aggregated_losses[n].append(l)
-                for n, l in metrics.items():
-                    aggregated_metrics[n].append(l)
 
                 if val_loaders is not None:
                     val_metrics = validation_step(
                         step_id,
                         val_loaders,
                         model,
-                        writer,
                         loss_and_metrics,
+                        args,
+                        writer,
                         use_ground_truth_position_for_sampling_val=use_ground_truth_position_for_sampling_val
                     )
                     model.train()
@@ -294,8 +303,9 @@ def validation_step(
     step_id: int,
     val_loaders: List[DataLoader],
     model,
-    writer,
     loss_and_metrics,
+    args: Arguments,
+    writer: Optional[SummaryWriter] = None,
     use_ground_truth_position_for_sampling_val=False,
     val_iters: int = 50,
 ):
@@ -346,19 +356,29 @@ def validation_step(
             losses: Dict[str, torch.Tensor] = loss_and_metrics.compute_loss(pred, sample)
             losses["total"] = torch.stack(list(losses.values())).sum()
 
+            metrics = loss_and_metrics.compute_metrics(pred, sample)
+
             for n, l in losses.items():
                 key = f"val-loss-{val_id}/{n}"
-                writer.add_scalar(key, l, step_id + i)
+                if args.logger == "tensorboard":
+                    writer.add_scalar(key, l, step_id + i)
+                elif args.logger == "wandb":
+                    wandb.log({key: l}, step=step_id + i)
                 if key not in values:
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
 
-            writer.add_scalar(f"lr/", args.lr, step_id + i)
+            if args.logger == "tensorboard":
+                writer.add_scalar(f"lr/", args.lr, step_id + i)
+            elif args.logger == "wandb":
+                wandb.log({"lr": args.lr}, step=step_id + i)
 
-            metrics = loss_and_metrics.compute_metrics(pred, sample)
             for n, l in metrics.items():
                 key = f"val-metrics-{val_id}/{n}"
-                writer.add_scalar(key, l, step_id + i)
+                if args.logger == "tensorboard":
+                    writer.add_scalar(key, l, step_id + i)
+                elif args.logger == "wandb":
+                    wandb.log({key: l}, step=step_id + i)
                 if key not in values:
                     values[key] = torch.Tensor([]).to(device)
                 values[key] = torch.cat([values[key], l.unsqueeze(0)])
@@ -618,7 +638,15 @@ if __name__ == "__main__":
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
     args.save(str(log_dir / "hparams.json"))
-    writer = SummaryWriter(log_dir=log_dir)
+
+    if args.logger == "tensorboard":
+        writer = SummaryWriter(log_dir=log_dir)
+    elif args.logger == "wandb":
+        wandb.init(project="analogical_manipulation")
+        wandb.config.update(args.__dict__)
+        writer = None
+    else:
+        writer = None
 
     print("Logging:", log_dir)
     print("Args devices:", args.devices)
@@ -663,7 +691,7 @@ if __name__ == "__main__":
         "optimizer": optimizer.state_dict(),
     }
     checkpointer = CheckpointCallback(
-        "val-metrics-0/final_pos_l2",
+        "val-metrics-0/pos_l2_final",
         log_dir,
         model_dict,
         val_freq=args.val_freq,
@@ -694,8 +722,9 @@ if __name__ == "__main__":
             args.train_iters,
             val_loaders,
             model,
-            writer,
             loss_and_metrics,
+            args,
+            writer,
             use_ground_truth_position_for_sampling_val=bool(args.use_ground_truth_position_for_sampling_val),
             val_iters=-1,
         )
