@@ -304,7 +304,7 @@ class RLBenchDataset(data.Dataset):
             )
 
         self._data_dirs = []
-        self._episodes = []
+        self._episodes_by_task = defaultdict(list)
         self._num_episodes = 0
         for root, (task, var) in itertools.product(self._root, taskvar):
             data_dir = root / f"{task}+{var}"
@@ -318,8 +318,15 @@ class RLBenchDataset(data.Dataset):
                 print(f"Can't find episodes at folder {data_dir}")
                 continue
             self._data_dirs.append(data_dir)
-            self._episodes += episodes
-            self._num_episodes += num_episodes
+            self._episodes_by_task[task] += episodes
+        self._episodes = []
+        for task, eps in self._episodes_by_task.items():
+            if len(eps) > self._max_episodes_per_task:
+                self._episodes += random.sample(eps, self._max_episodes_per_task)
+                self._num_episodes += self._max_episodes_per_task
+            else:
+                self._episodes += eps
+                self._num_episodes += len(eps)
 
         print(f"Created dataset from {root} with {self._num_episodes} episodes")
 
@@ -489,7 +496,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
             if not data_dir.is_dir():
                 raise ValueError(f"Can't find dataset folder {data_dir}")
             episodes = [(task, var, ep) for ep in data_dir.glob("*.npy")]
-            episodes = episodes[: self._max_episodes_per_taskvar]
+            episodes = episodes[: self._max_episodes_per_task // self._num_vars[task] + 1]
             num_episodes = len(episodes)
             if num_episodes == 0:
                 raise ValueError(f"Can't find episodes at folder {data_dir}")
