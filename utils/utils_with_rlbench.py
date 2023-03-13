@@ -432,7 +432,7 @@ class RLBenchEnv:
 
         self.env.shutdown()
 
-        return np.mean(variation_success_rates.values())
+        return np.mean(list(variation_success_rates.values()))
 
     def _evaluate_task_on_one_variation(
         self,
