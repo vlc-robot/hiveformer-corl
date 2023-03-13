@@ -403,7 +403,7 @@ class RLBenchEnv:
             task_variations = np.minimum(num_variations, task_variations)
 
         success_rates = {}
-        for variation in task_variations:
+        for variation in range(task_variations):
             success_rate = self.evaluate_task_on_one_variation(
                 task_str=task_str,
                 max_steps=max_steps,
@@ -421,6 +421,7 @@ class RLBenchEnv:
                 verbose=verbose,
             )
             success_rates[variation] = success_rate
+        print(task_str, success_rates)
         return np.mean(success_rates.values())
 
     def evaluate_task_on_one_variation(
