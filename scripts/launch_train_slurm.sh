@@ -104,31 +104,29 @@
 #   --run_log_dir $task
 #done
 
-main_dir=03_13_positional_features
+main_dir=03_13_hiveformer_setting
 num_workers=1
 batch_size=2
 use_instruction=0
 train_iters=500_000
+task_file=tasks/7_interesting_autolambda_tasks.csv
 gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
-for task in put_money_in_safe; do
-  for positional_features in "z_concat"; do
-    sbatch train_1gpu_12gb.sh \
-     --tasks $task \
-     --dataset $dataset \
-     --valset $valset \
-     --exp_log_dir $main_dir \
-     --num_workers $num_workers \
-     --batch_size $batch_size \
-     --batch_size_val $batch_size \
-     --train_iters $train_iters \
-     --gripper_loc_bounds_file $gripper_loc_bounds_file \
-     --use_instruction $use_instruction \
-     --positional_features $positional_features \
-     --logger wandb \
-     --run_log_dir $task-POSITIONAL-FEATURES
-  done
+for task in $(cat $task_file | tr '\n' ' '); do
+  sbatch train_1gpu_12gb.sh \
+   --tasks $task \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --num_workers $num_workers \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size \
+   --train_iters $train_iters \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --run_log_dir $task-HIVEFORMER-SETTING
 done
 
 #main_dir=03_10_improve_pick
