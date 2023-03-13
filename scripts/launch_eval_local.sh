@@ -17,13 +17,13 @@ tasks=(
 )
 #data_dir=/home/theophile_gervet_gmail_com/datasets/raw/10_hiveformer_tasks_val
 data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
-num_episodes=50
+num_episodes=6
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
     --data_dir $data_dir --offline 0 --num_episodes $num_episodes \
-    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction 1
+    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction 1 --variations {0..60}
 done
 
 

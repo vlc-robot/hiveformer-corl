@@ -282,25 +282,24 @@ if __name__ == "__main__":
     actioner = Actioner(model=model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
-        for variation in args.variations:
-            success_rate = env.evaluate(
-                task_str,
-                max_steps=max_eps_dict[task_str],
-                variation=variation,
-                num_demos=args.num_episodes,
-                actioner=actioner,
-                log_dir=log_dir / task_str if args.save_img else None,
-                max_tries=args.max_tries,
-                save_attn=False,
-                record_videos=bool(args.record_videos),
-                position_prediction_only=bool(args.position_prediction_only),
-                offline=bool(args.offline)
-            )
+        success_rate = env.evaluate_on_multiple_variations(
+            task_str,
+            max_steps=max_eps_dict[task_str],
+            num_variations=args.variations[-1],
+            num_demos=args.num_episodes,
+            actioner=actioner,
+            log_dir=log_dir / task_str if args.save_img else None,
+            max_tries=args.max_tries,
+            save_attn=False,
+            record_videos=bool(args.record_videos),
+            position_prediction_only=bool(args.position_prediction_only),
+            offline=bool(args.offline)
+        )
 
-            print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
+        print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
 
-            with FileLock(str(args.output.parent / f"{args.output.name}.lock")):
-                with open(args.output, "a") as output_id:
-                    output_id.write(
-                        f"{task_str}-{variation}, {checkpoint}, seed={args.seed}, {success_rate}, {log_dir}\n"
-                    )
+        with FileLock(str(args.output.parent / f"{args.output.name}.lock")):
+            with open(args.output, "a") as output_id:
+                output_id.write(
+                    f"{task_str}, {checkpoint}, seed={args.seed}, {success_rate}, {log_dir}\n"
+                )

@@ -144,14 +144,14 @@ class Actioner:
 
         self._actions: Dict = {}
         self._instr: Optional[torch.Tensor] = None
-        self._task: Optional[str] = None
+        self._task_str: Optional[str] = None
 
         self._model.eval()
 
     def load_episode(
         self, task_str: str, variation: int, demo_id: int, demo: Union[Demo, int]
     ):
-        self._task = task_str
+        self._task_str = task_str
         instructions = list(self._instructions[task_str][variation])
         self._instr = random.choice(instructions).unsqueeze(0)
         self._task_id = torch.tensor(TASK_TO_ID[task_str]).unsqueeze(0)
@@ -379,7 +379,51 @@ class RLBenchEnv:
         )
         return demos
 
-    def evaluate(
+    def evaluate_task_on_multiple_variations(
+        self,
+        task_str: str,
+        max_steps: int,
+        num_variations: int,  # -1 means all variations
+        num_demos: int,
+        log_dir: Optional[Path],
+        actioner: Actioner,
+        max_tries: int = 1,
+        save_attn: bool = False,
+        record_videos: bool = False,
+        num_videos: int = 10,
+        record_demo_video: bool = False,
+        offline: bool = True,
+        position_prediction_only: bool = False,
+        verbose: bool = False,
+    ):
+        task_type = task_file_to_task_class(task_str)
+        task = self.env.get_task(task_type)
+        task_variations = task.variation_count()
+        if num_variations >= 0:
+            task_variations = np.minimum(num_variations, task_variations)
+
+        success_rates = {}
+        for variation in task_variations:
+            success_rate = self.evaluate_task_on_one_variation(
+                task_str=task_str,
+                max_steps=max_steps,
+                variation=variation,
+                num_demos=num_demos // len(task_variations) + 1,
+                log_dir=log_dir,
+                actioner=actioner,
+                max_tries=max_tries,
+                save_attn=save_attn,
+                record_videos=record_videos,
+                num_videos=num_videos,
+                record_demo_video=record_demo_video,
+                offline=offline,
+                position_prediction_only=position_prediction_only,
+                verbose=verbose,
+            )
+            success_rates[variation] = success_rate
+        return np.mean(success_rates.values())
+
+    def evaluate_task_on_one_variation(
         self,
         task_str: str,
         max_steps: int,
@@ -393,7 +437,8 @@ class RLBenchEnv:
         num_videos: int = 10,
         record_demo_video: bool = False,
         offline: bool = True,
-        position_prediction_only: bool = False
+        position_prediction_only: bool = False,
+        verbose: bool = False,
     ):
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
@@ -449,7 +494,9 @@ class RLBenchEnv:
 
         with torch.no_grad():
             for demo_id in range(num_demos):
-                print(f"Starting demo {demo_id}")
+                if verbose:
+                    print()
+                    print(f"Starting demo {demo_id}")
                 try:
                     demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
                 except:
@@ -508,7 +555,8 @@ class RLBenchEnv:
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
 
-                    print(f"Step {step_id}")
+                    if verbose:
+                        print(f"Step {step_id}")
 
                     if record_videos and demo_id < num_videos:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
