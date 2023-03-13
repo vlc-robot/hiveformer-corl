@@ -71,9 +71,11 @@ class PredictionHead(nn.Module):
 
         # Semantic visual features at different scales
         if self.positional_features in ["xyz_concat", "z_concat"]:
-            self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim - 10)
+            self.feature_pyramid = FeaturePyramidNetwork(
+                [64, 256, 512, 1024, 2048], embedding_dim - embedding_dim // 10)
         else:
-            self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
+            self.feature_pyramid = FeaturePyramidNetwork(
+                [64, 256, 512, 1024, 2048], embedding_dim)
         if self.image_size == (128, 128):
             # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
@@ -90,9 +92,9 @@ class PredictionHead(nn.Module):
 
         # 3D absolute positional embeddings
         if self.positional_features == "xyz_concat":
-            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, 10)
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim // 10)
         elif self.positional_features == "z_concat":
-            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, 10)
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim // 10)
         if self.positional_features == "xyz_add":
             self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim)
         elif self.positional_features == "z_add":
