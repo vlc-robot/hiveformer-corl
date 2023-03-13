@@ -1,19 +1,19 @@
 exp=03_13_peract_setting
 ckpts=(
   open_drawer_version157135
-  place_wine_at_rack_location_version157144
-  sweep_to_dustpan_of_size_version157137
-  reach_and_drag_version157141
-  push_buttons_version157147
-  turn_tap_version157139
+#  place_wine_at_rack_location_version157144
+#  sweep_to_dustpan_of_size_version157137
+#  reach_and_drag_version157141
+#  push_buttons_version157147
+#  turn_tap_version157139
 )
 tasks=(
   open_drawer
-  place_wine_at_rack_location
-  sweep_to_dustpan_of_size
-  reach_and_drag
-  push_buttons
-  turn_tap
+#  place_wine_at_rack_location
+#  sweep_to_dustpan_of_size
+#  reach_and_drag
+#  push_buttons
+#  turn_tap
 )
 #data_dir=/home/theophile_gervet_gmail_com/datasets/raw/10_hiveformer_tasks_val
 data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
