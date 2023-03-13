@@ -618,12 +618,12 @@ class RLBenchEnv:
 
                 print(
                     task_str,
-                    "Reward",
-                    reward,
                     "Variation",
                     variation,
-                    "Step",
+                    "Demo",
                     demo_id,
+                    "Reward",
+                    reward,
                     "SR: %.2f" % (success_rate * 100),
                 )
 
