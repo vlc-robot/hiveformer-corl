@@ -282,7 +282,7 @@ if __name__ == "__main__":
     actioner = Actioner(model=model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
     for task_str in args.tasks:
-        success_rate = env.evaluate_on_multiple_variations(
+        success_rate = env.evaluate_task_on_multiple_variations(
             task_str,
             max_steps=max_eps_dict[task_str],
             num_variations=args.variations[-1],
