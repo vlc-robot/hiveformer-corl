@@ -112,8 +112,8 @@ train_iters=500_000
 gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
-for task in put_money_in_safe pick_and_lift; do
-  for positional_features in "xyz_concat" "z_concat" "xyz_add" "z_add" "none"; do
+for task in put_money_in_safe; do
+  for positional_features in "z_concat"; do
     sbatch train_1gpu_12gb.sh \
      --tasks $task \
      --dataset $dataset \
