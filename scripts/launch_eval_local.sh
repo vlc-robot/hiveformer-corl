@@ -1,17 +1,19 @@
-exp=03_09_peract_setting
+exp=03_10_improve_pick
 ckpts=(
-  open_drawer-WITH-INSTRUCTION_version156726
-  turn_tap-WITH-INSTRUCTION_version156730
-  place_wine_at_rack_location-WITH-INSTRUCTION_version156737
-  put_groceries_in_cupboard-WITH-INSTRUCTION_version156738
-  insert_onto_square_peg-WITH-INSTRUCTION_version156741
+  open_drawer_version157135
+  place_wine_at_rack_location_version157144
+  sweep_to_dustpan_of_size_version157137
+  reach_and_drag_version157141
+  push_buttons_version157147
+  turn_tap_version157139
 )
 tasks=(
   open_drawer
-  turn_tap
   place_wine_at_rack_location
-  put_groceries_in_cupboard
-  insert_onto_square_peg
+  sweep_to_dustpan_of_size
+  reach_and_drag
+  push_buttons
+  turn_tap
 )
 #data_dir=/home/theophile_gervet_gmail_com/datasets/raw/10_hiveformer_tasks_val
 data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
@@ -20,7 +22,7 @@ num_episodes=50
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
-    --data_dir $data_dir --offline 0 --num_episodes $num_episodes --num_sampling_level 2 --regress_position_offset 1 \
+    --data_dir $data_dir --offline 0 --num_episodes $num_episodes \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction 1
 done
 

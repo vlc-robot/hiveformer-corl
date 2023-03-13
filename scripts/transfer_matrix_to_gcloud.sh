@@ -1,13 +1,13 @@
-# To Google Cloud
+# To Google Cloud through local
 
 #source_prefix=home/tgervet/hiveformer/train_logs
 #target_prefix=home/theophile_gervet_gmail_com/hiveformer
-#exp_src=03_09_peract_setting
-#exp_tgt=03_09_peract_setting
+#exp_src=03_13_peract_setting
+#exp_tgt=03_13_peract_setting
 #ckpt=best.pth
 #
 ## Get Tensorboard from source
-#sshpass -p $MATRIX_PW rsync -R "$MATRIX:/$source_prefix/$exp_src/*/events.out*" .
+##sshpass -p $MATRIX_PW rsync -R "$MATRIX:/$source_prefix/$exp_src/*/events.out*" .
 #
 ## Get checkpoints from source
 #sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
@@ -16,15 +16,33 @@
 #scp -r $source_prefix/$exp_tgt $GCLOUD:/$target_prefix/
 
 
-# To Xian
+# To Xian through local
 
 source_prefix=home/tgervet/hiveformer/train_logs
-target_prefix=/home/zhouxian/git/hiveformer
-exp_src=03_09_peract_setting
-exp_tgt=03_09_peract_setting
+target_prefix=home/zhouxian/git/hiveformer
+exp_src=03_13_peract_setting
+exp_tgt=03_13_peract_setting
 ckpt=best.pth
 
-scp -r "/$source_prefix/$exp_src" $LAB:$target_prefix
+# Get Tensorboard from source
+#sshpass -p $MATRIX_PW rsync -R "$MATRIX:/$source_prefix/$exp_src/*/events.out*" .
+
+# Get checkpoints from source
+#sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
+
+# Send all to target
+sshpass -p $LAB_PW scp -r $source_prefix/$exp_tgt $LAB:/$target_prefix/
+
+
+# To Xian directly from Matrix
+
+#source_prefix=home/tgervet/hiveformer/train_logs
+#target_prefix=/home/zhouxian/git/hiveformer
+#exp_src=03_09_peract_setting
+#exp_tgt=03_09_peract_setting
+#ckpt=best.pth
+#
+#scp -r "/$source_prefix/$exp_src" $LAB:$target_prefix
 
 
 # Uncleaned HiveFormer
