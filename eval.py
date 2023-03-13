@@ -45,6 +45,7 @@ class Arguments(tap.Tap):
     data_dir: Path = Path(__file__).parent / "demos"
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
     image_size: str = "256,256"
+    verbose: int = 0
     
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     base_log_dir: Path = Path(__file__).parent / "eval_logs"
@@ -293,7 +294,8 @@ if __name__ == "__main__":
             save_attn=False,
             record_videos=bool(args.record_videos),
             position_prediction_only=bool(args.position_prediction_only),
-            offline=bool(args.offline)
+            offline=bool(args.offline),
+            verbose=bool(args.verbose),
         )
 
         print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))

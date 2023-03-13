@@ -23,7 +23,7 @@ num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
     --data_dir $data_dir --offline 0 --num_episodes $num_episodes \
-    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction 1 --variations {0..60}
+    --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction 1 --variations {0..60} --verbose 1
 done
 
 

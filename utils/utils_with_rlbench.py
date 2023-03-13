@@ -396,16 +396,21 @@ class RLBenchEnv:
         position_prediction_only: bool = False,
         verbose: bool = False,
     ):
+        self.env.launch()
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
         task_variations = task.variation_count()
+
         if num_variations >= 0:
             task_variations = np.minimum(num_variations, task_variations)
 
-        success_rates = {}
+        variation_success_rates = {}
+
         for variation in range(task_variations):
-            success_rate = self.evaluate_task_on_one_variation(
+            task.set_variation(variation)
+            success_rate = self._evaluate_task_on_one_variation(
                 task_str=task_str,
+                task=task,
                 max_steps=max_steps,
                 variation=variation,
                 num_demos=num_demos // task_variations + 1,
@@ -420,13 +425,19 @@ class RLBenchEnv:
                 position_prediction_only=position_prediction_only,
                 verbose=verbose,
             )
-            success_rates[variation] = success_rate
-        print(task_str, success_rates)
-        return np.mean(success_rates.values())
+            variation_success_rates[variation] = success_rate
 
-    def evaluate_task_on_one_variation(
+        if verbose:
+            print(task_str, variation_success_rates)
+
+        self.env.shutdown()
+
+        return np.mean(variation_success_rates.values())
+
+    def _evaluate_task_on_one_variation(
         self,
         task_str: str,
+        task: TaskEnvironment,
         max_steps: int,
         variation: int,
         num_demos: int,
@@ -441,11 +452,6 @@ class RLBenchEnv:
         position_prediction_only: bool = False,
         verbose: bool = False,
     ):
-        self.env.launch()
-        task_type = task_file_to_task_class(task_str)
-        task = self.env.get_task(task_type)
-        task.set_variation(variation)  # type: ignore
-
         if record_videos:
             cam_placeholder = Dummy('cam_cinematic_placeholder')
             cam = VisionSensor.create([480, 480])
@@ -596,7 +602,7 @@ class RLBenchEnv:
                             print("The episode has terminated!")
 
                     except (IKError, ConfigurationPathError, InvalidActionError) as e:
-                        print(task_type, demo, step_id, success_rate, e)
+                        print(task_str, demo, step_id, success_rate, e)
                         reward = 0
                         break
 
@@ -620,8 +626,6 @@ class RLBenchEnv:
                     demo_id,
                     "SR: %.2f" % (success_rate * 100),
                 )
-
-        self.env.shutdown()
 
         # Compensate for failed demos
         success_rate = success_rate * num_demos / (num_demos - failed_demos)
