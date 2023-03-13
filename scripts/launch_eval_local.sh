@@ -1,4 +1,4 @@
-exp=03_10_improve_pick
+exp=03_13_peract_setting
 ckpts=(
   open_drawer_version157135
   place_wine_at_rack_location_version157144
