@@ -21,6 +21,7 @@ from utils.utils_without_rlbench import (
     load_instructions,
     get_max_episode_length,
     get_gripper_loc_bounds,
+    TASK_TO_ID
 )
 
 
@@ -98,6 +99,9 @@ class Arguments(tap.Tap):
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
     use_instruction: int = 0
+
+    # Positional features
+    positional_features: Optional[str] = "none"  # one of "xyz_concat", "z_concat", "xyz_add", "z_add", "none"
 
     # ---------------------------------------------------------------
     # Our analogical network additional parameters
@@ -197,6 +201,9 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             regress_position_offset=bool(args.regress_position_offset),
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
             use_instruction=bool(args.use_instruction),
+            task_specific_biases=bool(args.task_specific_biases),
+            positional_features=args.positional_features,
+            task_ids=[TASK_TO_ID[task] for task in args.tasks],
         ).to(device)
     elif args.model == "analogical":
         raise NotImplementedError
@@ -215,7 +222,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             global_correspondence=args.global_correspondence,
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
             use_instruction=bool(args.use_instruction),
-            task_specific_parameters=bool(args.task_specific_parameters),
+            task_specific_biases=bool(args.task_specific_biases),
+            task_ids=[TASK_TO_ID[task] for task in args.tasks],
         ).to(device)
 
     if hasattr(model, "film_gen") and model.film_gen is not None:

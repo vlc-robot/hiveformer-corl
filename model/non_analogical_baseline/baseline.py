@@ -23,7 +23,7 @@ class Baseline(nn.Module):
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
-                 positional_features=None,
+                 positional_features="none",
                  task_ids=[]):
         super().__init__()
 

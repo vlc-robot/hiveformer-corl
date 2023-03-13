@@ -49,6 +49,8 @@ class PredictionHead(nn.Module):
         assert rotation_parametrization in ["quat_from_top_ghost", "quat_from_query"]
         assert num_sampling_level in [1, 2, 3, 4]
         assert visualize_rgb_attn in [False], "Temporarily disabled"
+        assert positional_features in ["xyz_concat", "z_concat", "xyz_add", "z_add", "none"]
+
         self.image_size = image_size
         self.rotation_parametrization = rotation_parametrization
         self.num_ghost_points = num_ghost_points // num_sampling_level
@@ -272,9 +274,6 @@ class PredictionHead(nn.Module):
                 task_id, batch_size, level=i
             )
 
-            ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
-            ghost_pcd_features_i_all = torch.cat(ghost_pcd_features_pyramid, dim=0)
-
             # Initialize query features
             if i == 0:
                 query_features = self.query_embed.weight.unsqueeze(1).repeat(1, batch_size, 1)
@@ -291,10 +290,24 @@ class PredictionHead(nn.Module):
                 query_pos_i = self.relative_pe_layer(position_pyramid[-1])
                 context_pos_i = query_context_pos_i
 
-            query_features, ghost_pcd_masks_i_all, visible_rgb_mask_i = self._decode_mask(
-                ghost_pcd_features_i_all, ghost_pcd_to_visible_rgb_attn_i, task_id, height, width,
-                query_features, query_context_features_i, query_pos=query_pos_i, context_pos=context_pos_i, level=i
+            # The query cross-attends to context features (visual features and the current gripper position)
+            query_features = self._compute_query_features(
+                query_features, query_context_features_i,
+                query_pos_i, context_pos_i,
+                level=i, task_id=task_id
             )
+
+            ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
+            ghost_pcd_features_i_all = torch.cat(ghost_pcd_features_pyramid, dim=0)
+
+            # The query decodes a mask over ghost points (used to predict the gripper position) and over visual
+            # features (for visualization only)
+            ghost_pcd_masks_i_all, visible_rgb_mask_i = self._decode_mask(
+                query_features,
+                ghost_pcd_features_i_all, ghost_pcd_to_visible_rgb_attn_i,
+                height, width, level=i
+            )
+            query_features = query_features[-1]
 
             ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
             ghost_pcd_pyramid.append(ghost_pcd_i)
@@ -474,20 +487,12 @@ class PredictionHead(nn.Module):
 
         return ghost_pcd_features, ghost_pcd_pos, ghost_pcd_to_visible_rgb_attn
 
-    def _decode_mask(self,
-                     ghost_pcd_features, ghost_pcd_to_visible_rgb_attn,
-                     task_id, rgb_height, rgb_width,
-                     query_features, context_features,
-                     query_pos, context_pos,
-                     level):
-        """
-        The query cross-attends to context features (visual features, ghost points, and the
-        current gripper position) then decodes a mask over ghost points (used to predict
-        the gripper position) and over visual features (for visualization only).
-        """
+    def _compute_query_features(self,
+                                query_features, context_features,
+                                query_pos, context_pos,
+                                level, task_id):
+        """The query cross-attends to context features (visual features and the current gripper position)."""
         attn_layers = self.query_cross_attn_pyramid[level]
-        h = rgb_height // self.downscaling_factor_pyramid[level]
-        w = rgb_width // self.downscaling_factor_pyramid[level]
 
         if self.task_specific_biases:
             query_features = attn_layers(
@@ -501,9 +506,21 @@ class PredictionHead(nn.Module):
                 query_pos=query_pos, value_pos=context_pos
             )
 
+        return query_features
+
+    def _decode_mask(self,
+                     query_features,
+                     ghost_pcd_features, ghost_pcd_to_visible_rgb_attn,
+                     rgb_height, rgb_width, level):
+        """
+        The query decodes a mask over ghost points (used to predict the gripper position) and over visual
+        features (for visualization only).
+        """
+        h = rgb_height // self.downscaling_factor_pyramid[level]
+        w = rgb_width // self.downscaling_factor_pyramid[level]
+
         ghost_pcd_masks = [einops.einsum(f.squeeze(0), ghost_pcd_features, "bt c, npts bt c -> bt npts")
                            for f in query_features]
-        query_features = query_features[-1]
 
         # Extract attention from top ghost point to visual features for visualization
         if ghost_pcd_to_visible_rgb_attn is not None:
@@ -514,7 +531,7 @@ class PredictionHead(nn.Module):
         else:
             visible_rgb_mask = None
 
-        return query_features, ghost_pcd_masks, visible_rgb_mask
+        return ghost_pcd_masks, visible_rgb_mask
 
     def _predict_action(self,
                         ghost_pcd_mask, ghost_pcd, ghost_pcd_features, query_features, batch_size,
