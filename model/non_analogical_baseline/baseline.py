@@ -23,6 +23,7 @@ class Baseline(nn.Module):
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
+                 positional_features=None,
                  task_ids=[]):
         super().__init__()
 
@@ -43,6 +44,7 @@ class Baseline(nn.Module):
             visualize_rgb_attn=visualize_rgb_attn,
             use_instruction=use_instruction,
             task_specific_biases=task_specific_biases,
+            positional_features=positional_features,
             task_ids=task_ids,
         )
 

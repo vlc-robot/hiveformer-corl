@@ -56,41 +56,22 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         return position_code
 
 
-class PositionEmbeddingLearned(nn.Module):
-    """Learned absolute positional embeddings."""
-
-    def __init__(self, dim, num_pos_feats):
+class LearnedAbsolutePositionEncoding3D(nn.Module):
+    def __init__(self, input_dim, embedding_dim):
         super().__init__()
-
-        self.position_embedding_head = nn.Sequential(
-            nn.Conv1d(dim, num_pos_feats, kernel_size=1),
-            nn.BatchNorm1d(num_pos_feats),
+        self.absolute_pe_layer = nn.Sequential(
+            nn.Conv1d(input_dim, embedding_dim, kernel_size=1),
+            nn.BatchNorm1d(embedding_dim),
             nn.ReLU(inplace=True),
-            nn.Conv1d(num_pos_feats, num_pos_feats, kernel_size=1)
+            nn.Conv1d(embedding_dim, embedding_dim, kernel_size=1)
         )
 
-    def forward(self, features, XYZ):
+    def forward(self, xyz):
         """
-        Return positional encoding for features.
-
         Arguments:
-            features: downscale image feature map of shape
-             (batch_size, channels, height, width)
-            XYZ: point cloud in world coordinates aligned to image features of
-             shape (batch_size, 3, height * downscaling, width * downscaling)
+            xyz: (B, N, 3) tensor of the (x, y, z) coordinates of the points
 
         Returns:
-            pos_code: positional embeddings of shape
-             (batch_size, channels, height, width)
+            absolute_pe: (B, N, embedding_dim) tensor of the absolute position encoding
         """
-        h, w = features.shape[-2:]
-        h_downscaling = XYZ.shape[-2] / h
-        w_downscaling = XYZ.shape[-1] / w
-        assert h_downscaling == w_downscaling and int(h_downscaling) == h_downscaling
-
-        XYZ = F.interpolate(XYZ, scale_factor=1. / h_downscaling, mode='bilinear')
-        XYZ = einops.rearrange(XYZ, "b c h w -> b c (h w)")
-        pos_code = self.position_embedding_head(XYZ)
-        pos_code = einops.rearrange(pos_code, "b c (h w) -> b c h w", h=h, w=w)
-
-        return pos_code
+        return self.absolute_pe_layer(xyz.permute(0, 2, 1)).permute(0, 2, 1)

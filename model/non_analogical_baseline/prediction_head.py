@@ -5,12 +5,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
 
-from model.utils.position_encodings import RotaryPositionEncoding3D
+from model.utils.position_encodings import (
+    RotaryPositionEncoding3D,
+    LearnedAbsolutePositionEncoding3D
+)
 from model.utils.layers import (
     RelativeCrossAttentionModule,
     TaskSpecificRelativeCrossAttentionModule
 )
-from model.utils.utils import normalise_quat, sample_ghost_points_uniform_cube, sample_ghost_points_uniform_sphere
+from model.utils.utils import (
+    normalise_quat,
+    sample_ghost_points_uniform_cube,
+    sample_ghost_points_uniform_sphere
+)
 from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
 
@@ -34,6 +41,7 @@ class PredictionHead(nn.Module):
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
+                 positional_features=None,
                  task_ids=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
@@ -51,6 +59,7 @@ class PredictionHead(nn.Module):
         self.regress_position_offset = regress_position_offset
         self.visualize_rgb_attn = visualize_rgb_attn
         self.weight_tying = weight_tying
+        self.positional_features = positional_features
 
         # Frozen backbone
         if backbone == "resnet":
@@ -61,7 +70,10 @@ class PredictionHead(nn.Module):
             p.requires_grad = False
 
         # Semantic visual features at different scales
-        self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
+        if self.positional_features in ["xyz_concat", "z_concat"]:
+            self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim - 10)
+        else:
+            self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
         if self.image_size == (128, 128):
             # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
@@ -73,8 +85,18 @@ class PredictionHead(nn.Module):
             self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
             self.downscaling_factor_pyramid = [8, 2, 2, 2]
 
-        # 3D positional embeddings
-        self.pcd_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        # 3D relative positional embeddings
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+
+        # 3D absolute positional embeddings
+        if self.positional_features == "xyz_concat":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, 10)
+        elif self.positional_features == "z_concat":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, 10)
+        if self.positional_features == "xyz_add":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim)
+        elif self.positional_features == "z_add":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim)
 
         # Ghost points learnable initial features
         self.ghost_points_embed_pyramid = nn.ModuleList()
@@ -185,13 +207,13 @@ class PredictionHead(nn.Module):
         if self.use_instruction:
             instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
             instruction_dummy_pos = torch.zeros(batch_size, instruction_features.shape[0], 3, device=device)
-            instruction_dummy_pos = self.pcd_pe_layer(instruction_dummy_pos)
+            instruction_dummy_pos = self.relative_pe_layer(instruction_dummy_pos)
         else:
             instruction_features = None
             instruction_dummy_pos = None
 
         # Compute current gripper position features and positional embeddings
-        curr_gripper_pos = self.pcd_pe_layer(curr_gripper.unsqueeze(1))
+        curr_gripper_pos = self.relative_pe_layer(curr_gripper.unsqueeze(1))
         curr_gripper_features = self.curr_gripper_embed.weight.repeat(batch_size, 1).unsqueeze(0)
 
         ghost_pcd_features_pyramid = []
@@ -264,7 +286,7 @@ class PredictionHead(nn.Module):
                 context_pos_i = None
             else:
                 # Now that the query is localized, we use positional embeddings
-                query_pos_i = self.pcd_pe_layer(position_pyramid[-1])
+                query_pos_i = self.relative_pe_layer(position_pyramid[-1])
                 context_pos_i = query_context_pos_i
 
             query_features, ghost_pcd_masks_i_all, visible_rgb_mask_i = self._decode_mask(
@@ -315,6 +337,8 @@ class PredictionHead(nn.Module):
 
     def _compute_visual_features(self, visible_rgb, visible_pcd, num_cameras):
         """Compute visual features at different scales and their positional embeddings."""
+        ncam = visible_rgb.shape[1]
+
         # Pass each view independently through ResNet50 backbone
         visible_rgb = einops.rearrange(visible_rgb, "bt ncam c h w -> (bt ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
@@ -333,11 +357,26 @@ class PredictionHead(nn.Module):
             visible_rgb_features_i = visible_rgb_features[self.feature_map_pyramid[i]]
             visible_pcd_i = F.interpolate(
                 visible_pcd, scale_factor=1. / self.downscaling_factor_pyramid[i], mode='bilinear')
+            h, w = visible_pcd_i.shape[-2:]
             visible_pcd_i = einops.rearrange(
-                visible_pcd_i, "(b ncam) c h w -> b (ncam h w) c", ncam=num_cameras)
-            visible_rgb_pos_i = self.pcd_pe_layer(visible_pcd_i)
+                visible_pcd_i, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras)
+            visible_rgb_pos_i = self.relative_pe_layer(visible_pcd_i)
             visible_rgb_features_i = einops.rearrange(
-                visible_rgb_features_i, "(b ncam) c h w -> b ncam c h w", ncam=num_cameras)
+                visible_rgb_features_i, "(bt ncam) c h w -> bt ncam c h w", ncam=num_cameras)
+
+            if self.positional_features in ["xyz_concat", "xyz_add"]:
+                visible_rgb_pos_features_i = self.absolute_pe_layer(visible_pcd_i)
+                visible_rgb_pos_features_i = einops.rearrange(
+                    visible_rgb_pos_features_i, "bt (ncam h w) c -> bt ncam c h w", ncam=ncam, h=h, w=w)
+            elif self.positional_features in ["z_concat", "z_add"]:
+                visible_rgb_pos_features_i = self.absolute_pe_layer(visible_pcd_i[:, :, 2:3])
+                visible_rgb_pos_features_i = einops.rearrange(
+                    visible_rgb_pos_features_i, "bt (ncam h w) c -> bt ncam c h w", ncam=ncam, h=h, w=w)
+
+            if self.positional_features in ["xyz_concat", "z_concat"]:
+                visible_rgb_features_i = torch.cat([visible_rgb_features_i, visible_rgb_pos_features_i], dim=2)
+            elif self.positional_features in ["xyz_add", "z_add"]:
+                visible_rgb_features_i = visible_rgb_features_i + visible_rgb_pos_features_i
 
             visible_rgb_features_pyramid.append(visible_rgb_features_i)
             visible_rgb_pos_pyramid.append(visible_rgb_pos_i)
@@ -405,7 +444,7 @@ class PredictionHead(nn.Module):
         attn_layers = self.ghost_point_cross_attn_pyramid[level]
 
         # Initialize ghost point features and positional embeddings
-        ghost_pcd_pos = self.pcd_pe_layer(ghost_pcd)
+        ghost_pcd_pos = self.relative_pe_layer(ghost_pcd)
         num_ghost_points = ghost_pcd.shape[1]
         ghost_pcd_features = embed.weight.unsqueeze(0).repeat(num_ghost_points, batch_size, 1)
 
