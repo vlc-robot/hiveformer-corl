@@ -408,7 +408,7 @@ class RLBenchEnv:
                 task_str=task_str,
                 max_steps=max_steps,
                 variation=variation,
-                num_demos=num_demos // len(task_variations) + 1,
+                num_demos=num_demos // task_variations + 1,
                 log_dir=log_dir,
                 actioner=actioner,
                 max_tries=max_tries,
