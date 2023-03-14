@@ -78,10 +78,10 @@ if __name__ == "__main__":
             )
 
             task_dirs = glob.glob(f"{args.raw_dir}/{split}/*")
+            task_success_rates = {}
 
             for task_dir in task_dirs:
                 task_str = task_dir.split("/")[-1]
-                task_success_rates = {}
                 var_dirs = glob.glob(f"{task_dir}/*")
 
                 print("=========================================")
