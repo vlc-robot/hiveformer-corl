@@ -1,6 +1,14 @@
 import glob
 import tap
 from typing import Tuple
+import json
+
+
+def round_floats(o):
+    if isinstance(o, float): return round(o, 2)
+    if isinstance(o, dict): return {k: round_floats(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)): return [round_floats(x) for x in o]
+    return o
 
 
 class Arguments(tap.Tap):
@@ -78,11 +86,12 @@ if __name__ == "__main__":
 
             for task_dir in task_dirs:
                 task_str = task_dir.split("/")[-1]
+                task_success_rates = {}
                 var_dirs = glob.glob(f"{task_dir}/*")
 
                 print("=========================================")
                 print(f"{task_str} with {len(var_dirs)} variations")
-                success_rates = {}
+                var_success_rates = {}
                 for var_dir in var_dirs:
                     variation = int(var_dir.split("variation")[-1])
                     ep_dirs = glob.glob(f"{var_dir}/episodes/*")
@@ -94,5 +103,10 @@ if __name__ == "__main__":
                         max_tries=args.max_tries,
                         verbose=False
                     )
-                    success_rates[variation] = success_rate
-                print("Success rates:", success_rates)
+                    var_success_rates[variation] = success_rate
+                print(f"{task_str} success rates:", var_success_rates)
+
+                var_success_rates["mean"] = sum(var_success_rates.values()) / len(var_success_rates)
+                task_success_rates[task_str] = var_success_rates
+                with open(f"{split}_success_rates.json", "w") as f:
+                    json.dump(round_floats(task_success_rates), f, indent=4)
