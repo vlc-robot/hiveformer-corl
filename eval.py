@@ -86,6 +86,7 @@ class Arguments(tap.Tap):
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1
     num_ghost_points: int = 1000
+    num_ghost_points_val: int = 1000
 
     # Model
     backbone: str = "clip"  # one of "resnet", "clip"
@@ -188,6 +189,7 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
+            num_ghost_points_val=args.num_ghost_points_val,
             weight_tying=bool(args.weight_tying),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
@@ -218,10 +220,20 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     if hasattr(model, "film_gen") and model.film_gen is not None:
         model.film_gen.build(device)
 
-    model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
-    model_dict = {(k[7:] if k.startswith("module.") else k): v
-                  for k, v in model_dict.items()}
-    model.load_state_dict(model_dict)
+    # model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
+    # model_dict = {(k[7:] if k.startswith("module.") else k): v
+    #               for k, v in model_dict.items()}
+
+    model_dict = torch.load(checkpoint, map_location="cpu")
+    model_dict_weight = {}
+    for key in model_dict["weight"]:
+        _key = key[7:]
+        if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+            _key = _key[:46] + _key[48:]
+        if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+            _key = _key[:46] + _key[48:]
+        model_dict_weight[_key] = model_dict["weight"][key]
+    model.load_state_dict(model_dict_weight)
 
     model.eval()
 

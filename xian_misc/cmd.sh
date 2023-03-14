@@ -1,10 +1,10 @@
 rsync -avzh  --info=progress2 --exclude-from='/home/zhouxian/git/hiveformer/rsync-exclude-file.txt' /home/zhouxian/git/hiveformer xianz1@matrix.ml.cmu.edu:/home/xianz1/git/
 rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/02_27* home/zhouxian/git/hiveformer/train_logs/
 rsync -avzh --info=progress2 --exclude-from='/home/xianz1/git/hiveformer/rsync-exclude-pth.txt' /home/xianz1/git/hiveformer/train_logs/02_28*  zhouxian@128.2.177.224:/home/zhouxian/git/hiveformer/train_logs/
-rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_09*  /home/zhouxian/git/hiveformer/train_logs/
-rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_08_ablations/put_money_in_safe-offset0-N3-P1000-symrot0-B16-lr1e-4*  /home/zhouxian/git/hiveformer/train_logs/03_08_ablations/
-rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/tgervet/datasets/hiveformer/packaged/1/put_money*  /home/zhouxian/git/datasets/hiveformer/packaged/1/
-rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/datasets/hiveformer/packaged/0_1/put_money*  /home/zhouxian/git/datasets/hiveformer/packaged/0_1/
+rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_10*  /home/zhouxian/git/hiveformer/train_logs/
+rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_10_dense_val_sampling/put_money_in_safe-offset0-N3-T1000-V10000-symrot0-B16-lr1e-4_version156677/model.step=200000*  /home/zhouxian/git/hiveformer/train_logs/03_10_dense_val_sampling/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/tgervet/datasets/hiveformer/packaged/3/put_money*  /home/zhouxian/git/datasets/hiveformer/packaged/3/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/projects/katefgroup/analogical_manipulation/rlbench/raw/74_hiveformer_tasks_val/put_money*  /home/zhouxian/git/datasets/hiveformer/raw/74_hiveformer_tasks_val/
 rsync -avzh --info=progress2 /home/xianz1/git/hiveformer/train_logs/02_27_rotation/put_money_in_safe-quat_from_kp-16-1e-4_version154556/model.step=75000-value=0.00757.pth  zhouxian@128.2.177.224:/home/zhouxian/git/hiveformer/train_logs/02_27_rotation/put_money_in_safe-quat_from_kp-16-1e-4_version154556/
 rsync -avzh --info=progress2 /home/xianz1/git/hiveformer/train_logs/02_27_rotation/put_money_in_safe-quat_from_query-16-1e-4_version154557/model.step=95000-value=0.00814.pth  zhouxian@128.2.177.224:/home/zhouxian/git/hiveformer/train_logs/02_27_rotation/put_money_in_safe-quat_from_query-16-1e-4_version154557/
 

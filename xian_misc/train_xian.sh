@@ -9,15 +9,18 @@
 # main_dir=03_03_multi_level_sampling
 # main_dir=03_04_multi_level_sampling
 # main_dir=03_09_ablations
-main_dir=03_10_dense_val_sampling
+# main_dir=03_10_dense_val_sampling
+main_dir=03_13
 
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
 task=put_money_in_safe
+# task=pick_and_lift
 batch_size_val=4
 batch_size=16
+# batch_size=32
 # batch_size=8
 # batch_size=4
 lr=1e-4
@@ -27,9 +30,9 @@ use_instruction=0
 weight_tying=1
 max_episodes_per_taskvar=100
 
-num_sampling_level=3
-regress_position_offset=0
-num_ghost_points=500
+num_sampling_level=2
+regress_position_offset=1
+num_ghost_points=1000
 num_ghost_points_val=10000
 symmetric_rotation_loss=0
 
