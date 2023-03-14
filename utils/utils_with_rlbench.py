@@ -408,7 +408,7 @@ class RLBenchEnv:
 
         for variation in range(task_variations):
             task.set_variation(variation)
-            success_rate = self._evaluate_task_on_one_variation(
+            success_rate, valid = self._evaluate_task_on_one_variation(
                 task_str=task_str,
                 task=task,
                 max_steps=max_steps,
@@ -425,7 +425,8 @@ class RLBenchEnv:
                 position_prediction_only=position_prediction_only,
                 verbose=verbose,
             )
-            var_success_rates[variation] = success_rate
+            if valid:
+                var_success_rates[variation] = success_rate
 
         self.env.shutdown()
 
@@ -496,7 +497,7 @@ class RLBenchEnv:
         ]).to(device)
 
         success_rate = 0.0
-        failed_demos = 0
+        missing_demos = 0
 
         with torch.no_grad():
             for demo_id in range(num_demos):
@@ -506,7 +507,7 @@ class RLBenchEnv:
                 try:
                     demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
                 except:
-                    failed_demos += 1
+                    missing_demos += 1
                     continue
                 if record_videos and demo_id < num_videos:
                     task_recorder._cam_motion.save_pose()
@@ -627,9 +628,14 @@ class RLBenchEnv:
                 )
 
         # Compensate for failed demos
-        success_rate = success_rate * num_demos / (num_demos - failed_demos)
+        if (num_demos - missing_demos) == 0:
+            success_rate = 0.0
+            valid = False
+        else:
+            success_rate = success_rate * num_demos / (num_demos - missing_demos)
+            valid = True
 
-        return success_rate
+        return success_rate, valid
 
     def verify_demos(
         self,
