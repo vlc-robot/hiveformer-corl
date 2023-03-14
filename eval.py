@@ -21,7 +21,8 @@ from utils.utils_without_rlbench import (
     load_instructions,
     get_max_episode_length,
     get_gripper_loc_bounds,
-    TASK_TO_ID
+    TASK_TO_ID,
+    round_floats
 )
 
 
@@ -33,7 +34,6 @@ class Arguments(tap.Tap):
     num_episodes: int = 1
     headless: int = 0
     max_tries: int = 10
-    output: Path = Path(__file__).parent / "records.txt"
     record_actions: bool = False
     replay_actions: Optional[Path] = None
     ground_truth_rotation: bool = False
@@ -47,6 +47,7 @@ class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
     image_size: str = "256,256"
     verbose: int = 0
+    output_file: Path = Path(__file__).parent / "eval.json"
     
     # Logging to base_log_dir/exp_log_dir/run_log_dir
     base_log_dir: Path = Path(__file__).parent / "eval_logs"
@@ -290,8 +291,10 @@ if __name__ == "__main__":
 
     actioner = Actioner(model=model, instructions=instruction)
     max_eps_dict = load_episodes()["max_episode_length"]
+    task_success_rates = {}
+
     for task_str in args.tasks:
-        success_rate = env.evaluate_task_on_multiple_variations(
+        var_success_rates = env.evaluate_task_on_multiple_variations(
             task_str,
             max_steps=max_eps_dict[task_str],
             num_variations=args.variations[-1] + 1,
@@ -305,11 +308,10 @@ if __name__ == "__main__":
             offline=bool(args.offline),
             verbose=bool(args.verbose),
         )
+        print()
+        print(f"{task_str} variation success rates:", round_floats(var_success_rates))
+        print(f"{task_str} mean success rate:", round_floats(var_success_rates["mean"]))
 
-        print("Testing Success Rate {}: {:.04f}".format(task_str, success_rate))
-
-        with FileLock(str(args.output.parent / f"{args.output.name}.lock")):
-            with open(args.output, "a") as output_id:
-                output_id.write(
-                    f"{task_str}, {checkpoint}, seed={args.seed}, {success_rate}, {log_dir}\n"
-                )
+        task_success_rates[task_str] = var_success_rates
+        with open(args.output_file, "w") as f:
+            json.dump(round_floats(task_success_rates), f, indent=4)

@@ -404,7 +404,7 @@ class RLBenchEnv:
         if num_variations >= 0:
             task_variations = np.minimum(num_variations, task_variations)
 
-        variation_success_rates = {}
+        var_success_rates = {}
 
         for variation in range(task_variations):
             task.set_variation(variation)
@@ -425,14 +425,13 @@ class RLBenchEnv:
                 position_prediction_only=position_prediction_only,
                 verbose=verbose,
             )
-            variation_success_rates[variation] = success_rate
-
-        if verbose:
-            print(task_str, variation_success_rates)
+            var_success_rates[variation] = success_rate
 
         self.env.shutdown()
 
-        return np.mean(list(variation_success_rates.values()))
+        var_success_rates["mean"] = sum(var_success_rates.values()) / len(var_success_rates)
+
+        return var_success_rates
 
     def _evaluate_task_on_one_variation(
         self,
