@@ -14,7 +14,7 @@ def round_floats(o):
 class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("left_shoulder", "right_shoulder", "wrist")
     image_size: str = "256,256"
-    headless: bool = False
+    headless: bool = True
     max_tries: int = 10
 
     raw_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/raw"
