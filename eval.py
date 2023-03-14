@@ -31,7 +31,7 @@ class Arguments(tap.Tap):
     save_img: bool = True
     device: str = "cuda"
     num_episodes: int = 1
-    headless: bool = False
+    headless: int = 0
     max_tries: int = 10
     output: Path = Path(__file__).parent / "records.txt"
     record_actions: bool = False
@@ -278,7 +278,7 @@ if __name__ == "__main__":
         image_size=[int(x) for x in args.image_size.split(",")],
         apply_rgb=True,
         apply_pc=True,
-        headless=args.headless,
+        headless=bool(args.headless),
         apply_cameras=args.cameras,
         # TODO Is there a way to display the fine sampling ball transparently with Open3D?
         # fine_sampling_ball_diameter=args.fine_sampling_ball_diameter if model != "original" else None,
