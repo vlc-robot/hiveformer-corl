@@ -99,6 +99,7 @@ class Arguments(tap.Tap):
     separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
     use_instruction: int = 0
+    task_specific_biases: int = 0
 
     # Positional features
     positional_features: Optional[str] = "none"  # one of "xyz_concat", "z_concat", "xyz_add", "z_add", "none"
@@ -111,7 +112,6 @@ class Arguments(tap.Tap):
     support_set_size: int = 1
     global_correspondence: int = 0
     num_matching_cross_attn_layers: int = 2
-    task_specific_parameters: int = 0
 
 
 def get_log_dir(args: Arguments) -> Path:
