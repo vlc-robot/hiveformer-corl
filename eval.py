@@ -294,7 +294,7 @@ if __name__ == "__main__":
         success_rate = env.evaluate_task_on_multiple_variations(
             task_str,
             max_steps=max_eps_dict[task_str],
-            num_variations=args.variations[-1],
+            num_variations=args.variations[-1] + 1,
             num_demos=args.num_episodes,
             actioner=actioner,
             log_dir=log_dir / task_str if args.save_img else None,
