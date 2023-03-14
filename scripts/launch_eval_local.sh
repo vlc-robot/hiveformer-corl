@@ -1,37 +1,37 @@
 exp=03_13_peract_setting
 ckpts=(
-  sweep_to_dustpan_of_size_version157137
-  push_buttons_version157147
-  slide_block_to_color_target_version157136
-  meat_off_grill_version157138
-  turn_tap_version157139
-  close_jar_version157140
-  reach_and_drag_version157141
+#  sweep_to_dustpan_of_size_version157137
+#  push_buttons_version157147
+#  slide_block_to_color_target_version157136
+#  meat_off_grill_version157138
+#  turn_tap_version157139
+#  close_jar_version157140
+#  reach_and_drag_version157141
   light_bulb_in_version157142
-  put_money_in_safe_version157143
-  place_wine_at_rack_location_version157144
-  put_groceries_in_cupboard_version157145
-  place_shape_in_shape_sorter_version157146
-  insert_onto_square_peg_version157148
+#  put_money_in_safe_version157143
+#  place_wine_at_rack_location_version157144
+#  put_groceries_in_cupboard_version157145
+#  place_shape_in_shape_sorter_version157146
+#  insert_onto_square_peg_version157148
 )
 tasks=(
-  sweep_to_dustpan_of_size
-  push_buttons
-  slide_block_to_color_target
-  meat_off_grill
-  turn_tap
-  close_jar
-  reach_and_drag
+#  sweep_to_dustpan_of_size
+#  push_buttons
+#  slide_block_to_color_target
+#  meat_off_grill
+#  turn_tap
+#  close_jar
+#  reach_and_drag
   light_bulb_in
-  put_money_in_safe
-  place_wine_at_rack_location
-  put_groceries_in_cupboard
-  place_shape_in_shape_sorter
-  insert_onto_square_peg
+#  put_money_in_safe
+#  place_wine_at_rack_location
+#  put_groceries_in_cupboard
+#  place_shape_in_shape_sorter
+#  insert_onto_square_peg
 )
 #data_dir=/home/theophile_gervet_gmail_com/datasets/raw/10_hiveformer_tasks_val
 data_dir=/home/zhouxian/git/datasets/raw/18_peract_tasks_val
-num_episodes=50
+num_episodes=10
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
