@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import tap
 import json
-from filelock import FileLock
+import os
 
 from train import Arguments as TrainArguments
 from model.released_hiveformer.network import Hiveformer
@@ -261,6 +261,8 @@ if __name__ == "__main__":
     log_dir = get_log_dir(args)
     log_dir.mkdir(exist_ok=True, parents=True)
     print("log dir", log_dir)
+
+    os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
