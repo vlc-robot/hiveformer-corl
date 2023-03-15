@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=russ_reserved,kate_reserved
+#SBATCH --partition=kate_reserved
 #SBATCH --job-name=analogical-manip
 #SBATCH --output=slurm_logs/analogical-manip-%j.out
 #SBATCH --error=slurm_logs/analogical-manip-%j.err
