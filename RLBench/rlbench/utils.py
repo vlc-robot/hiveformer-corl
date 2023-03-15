@@ -70,6 +70,7 @@ def get_stored_demos(amount: int, image_paths: bool, dataset_root: str,
     demos = []
     for example in selected_examples:
         example_path = join(examples_path, example)
+        print(example_path)
         with open(join(example_path, LOW_DIM_PICKLE), 'rb') as f:
             obs = pickle.load(f)
 

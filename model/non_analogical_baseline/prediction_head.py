@@ -28,6 +28,7 @@ class PredictionHead(nn.Module):
                  num_ghost_points=1000,
                  num_ghost_points_val=1000,
                  weight_tying=False,
+                 gp_emb_tying=False,
                  num_sampling_level=2,
                  fine_sampling_ball_diameter=0.08,
                  regress_position_offset=True,
@@ -51,6 +52,7 @@ class PredictionHead(nn.Module):
         self.regress_position_offset = regress_position_offset
         self.visualize_rgb_attn = visualize_rgb_attn
         self.weight_tying = weight_tying
+        self.gp_emb_tying = gp_emb_tying
 
         # Frozen backbone
         if backbone == "resnet":
@@ -78,8 +80,13 @@ class PredictionHead(nn.Module):
 
         # Ghost points learnable initial features
         self.ghost_points_embed_pyramid = nn.ModuleList()
-        for i in range(self.num_sampling_level):
-            self.ghost_points_embed_pyramid.append(nn.Embedding(1, embedding_dim))
+        if self.gp_emb_tying:
+            gp_emb = nn.Embedding(1, embedding_dim)
+            for i in range(self.num_sampling_level):
+                self.ghost_points_embed_pyramid.append(gp_emb)
+        else:
+            for i in range(self.num_sampling_level):
+                self.ghost_points_embed_pyramid.append(nn.Embedding(1, embedding_dim))
 
         # Current gripper learnable features
         self.curr_gripper_embed = nn.Embedding(1, embedding_dim)
