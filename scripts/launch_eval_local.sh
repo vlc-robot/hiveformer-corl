@@ -8,9 +8,9 @@ ckpts=(
 #  close_jar_version157140
 #  reach_and_drag_version157141
   light_bulb_in_version157142
-#  put_money_in_safe_version157143
+  put_money_in_safe_version157143
 #  place_wine_at_rack_location_version157144
-#  put_groceries_in_cupboard_version157145
+  put_groceries_in_cupboard_version157145
 #  place_shape_in_shape_sorter_version157146
 #  insert_onto_square_peg_version157148
 )
@@ -23,9 +23,9 @@ tasks=(
 #  close_jar
 #  reach_and_drag
   light_bulb_in
-#  put_money_in_safe
+  put_money_in_safe
 #  place_wine_at_rack_location
-#  put_groceries_in_cupboard
+  put_groceries_in_cupboard
 #  place_shape_in_shape_sorter
 #  insert_onto_square_peg
 )
@@ -36,7 +36,7 @@ num_episodes=10
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
-    --data_dir $data_dir --offline 0 --num_episodes $num_episodes --headless 0 \
+    --data_dir $data_dir --offline 0 --num_episodes $num_episodes --headless 1 \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction 1 --variations {0..60}
 done
 
