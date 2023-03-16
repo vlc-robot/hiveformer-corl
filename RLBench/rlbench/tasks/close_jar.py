@@ -62,3 +62,7 @@ class CloseJar(Task):
         # unscrew, leading to a weird jitery and tilted cap while unscrewing.
         # Issue occured rarely so is only minor
         return (0.0, 0.0, -0.6*np.pi), (0.0, 0.0, +0.6*np.pi)
+
+    @property
+    def gripper_open_threshold(self):
+        return 0.95

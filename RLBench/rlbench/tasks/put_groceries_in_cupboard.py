@@ -55,3 +55,6 @@ class PutGroceriesInCupboard(Task):
                                             Tuple[float, float, float]]:
         return (0.0, 0.0, -1.), (0.0, 0.0, 1.)
 
+    @property
+    def gripper_open_threshold(self):
+        return 0.95

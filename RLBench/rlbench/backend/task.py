@@ -431,3 +431,7 @@ class Task(object):
     @property
     def state(self):
         return None
+
+    @property
+    def gripper_open_threshold(self):
+        return 0.9
