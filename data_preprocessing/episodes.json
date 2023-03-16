@@ -129,7 +129,8 @@
 	"tower3",
 	"tower4",
     "stack_blocks",
-    "slide_block_to_color_target"
+    "slide_block_to_color_target",
+    "place_cups"
 ],
 "broken": [
 	"empty_container",

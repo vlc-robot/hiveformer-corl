@@ -10,7 +10,7 @@ val_dir=74_hiveformer_tasks_val
 train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
-task_file=tasks/74_hiveformer_tasks.csv
+task_file=tasks/hiveformer_74_tasks.csv
 
 nohup sudo X &
 export DISPLAY=:0.0
@@ -66,7 +66,7 @@ val_dir=18_peract_tasks_val
 train_episodes_per_task=100
 val_episodes_per_task=100
 image_size="256,256"
-task_file=tasks/18_peract_tasks.csv
+task_file=tasks/peract_18_tasks.csv
 ```
 
 ### A - Generate raw train and val data
@@ -129,7 +129,7 @@ cd $root/hiveformer
 
 output_dir=$root/datasets/packaged
 train_dir=74_hiveformer_tasks_train
-task_file=tasks/74_hiveformer_tasks.csv
+task_file=tasks/hiveformer_74_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
     --dataset $output_dir/$train_dir \
     --out_file 74_hiveformer_tasks_location_bounds.json \
@@ -137,7 +137,7 @@ python -m data_preprocessing.compute_workspace_bounds \
 
 output_dir=$root/datasets/packaged
 train_dir=18_peract_tasks_train
-task_file=tasks/18_peract_tasks.csv
+task_file=tasks/peract_18_tasks.csv
 python -m data_preprocessing.compute_workspace_bounds \
     --dataset $output_dir/$train_dir \
     --out_file 18_peract_tasks_location_bounds.json \

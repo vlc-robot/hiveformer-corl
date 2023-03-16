@@ -10,6 +10,7 @@ from pyrep.objects.shape import Shape
 from pyrep.objects.proximity_sensor import ProximitySensor
 from pyrep.objects.dummy import Dummy
 
+
 class CloseJar(Task):
 
     def init_task(self) -> None:
