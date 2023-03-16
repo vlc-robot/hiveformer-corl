@@ -23,7 +23,7 @@
         "lamp_off": 2,
         "lamp_on": 3,
         "light_bulb_out": 5,
-        "light_bulb_in": 6,
+        "light_bulb_in": 7,
         "lift_numbered_block": 3,
         "move_hanger": 5,
         "meat_off_grill": 5,
@@ -48,7 +48,7 @@
         "pick_up_cup": 3,
         "place_shape_in_shape_sorter": 5,
         "place_hanger_on_rack": 5,
-        "place_cups": 6,
+        "place_cups": 14,
         "play_jenga": 3,
 	    "plug_charger_in_power_supply": 5,
         "press_switch": 2,
@@ -130,7 +130,8 @@
 	"tower4",
     "stack_blocks",
     "slide_block_to_color_target",
-    "place_cups"
+    "place_cups",
+    "place_shape_in_shape_sorter"
 ],
 "broken": [
 	"empty_container",
