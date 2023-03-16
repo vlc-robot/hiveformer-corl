@@ -75,4 +75,4 @@ class PlaceCups(Task):
 
     @property
     def gripper_open_threshold(self):
-        return 0.98
+        return 0.95
