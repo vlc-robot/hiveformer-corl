@@ -57,4 +57,4 @@ class PutGroceriesInCupboard(Task):
 
     @property
     def gripper_open_threshold(self):
-        return 0.95
+        return 0.98

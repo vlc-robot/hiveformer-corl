@@ -72,3 +72,7 @@ class PlaceCups(Task):
 
     def base_rotation_bounds(self) -> Tuple[List[float], List[float]]:
         return [0.0, 0.0, -np.pi / 2], [0.0, 0.0, np.pi / 2]
+
+    @property
+    def gripper_open_threshold(self):
+        return 0.98
