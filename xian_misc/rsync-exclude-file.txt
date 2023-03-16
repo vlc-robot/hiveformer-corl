@@ -1,4 +1,7 @@
+.git*
 train_logs/
+RLBench/
+PyRep/
 vln-robot/
 __pycache__/
 

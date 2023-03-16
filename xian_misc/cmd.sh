@@ -1,4 +1,4 @@
-rsync -avzh  --info=progress2 --exclude-from='/home/zhouxian/git/hiveformer/rsync-exclude-file.txt' /home/zhouxian/git/hiveformer xianz1@matrix.ml.cmu.edu:/home/xianz1/git/
+rsync -avzh  --info=progress2 --exclude-from='/home/zhouxian/git/debug/hiveformer/xian_misc/rsync-exclude-file.txt' /home/zhouxian/git/debug/hiveformer xianz1@matrix.ml.cmu.edu:/home/xianz1/git/debug/
 rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/02_27* home/zhouxian/git/hiveformer/train_logs/
 rsync -avzh --info=progress2 --exclude-from='/home/xianz1/git/hiveformer/rsync-exclude-pth.txt' /home/xianz1/git/hiveformer/train_logs/02_28*  zhouxian@128.2.177.224:/home/zhouxian/git/hiveformer/train_logs/
 rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_14*  /home/zhouxian/git/hiveformer/train_logs/
