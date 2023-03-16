@@ -285,7 +285,7 @@ class Scene(object):
             joint_forces=(joint_forces
                           if self._obs_config.joint_forces else None),
             gripper_open=(
-                (1.0 if self.robot.gripper.get_open_amount()[0] > 0.95 else 0.0)  # Changed from 0.9 to 0.95 because objects, the gripper does not close completely
+                (1.0 if self.robot.gripper.get_open_amount()[0] > 0.95 else 0.0)  # Changed from 0.9 to 0.95
                 if self._obs_config.gripper_open else None),
             gripper_pose=(
                 np.array(tip.get_pose())
