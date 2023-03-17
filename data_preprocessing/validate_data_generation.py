@@ -91,14 +91,17 @@ if __name__ == "__main__":
                     variation = int(var_dir.split("variation")[-1])
                     ep_dirs = glob.glob(f"{var_dir}/episodes/*")
                     num_demos = len(ep_dirs)
-                    success_rate = env.verify_demos(
+                    success_rate, valid, invalid_demos = env.verify_demos(
                         task_str=task_str,
                         variation=variation,
                         num_demos=num_demos,
                         max_tries=args.max_tries,
                         verbose=False
                     )
-                    var_success_rates[variation] = success_rate
+                    if valid:
+                        var_success_rates[variation] = success_rate
+                    if invalid_demos > 0:
+                        print(f"{invalid_demos} invalid demos for {task_str} variation {variation}")
                 print(f"{task_str} success rates:", var_success_rates)
 
                 var_success_rates["mean"] = sum(var_success_rates.values()) / len(var_success_rates)

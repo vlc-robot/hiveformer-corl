@@ -3,6 +3,7 @@ import random
 from typing import List, Dict, Optional, Tuple, Literal, TypedDict, Union, Any, Sequence
 from pathlib import Path
 import open3d
+import traceback
 import json
 from tqdm import tqdm
 import numpy as np
@@ -655,12 +656,20 @@ class RLBenchEnv:
         task.set_variation(variation)  # type: ignore
 
         success_rate = 0.0
+        invalid_demos = 0
 
         for demo_id in range(num_demos):
             if verbose:
                 print(f"Starting demo {demo_id}")
 
-            demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+            try:
+                demo = self.get_demo(task_str, variation, episode_index=demo_id)[0]
+            except:
+                print(f"Invalid demo {demo_id} for {task_str} variation {variation}")
+                print()
+                traceback.print_exc()
+                invalid_demos += 1
+
             task.reset_to_demo(demo)
 
             gt_keyframe_actions = []
@@ -691,8 +700,16 @@ class RLBenchEnv:
             if verbose:
                 print(f"Finished demo {demo_id}, SR: {success_rate}")
 
+        # Compensate for failed demos
+        if (num_demos - invalid_demos) == 0:
+            success_rate = 0.0
+            valid = False
+        else:
+            success_rate = success_rate * num_demos / (num_demos - invalid_demos)
+            valid = True
+
         self.env.shutdown()
-        return success_rate
+        return success_rate, valid, invalid_demos
 
     def create_obs_config(
         self, image_size, apply_rgb, apply_depth, apply_pc, apply_cameras, **kwargs
