@@ -11,21 +11,22 @@ class Arguments(tap.Tap):
     image_size: str = "256,256"
     headless: int = 1
     max_tries: int = 10
+    verbose: int = 0
 
-    raw_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/raw"
-    packaged_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/packaged"
-    # raw_dir: str = "/home/zhouxian/git/datasets/raw"
-    # packaged_dir: str = "/home/zhouxian/git/datasets/packaged"
+    #raw_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/raw"
+    #packaged_dir: str = "/projects/katefgroup/analogical_manipulation/rlbench/packaged"
+    raw_dir: str = "/home/zhouxian/git/datasets/raw"
+    packaged_dir: str = "/home/zhouxian/git/datasets/packaged"
 
-    train_dir: str = "18_peract_tasks_train"
-    val_dir: str = "18_peract_tasks_val"
-    # train_dir: str = "74_hiveformer_tasks_train"
-    # val_dir: str = "74_hiveformer_tasks_val"
+    #train_dir: str = "18_peract_tasks_train"
+    #val_dir: str = "18_peract_tasks_val"
+    train_dir: str = "74_hiveformer_tasks_train"
+    val_dir: str = "74_hiveformer_tasks_val"
     # train_dir: str = "peract_problematic_tasks_train"
     # val_dir: str = "peract_problematic_tasks_val"
 
-    validate_num_episodes: int = 1
-    validate_successful_demos: int = 0
+    validate_num_episodes: int = 0
+    validate_successful_demos: int = 1
 
 
 if __name__ == "__main__":
@@ -61,7 +62,7 @@ if __name__ == "__main__":
 
         max_eps_dict = load_episodes()["max_episode_length"]
 
-        for split in [args.train_dir, args.val_dir]:
+        for split in [args.train_dir]:
             print()
             print()
             print()
@@ -96,7 +97,7 @@ if __name__ == "__main__":
                         variation=variation,
                         num_demos=num_demos,
                         max_tries=args.max_tries,
-                        verbose=False
+                        verbose=bool(args.verbose)
                     )
                     if valid:
                         var_success_rates[variation] = success_rate
