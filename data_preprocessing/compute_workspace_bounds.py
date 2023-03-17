@@ -21,7 +21,7 @@ class Arguments(tap.Tap):
     cameras: Tuple[str, ...] = ("wrist", "left_shoulder", "right_shoulder")
     image_size: str = "256,256"
     dataset: List[Path]
-    max_episodes_per_taskvar: int = 100
+    max_episodes_per_task: int = 100
     instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
     out_file: str = "location_bounds.json"
@@ -64,7 +64,7 @@ if __name__ == "__main__":
             taskvar=taskvar,
             instructions=instruction,
             max_episode_length=max_episode_length,
-            max_episodes_per_taskvar=args.max_episodes_per_taskvar,
+            max_episodes_per_task=args.max_episodes_per_task,
             cache_size=args.cache_size,
             cameras=args.cameras,  # type: ignore
             training=False
