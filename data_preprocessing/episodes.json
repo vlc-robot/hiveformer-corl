@@ -46,16 +46,16 @@
         "pick_and_lift": 4,
         "pick_and_lift_small": 4,
         "pick_up_cup": 3,
-        "place_shape_in_shape_sorter": 5,
+        "place_shape_in_shape_sorter": 7,
         "place_hanger_on_rack": 5,
-        "place_cups": 14,
+        "place_cups": 23,
         "play_jenga": 3,
 	    "plug_charger_in_power_supply": 5,
         "press_switch": 2,
         "put_books_on_bookshelf": 5,
         "put_bottle_in_fridge": 9,
         "put_knife_on_chopping_board": 4,
-	    "put_groceries_in_cupboard": 5,
+	    "put_groceries_in_cupboard": 6,
 	    "put_knife_in_knife_block": 5,
         "put_item_in_drawer": 12,
         "put_money_in_safe": 5,
@@ -138,6 +138,7 @@
 	"put_all_groceries_in_cupboard",
 	"set_the_table",
 	"slide_cabinet_open",
-	"weighing_scales"
+	"weighing_scales",
+    "put_groceries_in_cupboard"
 ]
 }
