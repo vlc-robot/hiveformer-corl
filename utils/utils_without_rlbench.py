@@ -187,7 +187,7 @@ class LossAndMetrics:
             # Supervise offset from the ghost point's position to the predicted position
             num_sampling_level = len(pred['ghost_pcd_masks_pyramid'])
             if pred.get("fine_ghost_pcd_offsets") is not None:
-                if pred["ghost_pcd_pyramid"][-1].shape[-1] == pred["ghost_pcd_pyramid"][0].shape[-1]:
+                if pred["ghost_pcd_pyramid"][-1].shape[-1] != pred["ghost_pcd_pyramid"][0].shape[-1]:
                     npts = pred["ghost_pcd_pyramid"][-1].shape[-1] // num_sampling_level
                     pred_with_offset = (pred["ghost_pcd_pyramid"][-1] + pred["fine_ghost_pcd_offsets"])[:, :, -npts:]
                 else:
