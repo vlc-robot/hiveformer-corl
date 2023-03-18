@@ -71,7 +71,7 @@
         "stack_cups": 10,
         "straighten_rope": 7,
         "scoop_with_spatula": 4,
-        "screw_nail": 6,
+        "screw_nail": 8,
         "setup_checkers": 6,
         "setup_chess": 5,
         "slide_block_to_target": 2,
@@ -107,7 +107,7 @@
         "tv_on": 8,
         "unplug_charger": 2,
         "water_plants": 5,
-        "wipe_desk": 6,
+        "wipe_desk": 8,
         "place_wine_at_rack_location": 5
 }, 
 "variable_length": [
@@ -131,14 +131,19 @@
     "stack_blocks",
     "slide_block_to_color_target",
     "place_cups",
-    "place_shape_in_shape_sorter"
+    "place_shape_in_shape_sorter",
+    "put_groceries_in_cupboard",
+    "slide_cabinet_open_and_place_cups",
+    "wipe_desk",
+    "setup_checkers",
+    "water_plants",
+    "screw_nail"
 ],
 "broken": [
 	"empty_container",
 	"put_all_groceries_in_cupboard",
 	"set_the_table",
 	"slide_cabinet_open",
-	"weighing_scales",
-    "put_groceries_in_cupboard"
+	"weighing_scales"
 ]
 }

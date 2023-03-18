@@ -89,7 +89,11 @@ class Dataset(torch.utils.data.Dataset):
         for task_str in args.tasks:
             if task_str in self.max_eps_dict:
                 continue
-            _, state_ls, _ = get_observation(task_str, args.offset, 0, self.env)
+            try:
+                _, state_ls, _ = get_observation(task_str, args.offset, 0, self.env)
+            except:
+                print(f"Invalid demo for {task_str}")
+                continue
             self.max_eps_dict[task_str] = len(state_ls) - 1
             raise ValueError(
                 f"Guessing that the size of {task_str} is {len(state_ls) - 1}"
