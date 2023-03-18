@@ -125,7 +125,7 @@ class Dataset(torch.utils.data.Dataset):
             demo, state_ls, action_ls = get_observation(
                 task, variation, episode, self.env
             )
-        except (FileNotFoundError, RuntimeError, IndexError) as e:
+        except (FileNotFoundError, RuntimeError, IndexError, EOFError) as e:
             print(e)
             return
 
