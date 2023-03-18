@@ -294,7 +294,6 @@ class RLBenchDataset(data.Dataset):
         self._num_vars = Counter()
         for task, var in taskvar:
             self._instructions[task][var] = instructions[task][var]
-            self._num_vars[task] += 1
 
         if self._training:
             self._resize = Resize(scales=image_rescale)
@@ -319,6 +318,7 @@ class RLBenchDataset(data.Dataset):
                 continue
             self._data_dirs.append(data_dir)
             self._episodes_by_task[task] += episodes
+            self._num_vars[task] += 1
         self._episodes = []
         for task, eps in self._episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
