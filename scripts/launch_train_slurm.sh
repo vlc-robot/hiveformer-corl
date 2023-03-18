@@ -78,15 +78,42 @@
 #     --run_log_dir $task
 #done
 
-#main_dir=03_13_peract_setting
+main_dir=03_18_peract_setting
+num_workers=1
+batch_size=2
+use_instruction=1
+train_iters=500_000
+task_file=tasks/14_peract_short_tasks.csv
+gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
+valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
+#for task in $(cat $task_file | tr '\n' ' '); do
+for task in light_bulb_in put_groceries_in_cupboard place_shape_in_shape_sorter; do
+  sbatch train_1gpu_12gb.sh \
+   --tasks $task \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --num_workers $num_workers \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size \
+   --train_iters $train_iters \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --variations {0..199} \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --run_log_dir $task
+done
+
+#main_dir=03_13_hiveformer_setting
 #num_workers=1
 #batch_size=2
-#use_instruction=1
+#use_instruction=0
 #train_iters=500_000
-#task_file=tasks/14_peract_short_tasks.csv
-#gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
-#dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
-#valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
+#task_file=tasks/7_interesting_autolambda_tasks.csv
+#gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
+#dataset=/home/tgervet/datasets/hiveformer/packaged/2
+#valset=/home/tgervet/datasets/hiveformer/packaged/3
 #for task in $(cat $task_file | tr '\n' ' '); do
 #  sbatch train_1gpu_12gb.sh \
 #   --tasks $task \
@@ -98,36 +125,10 @@
 #   --batch_size_val $batch_size \
 #   --train_iters $train_iters \
 #   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-#   --variations {0..199} \
 #   --use_instruction $use_instruction \
 #   --logger wandb \
-#   --run_log_dir $task
+#   --run_log_dir $task-HIVEFORMER-SETTING
 #done
-
-main_dir=03_13_hiveformer_setting
-num_workers=1
-batch_size=2
-use_instruction=0
-train_iters=500_000
-task_file=tasks/7_interesting_autolambda_tasks.csv
-gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
-dataset=/home/tgervet/datasets/hiveformer/packaged/2
-valset=/home/tgervet/datasets/hiveformer/packaged/3
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_12gb.sh \
-   --tasks $task \
-   --dataset $dataset \
-   --valset $valset \
-   --exp_log_dir $main_dir \
-   --num_workers $num_workers \
-   --batch_size $batch_size \
-   --batch_size_val $batch_size \
-   --train_iters $train_iters \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --run_log_dir $task-HIVEFORMER-SETTING
-done
 
 #main_dir=03_10_improve_pick
 #num_workers=2
