@@ -128,7 +128,7 @@ class LossAndMetrics:
         self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
         self.symmetric_rotation_loss = symmetric_rotation_loss
-        task_file = Path(__file__).parent.parent / "tasks/82_all_tasks.csv"
+        task_file = Path(__file__).parent.parent / "tasks/all_82_tasks.csv"
         with open(task_file) as fid:
             self.tasks = [t.strip() for t in fid.readlines()]
 
