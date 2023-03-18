@@ -292,8 +292,13 @@ class RLBenchDataset(data.Dataset):
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
         self._num_vars = Counter()
-        for task, var in taskvar:
-            self._instructions[task][var] = instructions[task][var]
+        for root, (task, var) in itertools.product(self._root, taskvar):
+            data_dir = root / f"{task}+{var}"
+            if data_dir.is_dir():
+                self._instructions[task][var] = instructions[task][var]
+                self._num_vars[task] += 1
+            else:
+                print(f"Can't find dataset folder {data_dir}")
 
         if self._training:
             self._resize = Resize(scales=image_rescale)
@@ -318,7 +323,6 @@ class RLBenchDataset(data.Dataset):
                 continue
             self._data_dirs.append(data_dir)
             self._episodes_by_task[task] += episodes
-            self._num_vars[task] += 1
         self._episodes = []
         for task, eps in self._episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
