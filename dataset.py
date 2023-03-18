@@ -470,9 +470,13 @@ class RLBenchAnalogicalDataset(data.Dataset):
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
         self._num_vars = Counter()
-        for task, var in taskvar:
-            self._instructions[task][var] = instructions[task][var]
-            self._num_vars[task] += 1
+        for root, (task, var) in itertools.product(self._main_root, taskvar):
+            data_dir = root / f"{task}+{var}"
+            if data_dir.is_dir():
+                self._instructions[task][var] = instructions[task][var]
+                self._num_vars[task] += 1
+            else:
+                print(f"Can't find dataset folder {data_dir}")
 
         self._resize = Resize(scales=(0.75, 1.25))
 
