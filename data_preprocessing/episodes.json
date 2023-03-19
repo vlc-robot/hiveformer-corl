@@ -140,13 +140,13 @@
     "screw_nail",
     "plug_charger_in_power_supply",
     "place_hanger_on_rack",
-    "weighing_scales",
     "open_oven"
 ],
 "broken": [
 	"empty_container",
 	"put_all_groceries_in_cupboard",
 	"set_the_table",
-	"slide_cabinet_open"
+	"slide_cabinet_open",
+    "weighing_scales"
 ]
 }
