@@ -21,7 +21,7 @@
         "insert_onto_square_peg": 5,
         "insert_usb_in_computer": 5,
         "lamp_off": 2,
-        "lamp_on": 3,
+        "lamp_on": 4,
         "light_bulb_out": 5,
         "light_bulb_in": 7,
         "lift_numbered_block": 3,
@@ -47,10 +47,10 @@
         "pick_and_lift_small": 4,
         "pick_up_cup": 3,
         "place_shape_in_shape_sorter": 7,
-        "place_hanger_on_rack": 5,
+        "place_hanger_on_rack": 6,
         "place_cups": 23,
         "play_jenga": 3,
-	    "plug_charger_in_power_supply": 5,
+	    "plug_charger_in_power_supply": 6,
         "press_switch": 2,
         "put_books_on_bookshelf": 5,
         "put_bottle_in_fridge": 9,
@@ -137,13 +137,16 @@
     "wipe_desk",
     "setup_checkers",
     "water_plants",
-    "screw_nail"
+    "screw_nail",
+    "plug_charger_in_power_supply",
+    "place_hanger_on_rack"
 ],
 "broken": [
 	"empty_container",
 	"put_all_groceries_in_cupboard",
 	"set_the_table",
 	"slide_cabinet_open",
-	"weighing_scales"
+	"weighing_scales",
+    "open_oven"
 ]
 }
