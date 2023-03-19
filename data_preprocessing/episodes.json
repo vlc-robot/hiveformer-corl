@@ -91,7 +91,7 @@
         "take_lid_off_saucepan": 3,
         "take_off_weighing_scales": 7,
         "take_plate_off_colored_dish_rack": 5,
-        "take_shoes_out_of_box": 14,
+        "take_shoes_out_of_box": 15,
         "take_toilet_roll_off_stand": 4,
         "take_tray_out_of_oven": 10,
         "take_usb_out_of_computer": 2,
@@ -140,7 +140,8 @@
     "screw_nail",
     "plug_charger_in_power_supply",
     "place_hanger_on_rack",
-    "open_oven"
+    "open_oven",
+    "take_shoes_out_of_box"
 ],
 "broken": [
 	"empty_container",
