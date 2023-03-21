@@ -457,6 +457,8 @@ class RLBenchEnv:
         success_rate = 0.0
         failed_demos = 0
 
+        pos_loss = [[], [], [], []]
+        rot_loss = [[], [], [], []]
         with torch.no_grad():
             for demo_id in range(num_demos):
                 print(f"Starting demo {demo_id}")
@@ -490,7 +492,9 @@ class RLBenchEnv:
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
 
+                # for step_id in range(20):
                 for step_id in range(max_episodes):
+                    
                     # fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
 
@@ -501,8 +505,7 @@ class RLBenchEnv:
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
-
-                    output = actioner.predict(step_id, rgbs, pcds, grippers,
+                    output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
 
                     if offline:
@@ -517,8 +520,19 @@ class RLBenchEnv:
 
                         if position_prediction_only:
                             action[:, 3:] = gt_keyframe_actions[step_id][:, 3:]
+                    # # compute loss
+                    # gt_action = gt_keyframe_actions[step_id][0]
+                    # pred_action = output["action"][-1]
+                    # pred_action[:3] = torch.clamp(pred_action[:3], min_position, max_position)
+                    # pos_loss_ = (pred_action[:3].cpu() - gt_action[:3]).norm()
+                    # rot_loss_ = (pred_action[3:7].cpu() - gt_action[3:7]).norm()
+                    # pos_loss[step_id].append(pos_loss_)
+                    # rot_loss[step_id].append(rot_loss_)
+
 
                     print(f"Step {step_id}")
+                    # print('mean')
+                    # print(torch.stack(pos_loss[step_id]).mean().item(), torch.stack(rot_loss[step_id]).mean().item())
 
                     if record_videos and demo_id < num_videos:
                         pred_keyframe_gripper_matrices.append(self.get_gripper_matrix_from_action(output["action"][-1]))
@@ -580,6 +594,7 @@ class RLBenchEnv:
                     "Step",
                     demo_id,
                     "SR: %.2f" % (success_rate * 100),
+                    "Failed", failed_demos,
                 )
 
         self.env.shutdown()

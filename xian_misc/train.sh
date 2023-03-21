@@ -12,19 +12,18 @@
 # main_dir=03_10_dense_val_sampling
 # main_dir=03_13
 # main_dir=03_14_debug_offset0
-main_dir=03_16_debugdebugdebug
+main_dir=03_19_seed
+main_dir=03_19_compare
 
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
-# task=put_money_in_safe
-task=pick_and_lift
+task=put_money_in_safe
+# task=pick_and_lift
+
 batch_size_val=4
 batch_size=16
-# batch_size=32
-# batch_size=8
-# batch_size=2
 lr=1e-4
 
 gripper_bounds_buffer=0.04
@@ -38,7 +37,8 @@ num_ghost_points_val=10000
 gp_emb_tying=1
 simplify=1
 num_sampling_level=3
-regress_position_offset=1
+regress_position_offset=0
+seed=0
 
 
 python train.py\
@@ -59,6 +59,7 @@ python train.py\
      --gripper_bounds_buffer $gripper_bounds_buffer\
      --regress_position_offset $regress_position_offset\
      --num_sampling_level $num_sampling_level\
+     --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-lr$lr
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-lr$lr-seed$seed
 

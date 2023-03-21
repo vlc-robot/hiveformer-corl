@@ -85,6 +85,8 @@ class Arguments(tap.Tap):
     coarse_to_fine_sampling: int = 1
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1
+    gp_emb_tying: int = 0
+    simplify: int = 0
     num_ghost_points: int = 1000
     num_ghost_points_val: int = 1000
 
@@ -191,6 +193,8 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             num_ghost_points=args.num_ghost_points,
             num_ghost_points_val=args.num_ghost_points_val,
             weight_tying=bool(args.weight_tying),
+            gp_emb_tying=bool(args.gp_emb_tying),
+            simplify=bool(args.simplify),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),
