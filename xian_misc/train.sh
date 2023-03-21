@@ -12,15 +12,25 @@
 # main_dir=03_10_dense_val_sampling
 # main_dir=03_13
 # main_dir=03_14_debug_offset0
-main_dir=03_19_seed
-main_dir=03_19_compare
+# main_dir=03_19_seed
+# main_dir=03_19_compare
+main_dir=03_19_more_tasks
 
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
-task=put_money_in_safe
 # task=pick_and_lift
+task=push_button
+task=slide_block_to_target
+task=pick_up_cup
+task=take_umbrella_out_of_umbrella_stand
+task=put_knife_on_chopping_board
+task=take_money_out_safe
+task=put_money_in_safe
+task=stack_wine
+task=reach_target
+
 
 batch_size_val=4
 batch_size=16
