@@ -493,7 +493,6 @@ class RLBenchEnv:
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
 
-                # for step_id in range(20):
                 for step_id in range(max_episodes):
                     
                     # fetch the current observation, and predict one action

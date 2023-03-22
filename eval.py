@@ -80,6 +80,7 @@ class Arguments(tap.Tap):
 
     position_prediction_only: int = 0
     regress_position_offset: int = 0
+    max_episodes: int = 0
 
     # Ghost points
     num_sampling_level: int = 3
@@ -300,7 +301,7 @@ if __name__ == "__main__":
         for variation in args.variations:
             success_rate = env.evaluate(
                 task_str,
-                max_episodes=max_eps_dict[task_str],
+                max_episodes=max_eps_dict[task_str] if args.max_episodes == 0 else args.max_episodes,
                 variation=variation,
                 num_demos=args.num_episodes,
                 actioner=actioner,
