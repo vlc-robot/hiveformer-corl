@@ -765,8 +765,8 @@ def _is_stopped(demo, i, obs, stopped_buffer, delta):
     next_is_not_final = i == (len(demo) - 2)
     gripper_state_no_change = i < (len(demo) - 2) and (
         obs.gripper_open == demo[i + 1].gripper_open
-        and obs.gripper_open == demo[i - 1].gripper_open
-        and demo[i - 2].gripper_open == demo[i - 1].gripper_open
+        and obs.gripper_open == demo[max(0, i - 1)].gripper_open
+        and demo[max(0, i - 2)].gripper_open == demo[max(0, i - 1)].gripper_open
     )
     small_delta = np.allclose(obs.joint_velocities, 0, atol=delta)
     stopped = (
