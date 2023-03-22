@@ -151,163 +151,165 @@ def get_stored_demos(amount: int, image_paths: bool, dataset_root: str,
                 obs[i].gripper_touch_forces = None
             if not obs_config.task_low_dim_state:
                 obs[i].task_low_dim_state = None
+        try:
+            if not image_paths:
+                for i in range(num_steps):
+                    if obs_config.left_shoulder_camera.rgb:
+                        obs[i].left_shoulder_rgb = np.array(
+                            _resize_if_needed(
+                                Image.open(obs[i].left_shoulder_rgb),
+                                obs_config.left_shoulder_camera.image_size))
+                    if obs_config.right_shoulder_camera.rgb:
+                        obs[i].right_shoulder_rgb = np.array(
+                            _resize_if_needed(Image.open(
+                            obs[i].right_shoulder_rgb),
+                                obs_config.right_shoulder_camera.image_size))
+                    if obs_config.overhead_camera.rgb:
+                        obs[i].overhead_rgb = np.array(
+                            _resize_if_needed(Image.open(
+                            obs[i].overhead_rgb),
+                                obs_config.overhead_camera.image_size))
+                    if obs_config.wrist_camera.rgb:
+                        obs[i].wrist_rgb = np.array(
+                            _resize_if_needed(
+                                Image.open(obs[i].wrist_rgb),
+                                obs_config.wrist_camera.image_size))
+                    if obs_config.front_camera.rgb:
+                        obs[i].front_rgb = np.array(
+                            _resize_if_needed(
+                                Image.open(obs[i].front_rgb),
+                                obs_config.front_camera.image_size))
 
-        if not image_paths:
-            for i in range(num_steps):
-                if obs_config.left_shoulder_camera.rgb:
-                    obs[i].left_shoulder_rgb = np.array(
-                        _resize_if_needed(
-                            Image.open(obs[i].left_shoulder_rgb),
-                            obs_config.left_shoulder_camera.image_size))
-                if obs_config.right_shoulder_camera.rgb:
-                    obs[i].right_shoulder_rgb = np.array(
-                        _resize_if_needed(Image.open(
-                        obs[i].right_shoulder_rgb),
-                            obs_config.right_shoulder_camera.image_size))
-                if obs_config.overhead_camera.rgb:
-                    obs[i].overhead_rgb = np.array(
-                        _resize_if_needed(Image.open(
-                        obs[i].overhead_rgb),
-                            obs_config.overhead_camera.image_size))
-                if obs_config.wrist_camera.rgb:
-                    obs[i].wrist_rgb = np.array(
-                        _resize_if_needed(
-                            Image.open(obs[i].wrist_rgb),
-                            obs_config.wrist_camera.image_size))
-                if obs_config.front_camera.rgb:
-                    obs[i].front_rgb = np.array(
-                        _resize_if_needed(
-                            Image.open(obs[i].front_rgb),
-                            obs_config.front_camera.image_size))
+                    if obs_config.left_shoulder_camera.depth or obs_config.left_shoulder_camera.point_cloud:
+                        l_sh_depth = image_to_float_array(
+                            _resize_if_needed(
+                                Image.open(obs[i].left_shoulder_depth),
+                                obs_config.left_shoulder_camera.image_size),
+                            DEPTH_SCALE)
+                        near = obs[i].misc['left_shoulder_camera_near']
+                        far = obs[i].misc['left_shoulder_camera_far']
+                        l_sh_depth_m = near + l_sh_depth * (far - near)
+                        if obs_config.left_shoulder_camera.depth:
+                            d = l_sh_depth_m if obs_config.left_shoulder_camera.depth_in_meters else l_sh_depth
+                            obs[i].left_shoulder_depth = obs_config.left_shoulder_camera.depth_noise.apply(d)
+                        else:
+                            obs[i].left_shoulder_depth = None
 
-                if obs_config.left_shoulder_camera.depth or obs_config.left_shoulder_camera.point_cloud:
-                    l_sh_depth = image_to_float_array(
-                        _resize_if_needed(
-                            Image.open(obs[i].left_shoulder_depth),
-                            obs_config.left_shoulder_camera.image_size),
-                        DEPTH_SCALE)
-                    near = obs[i].misc['left_shoulder_camera_near']
-                    far = obs[i].misc['left_shoulder_camera_far']
-                    l_sh_depth_m = near + l_sh_depth * (far - near)
-                    if obs_config.left_shoulder_camera.depth:
-                        d = l_sh_depth_m if obs_config.left_shoulder_camera.depth_in_meters else l_sh_depth
-                        obs[i].left_shoulder_depth = obs_config.left_shoulder_camera.depth_noise.apply(d)
-                    else:
-                        obs[i].left_shoulder_depth = None
+                    if obs_config.right_shoulder_camera.depth or obs_config.right_shoulder_camera.point_cloud:
+                        r_sh_depth = image_to_float_array(
+                            _resize_if_needed(
+                                Image.open(obs[i].right_shoulder_depth),
+                                obs_config.right_shoulder_camera.image_size),
+                            DEPTH_SCALE)
+                        near = obs[i].misc['right_shoulder_camera_near']
+                        far = obs[i].misc['right_shoulder_camera_far']
+                        r_sh_depth_m = near + r_sh_depth * (far - near)
+                        if obs_config.right_shoulder_camera.depth:
+                            d = r_sh_depth_m if obs_config.right_shoulder_camera.depth_in_meters else r_sh_depth
+                            obs[i].right_shoulder_depth = obs_config.right_shoulder_camera.depth_noise.apply(d)
+                        else:
+                            obs[i].right_shoulder_depth = None
 
-                if obs_config.right_shoulder_camera.depth or obs_config.right_shoulder_camera.point_cloud:
-                    r_sh_depth = image_to_float_array(
-                        _resize_if_needed(
-                            Image.open(obs[i].right_shoulder_depth),
-                            obs_config.right_shoulder_camera.image_size),
-                        DEPTH_SCALE)
-                    near = obs[i].misc['right_shoulder_camera_near']
-                    far = obs[i].misc['right_shoulder_camera_far']
-                    r_sh_depth_m = near + r_sh_depth * (far - near)
-                    if obs_config.right_shoulder_camera.depth:
-                        d = r_sh_depth_m if obs_config.right_shoulder_camera.depth_in_meters else r_sh_depth
-                        obs[i].right_shoulder_depth = obs_config.right_shoulder_camera.depth_noise.apply(d)
-                    else:
-                        obs[i].right_shoulder_depth = None
+                    if obs_config.overhead_camera.depth or obs_config.overhead_camera.point_cloud:
+                        oh_depth = image_to_float_array(
+                            _resize_if_needed(
+                                Image.open(obs[i].overhead_depth),
+                                obs_config.overhead_camera.image_size),
+                            DEPTH_SCALE)
+                        near = obs[i].misc['overhead_camera_near']
+                        far = obs[i].misc['overhead_camera_far']
+                        oh_depth_m = near + oh_depth * (far - near)
+                        if obs_config.overhead_camera.depth:
+                            d = oh_depth_m if obs_config.overhead_camera.depth_in_meters else oh_depth
+                            obs[i].overhead_depth = obs_config.overhead_camera.depth_noise.apply(d)
+                        else:
+                            obs[i].overhead_depth = None
 
-                if obs_config.overhead_camera.depth or obs_config.overhead_camera.point_cloud:
-                    oh_depth = image_to_float_array(
-                        _resize_if_needed(
-                            Image.open(obs[i].overhead_depth),
-                            obs_config.overhead_camera.image_size),
-                        DEPTH_SCALE)
-                    near = obs[i].misc['overhead_camera_near']
-                    far = obs[i].misc['overhead_camera_far']
-                    oh_depth_m = near + oh_depth * (far - near)
-                    if obs_config.overhead_camera.depth:
-                        d = oh_depth_m if obs_config.overhead_camera.depth_in_meters else oh_depth
-                        obs[i].overhead_depth = obs_config.overhead_camera.depth_noise.apply(d)
-                    else:
-                        obs[i].overhead_depth = None
+                    if obs_config.wrist_camera.depth or obs_config.wrist_camera.point_cloud:
+                        wrist_depth = image_to_float_array(
+                            _resize_if_needed(
+                                Image.open(obs[i].wrist_depth),
+                                obs_config.wrist_camera.image_size),
+                            DEPTH_SCALE)
+                        near = obs[i].misc['wrist_camera_near']
+                        far = obs[i].misc['wrist_camera_far']
+                        wrist_depth_m = near + wrist_depth * (far - near)
+                        if obs_config.wrist_camera.depth:
+                            d = wrist_depth_m if obs_config.wrist_camera.depth_in_meters else wrist_depth
+                            obs[i].wrist_depth = obs_config.wrist_camera.depth_noise.apply(d)
+                        else:
+                            obs[i].wrist_depth = None
 
-                if obs_config.wrist_camera.depth or obs_config.wrist_camera.point_cloud:
-                    wrist_depth = image_to_float_array(
-                        _resize_if_needed(
-                            Image.open(obs[i].wrist_depth),
-                            obs_config.wrist_camera.image_size),
-                        DEPTH_SCALE)
-                    near = obs[i].misc['wrist_camera_near']
-                    far = obs[i].misc['wrist_camera_far']
-                    wrist_depth_m = near + wrist_depth * (far - near)
-                    if obs_config.wrist_camera.depth:
-                        d = wrist_depth_m if obs_config.wrist_camera.depth_in_meters else wrist_depth
-                        obs[i].wrist_depth = obs_config.wrist_camera.depth_noise.apply(d)
-                    else:
-                        obs[i].wrist_depth = None
+                    if obs_config.front_camera.depth or obs_config.front_camera.point_cloud:
+                        front_depth = image_to_float_array(
+                            _resize_if_needed(
+                                Image.open(obs[i].front_depth),
+                                obs_config.front_camera.image_size),
+                            DEPTH_SCALE)
+                        near = obs[i].misc['front_camera_near']
+                        far = obs[i].misc['front_camera_far']
+                        front_depth_m = near + front_depth * (far - near)
+                        if obs_config.front_camera.depth:
+                            d = front_depth_m if obs_config.front_camera.depth_in_meters else front_depth
+                            obs[i].front_depth = obs_config.front_camera.depth_noise.apply(d)
+                        else:
+                            obs[i].front_depth = None
 
-                if obs_config.front_camera.depth or obs_config.front_camera.point_cloud:
-                    front_depth = image_to_float_array(
-                        _resize_if_needed(
-                            Image.open(obs[i].front_depth),
-                            obs_config.front_camera.image_size),
-                        DEPTH_SCALE)
-                    near = obs[i].misc['front_camera_near']
-                    far = obs[i].misc['front_camera_far']
-                    front_depth_m = near + front_depth * (far - near)
-                    if obs_config.front_camera.depth:
-                        d = front_depth_m if obs_config.front_camera.depth_in_meters else front_depth
-                        obs[i].front_depth = obs_config.front_camera.depth_noise.apply(d)
-                    else:
-                        obs[i].front_depth = None
+                    if obs_config.left_shoulder_camera.point_cloud:
+                        obs[i].left_shoulder_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
+                            l_sh_depth_m,
+                            obs[i].misc['left_shoulder_camera_extrinsics'],
+                            obs[i].misc['left_shoulder_camera_intrinsics'])
+                    if obs_config.right_shoulder_camera.point_cloud:
+                        obs[i].right_shoulder_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
+                            r_sh_depth_m,
+                            obs[i].misc['right_shoulder_camera_extrinsics'],
+                            obs[i].misc['right_shoulder_camera_intrinsics'])
+                    if obs_config.overhead_camera.point_cloud:
+                        obs[i].overhead_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
+                            oh_depth_m,
+                            obs[i].misc['overhead_camera_extrinsics'],
+                            obs[i].misc['overhead_camera_intrinsics'])
+                    if obs_config.wrist_camera.point_cloud:
+                        obs[i].wrist_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
+                            wrist_depth_m,
+                            obs[i].misc['wrist_camera_extrinsics'],
+                            obs[i].misc['wrist_camera_intrinsics'])
+                    if obs_config.front_camera.point_cloud:
+                        obs[i].front_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
+                            front_depth_m,
+                            obs[i].misc['front_camera_extrinsics'],
+                            obs[i].misc['front_camera_intrinsics'])
 
-                if obs_config.left_shoulder_camera.point_cloud:
-                    obs[i].left_shoulder_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
-                        l_sh_depth_m,
-                        obs[i].misc['left_shoulder_camera_extrinsics'],
-                        obs[i].misc['left_shoulder_camera_intrinsics'])
-                if obs_config.right_shoulder_camera.point_cloud:
-                    obs[i].right_shoulder_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
-                        r_sh_depth_m,
-                        obs[i].misc['right_shoulder_camera_extrinsics'],
-                        obs[i].misc['right_shoulder_camera_intrinsics'])
-                if obs_config.overhead_camera.point_cloud:
-                    obs[i].overhead_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
-                        oh_depth_m,
-                        obs[i].misc['overhead_camera_extrinsics'],
-                        obs[i].misc['overhead_camera_intrinsics'])
-                if obs_config.wrist_camera.point_cloud:
-                    obs[i].wrist_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
-                        wrist_depth_m,
-                        obs[i].misc['wrist_camera_extrinsics'],
-                        obs[i].misc['wrist_camera_intrinsics'])
-                if obs_config.front_camera.point_cloud:
-                    obs[i].front_point_cloud = VisionSensor.pointcloud_from_depth_and_camera_params(
-                        front_depth_m,
-                        obs[i].misc['front_camera_extrinsics'],
-                        obs[i].misc['front_camera_intrinsics'])
-
-                # Masks are stored as coded RGB images.
-                # Here we transform them into 1 channel handles.
-                if obs_config.left_shoulder_camera.mask:
-                    obs[i].left_shoulder_mask = rgb_handles_to_mask(
-                        np.array(_resize_if_needed(Image.open(
-                            obs[i].left_shoulder_mask),
-                            obs_config.left_shoulder_camera.image_size)))
-                if obs_config.right_shoulder_camera.mask:
-                    obs[i].right_shoulder_mask = rgb_handles_to_mask(
-                        np.array(_resize_if_needed(Image.open(
-                            obs[i].right_shoulder_mask),
-                            obs_config.right_shoulder_camera.image_size)))
-                if obs_config.overhead_camera.mask:
-                    obs[i].overhead_mask = rgb_handles_to_mask(
-                        np.array(_resize_if_needed(Image.open(
-                            obs[i].overhead_mask),
-                            obs_config.overhead_camera.image_size)))
-                if obs_config.wrist_camera.mask:
-                    obs[i].wrist_mask = rgb_handles_to_mask(np.array(
-                        _resize_if_needed(Image.open(
-                            obs[i].wrist_mask),
-                            obs_config.wrist_camera.image_size)))
-                if obs_config.front_camera.mask:
-                    obs[i].front_mask = rgb_handles_to_mask(np.array(
-                        _resize_if_needed(Image.open(
-                            obs[i].front_mask),
-                            obs_config.front_camera.image_size)))
+                    # Masks are stored as coded RGB images.
+                    # Here we transform them into 1 channel handles.
+                    if obs_config.left_shoulder_camera.mask:
+                        obs[i].left_shoulder_mask = rgb_handles_to_mask(
+                            np.array(_resize_if_needed(Image.open(
+                                obs[i].left_shoulder_mask),
+                                obs_config.left_shoulder_camera.image_size)))
+                    if obs_config.right_shoulder_camera.mask:
+                        obs[i].right_shoulder_mask = rgb_handles_to_mask(
+                            np.array(_resize_if_needed(Image.open(
+                                obs[i].right_shoulder_mask),
+                                obs_config.right_shoulder_camera.image_size)))
+                    if obs_config.overhead_camera.mask:
+                        obs[i].overhead_mask = rgb_handles_to_mask(
+                            np.array(_resize_if_needed(Image.open(
+                                obs[i].overhead_mask),
+                                obs_config.overhead_camera.image_size)))
+                    if obs_config.wrist_camera.mask:
+                        obs[i].wrist_mask = rgb_handles_to_mask(np.array(
+                            _resize_if_needed(Image.open(
+                                obs[i].wrist_mask),
+                                obs_config.wrist_camera.image_size)))
+                    if obs_config.front_camera.mask:
+                        obs[i].front_mask = rgb_handles_to_mask(np.array(
+                            _resize_if_needed(Image.open(
+                                obs[i].front_mask),
+                                obs_config.front_camera.image_size)))
+        except:
+            print('!!!!!!!!!!!! png loading failed')
 
         demos.append(obs)
     return demos

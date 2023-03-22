@@ -1,8 +1,16 @@
 valset=/home/zhouxian/git/datasets/hiveformer/raw/74_hiveformer_tasks_val/
 # valset=/home/zhouxian/git/datasets/hiveformer/raw/74_hiveformer_tasks_val_fail/
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
+task=reach_target
+task=push_button
+task=slide_block_to_target
+task=pick_up_cup
+task=take_umbrella_out_of_umbrella_stand
+task=pick_and_lift
+task=put_knife_on_chopping_board
+task=take_money_out_safe
 task=put_money_in_safe
-# task=pick_and_lift
+task=stack_wine
 
 gripper_bounds_buffer=0.04
 use_instruction=0
@@ -16,7 +24,7 @@ num_ghost_points_val=10000
 
 python eval.py\
      --tasks $task\
-     --checkpoint /home/zhouxian/git/debug/hiveformer/train_logs/03_19_compare/put_money_in_safe-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-gs0.01-B16-lr1e-4-seed1_version159437/model.step=100000-value=0.00000.pth \
+     --checkpoint /home/zhouxian/git/hiveformer/train_logs/03_19_more_tasks/stack_wine-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159632/model.step=70000-value=0.00000.pth \
      --data_dir $valset\
      --weight_tying $weight_tying\
      --gp_emb_tying $gp_emb_tying\

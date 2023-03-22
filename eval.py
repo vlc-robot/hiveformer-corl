@@ -32,6 +32,7 @@ class Arguments(tap.Tap):
     num_episodes: int = 1
     headless: bool = False
     max_tries: int = 10
+    # max_tries: int = 30
     output: Path = Path(__file__).parent / "records.txt"
     record_actions: bool = False
     replay_actions: Optional[Path] = None

@@ -15,12 +15,14 @@
 # main_dir=03_19_seed
 # main_dir=03_19_compare
 main_dir=03_19_more_tasks
+main_dir=debug
 
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
 # task=pick_and_lift
+task=reach_target
 task=push_button
 task=slide_block_to_target
 task=pick_up_cup
@@ -29,7 +31,6 @@ task=put_knife_on_chopping_board
 task=take_money_out_safe
 task=put_money_in_safe
 task=stack_wine
-task=reach_target
 
 
 batch_size_val=4

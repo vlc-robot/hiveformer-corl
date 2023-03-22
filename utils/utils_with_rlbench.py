@@ -95,6 +95,7 @@ class Mover:
             dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
             dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
             criteria = (dist_pos < 5e-2,)
+            # criteria = (dist_pos < 1e-3,)
 
             if all(criteria) or reward == 1:
                 break
@@ -656,10 +657,15 @@ class RLBenchEnv:
 # Identify way-point in each RLBench Demo
 def _is_stopped(demo, i, obs, stopped_buffer):
     next_is_not_final = i == (len(demo) - 2)
+    # gripper_state_no_change = i < (len(demo) - 2) and (
+    #     obs.gripper_open == demo[i + 1].gripper_open
+    #     and obs.gripper_open == demo[i - 1].gripper_open
+    #     and demo[i - 2].gripper_open == demo[i - 1].gripper_open
+    # )
     gripper_state_no_change = i < (len(demo) - 2) and (
         obs.gripper_open == demo[i + 1].gripper_open
-        and obs.gripper_open == demo[i - 1].gripper_open
-        and demo[i - 2].gripper_open == demo[i - 1].gripper_open
+        and obs.gripper_open == demo[max(0, i - 1)].gripper_open
+        and demo[max(0, i - 2)].gripper_open == demo[max(0, i - 1)].gripper_open
     )
     small_delta = np.allclose(obs.joint_velocities, 0, atol=0.1)
     stopped = (

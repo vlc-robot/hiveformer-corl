@@ -1,8 +1,13 @@
 rsync -avzh  --info=progress2 --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-file.txt' /home/zhouxian/git/hiveformer xianz1@matrix.ml.cmu.edu:/home/xianz1/git/
-rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_16*  /home/zhouxian/git/hiveformer/train_logs/
+rsync -avzh --info=progress2  --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-pth.txt' xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_19*  /home/zhouxian/git/hiveformer/train_logs/
 
-rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_13/pick_and_lift-offset1-N3-T1000-V10000-symrot0-B16-lr1e-4_version157395/model.step=160000-value=0.00000.pth  /home/zhouxian/git/hiveformer/train_logs/03_13/pick_and_lift-offset1-N3-T1000-V10000-symrot0-B16-lr1e-4_version157395/
-rsync -avzh --info=progress2  xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_13/pick_and_lift-offset0-N3-T1000-V10000-symrot0-B16-lr1e-4_version157391/model.step=200000-value=0.00000.pth  /home/zhouxian/git/hiveformer/train_logs/03_13/pick_and_lift-offset0-N3-T1000-V10000-symrot0-B16-lr1e-4_version157391/
+rsync -avzh --info=progress2 xianz1@matrix.ml.cmu.edu:/home/xianz1/git/hiveformer/train_logs/03_19_more_tasks/push_button-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159531/model.step=200000-value=0.00000.pth  /home/zhouxian/git/hiveformer/train_logs/03_19_more_tasks/push_button-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159531/
+
+rsync -avzh --info=progress2 /home/xianz1/git/hiveformer/train_logs/03_19_more_tasks/stack_wine-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159632/model.step=70000-value=0.00000.pth zhouxian@128.2.177.224:/home/zhouxian/temp/stack_wine-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159632/
+
+rsync -avzh --info=progress2 zhouxian@128.2.177.224:/home/zhouxian/temp/stack_wine-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159632/model.step=70000-value=0.00000.pth /home/zhouxian/git/hiveformer/train_logs/03_19_more_tasks/stack_wine-offset0-N3-T1000-V10000-symrot0-gptie1-simp1-B16-lr1e-4-seed0_version159632/
+
+rsync -avzh --info=progress2 --exclude-from='/home/zhouxian/git/hiveformer/xian_misc/rsync-exclude-png.txt' zhouxian@128.2.177.224:/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val/stack_wine  /home/zhouxian/git/datasets/hiveformer/raw/74_hiveformer_tasks_val/
 
 squeue -o "%u %c %m %b %P %M %N" |grep 2-25
 squeue -o "%u %c %m %b %P %M %N" |grep 2-29
