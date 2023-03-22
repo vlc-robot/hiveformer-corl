@@ -14,23 +14,24 @@
 # main_dir=03_14_debug_offset0
 # main_dir=03_19_seed
 # main_dir=03_19_compare
-main_dir=03_19_more_tasks
-main_dir=debug
+# main_dir=03_19_more_tasks
+main_dir=03_21_10demo
+# main_dir=debug
 
 dataset=/home/tgervet/datasets/hiveformer/packaged/2
 valset=/home/tgervet/datasets/hiveformer/packaged/3
 # dataset=/home/zhouxian/git/datasets/hiveformer/packaged/2
 # valset=/home/zhouxian/git/datasets/hiveformer/packaged/3
-# task=pick_and_lift
 task=reach_target
 task=push_button
 task=slide_block_to_target
 task=pick_up_cup
 task=take_umbrella_out_of_umbrella_stand
+task=pick_and_lift
 task=put_knife_on_chopping_board
 task=take_money_out_safe
 task=put_money_in_safe
-task=stack_wine
+# task=stack_wine
 
 
 batch_size_val=4
@@ -40,7 +41,7 @@ lr=1e-4
 gripper_bounds_buffer=0.04
 use_instruction=0
 weight_tying=1
-max_episodes_per_taskvar=100
+max_episodes_per_taskvar=10
 symmetric_rotation_loss=0
 num_ghost_points=1000
 num_ghost_points_val=10000
@@ -72,5 +73,5 @@ python train.py\
      --num_sampling_level $num_sampling_level\
      --seed $seed\
      --lr $lr\
-     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-lr$lr-seed$seed
+     --run_log_dir $task-offset$regress_position_offset-N$num_sampling_level-T$num_ghost_points-V$num_ghost_points_val-symrot$symmetric_rotation_loss-gptie$gp_emb_tying-simp$simplify-B$batch_size-demo$max_episodes_per_taskvar-lr$lr-seed$seed
 
