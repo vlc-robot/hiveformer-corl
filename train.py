@@ -60,6 +60,7 @@ class Arguments(tap.Tap):
     batch_size_val: int = 16
     lr: float = 1e-4
     train_iters: int = 200_000
+    max_episode_length: int = 4  # -1 for no limit
 
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
@@ -418,6 +419,8 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
         ]
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
+    if args.max_episode_length >= 0:
+        max_episode_length = min(args.max_episode_length, max_episode_length)
 
     if args.model in ["original", "baseline"]:
         dataset = RLBenchDataset(
@@ -479,6 +482,9 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
         ]
 
     max_episode_length = get_max_episode_length(args.tasks, args.variations)
+    if args.max_episode_length >= 0:
+        max_episode_length = min(args.max_episode_length, max_episode_length)
+
     loaders = []
 
     for valset in args.valset:

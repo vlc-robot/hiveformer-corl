@@ -14,6 +14,7 @@ from pickle import UnpicklingError
 from collections import defaultdict, Counter
 from pathlib import Path
 import numpy as np
+import math
 import torch
 import torch.utils.data as data
 from torch.nn import functional as F
@@ -26,7 +27,7 @@ try:
 except:
     pass
 
-from utils.utils_without_rlbench import Instructions, Sample, Camera, TASK_TO_ID
+from utils.utils_without_rlbench import Instructions, Sample, Camera, TASK_TO_ID, load_episodes
 
 
 T = TypeVar("T")
@@ -288,6 +289,7 @@ class RLBenchDataset(data.Dataset):
         if isinstance(root, (Path, str)):
             root = [Path(root)]
         self._root: List[Path] = [Path(r).expanduser() for r in root]
+        max_episode_length_dict = load_episodes()["max_episode_length"]
 
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
@@ -326,23 +328,27 @@ class RLBenchDataset(data.Dataset):
         self._episodes = []
         for task, eps in self._episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
-                self._episodes += random.sample(eps, self._max_episodes_per_task)
-                self._num_episodes += self._max_episodes_per_task
-            else:
-                self._episodes += eps
-                self._num_episodes += len(eps)
+                eps = random.sample(eps, self._max_episodes_per_task)
+            history_truncated_eps = []
+            for (task, var, ep) in eps:
+                chunks = math.ceil(max_episode_length_dict[task] / self._max_episode_length)
+                for chunk in range(chunks):
+                    history_truncated_eps.append((task, var, ep, chunk))
+            self._episodes += history_truncated_eps
+            self._num_episodes += len(history_truncated_eps)
 
-        print(f"Created dataset from {root} with {self._num_episodes} episodes")
+        print(f"Created dataset from {root} with {self._num_episodes} episodes (after chunking "
+              f"them by max episode length)")
 
     def __getitem__(self, episode_id: int) -> Optional[Sample]:
         episode_id %= self._num_episodes
-        task, variation, file = self._episodes[episode_id]
+        task, variation, file, chunk = self._episodes[episode_id]
         episode = self._cache(file)
 
         if episode is None:
             return None
 
-        frame_ids = episode[0]
+        frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
         num_ind = len(frame_ids)
         pad_len = max(0, self._max_episode_length - num_ind)
 
