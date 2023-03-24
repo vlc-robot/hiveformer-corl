@@ -96,6 +96,7 @@ class Mover:
             dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
             dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
             criteria = (dist_pos < 5e-2,)
+            # criteria = (dist_pos < 1e-3,)
 
             if all(criteria) or reward == 1:
                 break
@@ -536,7 +537,7 @@ class RLBenchEnv:
                 pred_keyframe_gripper_matrices = []
 
                 for step_id in range(max_steps):
-                    # fetch the current observation, and predict one action
+                    # Fetch the current observation, and predict one action
                     rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
 
                     rgb = rgb.to(device)
@@ -546,8 +547,7 @@ class RLBenchEnv:
                     rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                     pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
                     grippers = torch.cat([grippers, gripper.unsqueeze(1)], dim=1)
-
-                    output = actioner.predict(step_id, rgbs, pcds, grippers,
+                    output = actioner.predict(step_id, rgbs[:, -1:], pcds[:, -1:], grippers[:, -1:],
                                               gt_action=torch.stack(gt_keyframe_actions[:step_id + 1]).float().to(device))
 
                     if offline:
@@ -587,7 +587,7 @@ class RLBenchEnv:
                     if action is None:
                         break
 
-                    # update the observation based on the predicted action
+                    # Update the observation based on the predicted action
                     try:
                         action_np = action[-1].detach().cpu().numpy()
 
@@ -626,6 +626,7 @@ class RLBenchEnv:
                     "Reward",
                     reward,
                     "SR: %.2f" % (success_rate * 100),
+                    "Failed", failed_demos,
                 )
 
         # Compensate for failed demos
@@ -763,6 +764,11 @@ class RLBenchEnv:
 # Identify way-point in each RLBench Demo
 def _is_stopped(demo, i, obs, stopped_buffer, delta):
     next_is_not_final = i == (len(demo) - 2)
+    # gripper_state_no_change = i < (len(demo) - 2) and (
+    #     obs.gripper_open == demo[i + 1].gripper_open
+    #     and obs.gripper_open == demo[i - 1].gripper_open
+    #     and demo[i - 2].gripper_open == demo[i - 1].gripper_open
+    # )
     gripper_state_no_change = i < (len(demo) - 2) and (
         obs.gripper_open == demo[i + 1].gripper_open
         and obs.gripper_open == demo[max(0, i - 1)].gripper_open

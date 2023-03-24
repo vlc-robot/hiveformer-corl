@@ -35,7 +35,7 @@ class Arguments(tap.Tap):
     max_episodes_per_task: int = 100
     instructions: Optional[Path] = "instructions.pkl"
     cache_size: int = 100
-    seed: int = 2
+    seed: int = 0
     tasks: Tuple[str, ...]
     variations: Tuple[int, ...] = (0,)
     checkpoint: Optional[Path] = None
@@ -57,7 +57,7 @@ class Arguments(tap.Tap):
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     num_workers: int = 2
     batch_size: int = 16
-    batch_size_val: int = 16
+    batch_size_val: int = 4
     lr: float = 1e-4
     train_iters: int = 200_000
     max_episode_length: int = 4  # -1 for no limit
@@ -87,7 +87,7 @@ class Arguments(tap.Tap):
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
     gripper_loc_bounds_file: str = "tasks/10_autolambda_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
-    gripper_bounds_buffer: float = 0.01
+    gripper_bounds_buffer: float = 0.04
 
     # Loss
     position_prediction_only: int = 0
@@ -100,14 +100,15 @@ class Arguments(tap.Tap):
     symmetric_rotation_loss: int = 0
     gripper_loss_coeff: float = 1.0
     label_smoothing: float = 0.0
-    regress_position_offset: int = 1
+    regress_position_offset: int = 0
 
     # Ghost points
-    num_sampling_level: int = 2
+    num_sampling_level: int = 3
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1
+    gp_emb_tying: int = 1
     num_ghost_points: int = 1000
-    num_ghost_points_val: int = 1000
+    num_ghost_points_val: int = 10000
     use_ground_truth_position_for_sampling_train: int = 1  # considerably speeds up training
     use_ground_truth_position_for_sampling_val: int = 0    # for debugging
 
@@ -556,6 +557,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             num_ghost_points=args.num_ghost_points,
             num_ghost_points_val=args.num_ghost_points_val,
             weight_tying=bool(args.weight_tying),
+            gp_emb_tying=bool(args.gp_emb_tying),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),

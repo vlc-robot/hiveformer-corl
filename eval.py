@@ -80,24 +80,24 @@ class Arguments(tap.Tap):
     visualize_rgb_attn: int = 0
     gripper_loc_bounds_file: str = "tasks/10_autolambda_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
-    gripper_bounds_buffer: float = 0.01
+    gripper_bounds_buffer: float = 0.04
 
     position_prediction_only: int = 0
-    regress_position_offset: int = 1
+    regress_position_offset: int = 0
 
     # Ghost points
-    num_sampling_level: int = 2
-    coarse_to_fine_sampling: int = 1
+    num_sampling_level: int = 3
     fine_sampling_ball_diameter: float = 0.16
     weight_tying: int = 1
-    num_ghost_points: int = 1000
+    gp_emb_tying: int = 1
+    num_ghost_points: int = 10000
+    num_ghost_points_val: int = 10000
 
     # Model
     backbone: str = "clip"  # one of "resnet", "clip"
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
-    separate_coarse_and_fine_layers: int = 1
     rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
     use_instruction: int = 0
     task_specific_biases: int = 0
@@ -196,7 +196,9 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
+            num_ghost_points_val=args.num_ghost_points_val,
             weight_tying=bool(args.weight_tying),
+            gp_emb_tying=bool(args.gp_emb_tying),
             num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
             regress_position_offset=bool(args.regress_position_offset),
@@ -230,10 +232,20 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     if hasattr(model, "film_gen") and model.film_gen is not None:
         model.film_gen.build(device)
 
-    model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
-    model_dict = {(k[7:] if k.startswith("module.") else k): v
-                  for k, v in model_dict.items()}
-    model.load_state_dict(model_dict)
+    # model_dict = torch.load(checkpoint, map_location="cpu")["weight"]
+    # model_dict = {(k[7:] if k.startswith("module.") else k): v
+    #               for k, v in model_dict.items()}
+
+    model_dict = torch.load(checkpoint, map_location="cpu")
+    model_dict_weight = {}
+    for key in model_dict["weight"]:
+        _key = key[7:]
+        if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+            _key = _key[:46] + _key[48:]
+        if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+            _key = _key[:46] + _key[48:]
+        model_dict_weight[_key] = model_dict["weight"][key]
+    model.load_state_dict(model_dict_weight)
 
     model.eval()
 
