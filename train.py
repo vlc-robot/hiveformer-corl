@@ -60,7 +60,7 @@ class Arguments(tap.Tap):
     batch_size_val: int = 4
     lr: float = 1e-4
     train_iters: int = 200_000
-    max_episode_length: int = 4  # -1 for no limit
+    max_episode_length: int = 5  # -1 for no limit
 
     # Toggle to switch between original HiveFormer and our models
     model: str = "baseline"  # one of "original", "baseline", "analogical"
