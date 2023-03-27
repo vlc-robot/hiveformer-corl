@@ -19,16 +19,16 @@
 # To Xian through local
 
 source_prefix=home/tgervet/hiveformer/train_logs
-target_prefix=home/zhouxian/git/hiveformer
-exp_src=03_13_peract_setting
-exp_tgt=03_13_peract_setting
+target_prefix=home/zhouxian/git/hiveformer_theo
+exp_src=03_24_hiveformer_setting
+exp_tgt=03_24_hiveformer_setting
 ckpt=best.pth
 
 # Get Tensorboard from source
 #sshpass -p $MATRIX_PW rsync -R "$MATRIX:/$source_prefix/$exp_src/*/events.out*" .
 
 # Get checkpoints from source
-#sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
+sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
 
 # Send all to target
 sshpass -p $LAB_PW scp -r $source_prefix/$exp_tgt $LAB:/$target_prefix/
