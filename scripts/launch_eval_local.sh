@@ -66,6 +66,7 @@ tasks=(
 data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 num_episodes=2
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+use_instruction=0
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
