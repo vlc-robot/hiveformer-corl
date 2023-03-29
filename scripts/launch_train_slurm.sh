@@ -106,7 +106,7 @@
 
 main_dir=03_24_hiveformer_setting
 use_instruction=0
-task_file=tasks/hiveformer_74_tasks_1_10.csv
+task_file=tasks/hiveformer_74_tasks_41_50.csv
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
@@ -121,3 +121,25 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --logger wandb \
    --run_log_dir $task-HIVEFORMER
 done
+
+#main_dir=03_30_hiveformer_hard_10_demo_tasks
+#use_instruction=0
+#task_file=tasks/hiveformer_hard_10_demo_tasks.csv
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  for point_cloud_rotate_yaw_range in 0.0 45.0; do
+#    sbatch train_1gpu_32gb.sh \
+#     --tasks $task \
+#     --dataset $dataset \
+#     --valset $valset \
+#     --exp_log_dir $main_dir \
+#     --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#     --use_instruction $use_instruction \
+#     --logger wandb \
+#     --run_log_dir $task-10-demo-$point_cloud_rotate_yaw_range \
+#     --max_episodes_per_task 10 \
+#     --point_cloud_rotate_yaw_range $point_cloud_rotate_yaw_range
+#  done
+#done
