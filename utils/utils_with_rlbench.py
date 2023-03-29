@@ -532,6 +532,8 @@ class RLBenchEnv:
                 move = Mover(task, max_tries=max_tries)
                 reward = None
                 gt_keyframe_actions = actioner.get_action_from_demo(demo)
+                if offline:
+                    max_steps = len(gt_keyframe_actions)
                 gt_keyframe_gripper_matrices = np.stack([self.get_gripper_matrix_from_action(a[-1])
                                                          for a in gt_keyframe_actions])
                 pred_keyframe_gripper_matrices = []
@@ -626,7 +628,7 @@ class RLBenchEnv:
                     "Reward",
                     reward,
                     "SR: %.2f" % (success_rate * 100),
-                    "Failed", failed_demos,
+                    "Missing", missing_demos,
                 )
 
         # Compensate for failed demos

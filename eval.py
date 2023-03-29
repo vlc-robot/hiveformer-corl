@@ -61,6 +61,7 @@ class Arguments(tap.Tap):
     model: str = "baseline"  # one of "original", "baseline", "analogical"
 
     record_videos: int = 0
+    max_steps: int = 50
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -240,10 +241,10 @@ def load_model(checkpoint: Path, args: Arguments) -> Hiveformer:
     model_dict_weight = {}
     for key in model_dict["weight"]:
         _key = key[7:]
-        if 'prediction_head.feature_pyramid.inner_blocks' in _key:
-            _key = _key[:46] + _key[48:]
-        if 'prediction_head.feature_pyramid.layer_blocks' in _key:
-            _key = _key[:46] + _key[48:]
+        # if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+        #     _key = _key[:46] + _key[48:]
+        # if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+        #     _key = _key[:46] + _key[48:]
         model_dict_weight[_key] = model_dict["weight"][key]
     model.load_state_dict(model_dict_weight)
 
@@ -310,7 +311,7 @@ if __name__ == "__main__":
     for task_str in args.tasks:
         var_success_rates = env.evaluate_task_on_multiple_variations(
             task_str,
-            max_steps=max_eps_dict[task_str],
+            max_steps=max_eps_dict[task_str] if args.max_steps == -1 else args.max_steps,
             num_variations=args.variations[-1] + 1,
             num_demos=args.num_episodes,
             actioner=actioner,
