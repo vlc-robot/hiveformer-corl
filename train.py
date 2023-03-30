@@ -702,7 +702,6 @@ if __name__ == "__main__":
         position_offset_loss_coeff=args.position_offset_loss_coeff,
         rotation_loss_coeff=args.rotation_loss_coeff,
         gripper_loss_coeff=args.gripper_loss_coeff,
-        rotation_parametrization=args.rotation_parametrization,
         regress_position_offset=bool(args.regress_position_offset),
         symmetric_rotation_loss=bool(args.symmetric_rotation_loss)
     )

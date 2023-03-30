@@ -625,11 +625,6 @@ class RLBenchAnalogicalDataset(data.Dataset):
         attns = F.pad(attns, pad_vec)
         rgbs = torch.cat([rgbs, attns], 2)
 
-        if augment:
-            modals = self._resize(rgbs=rgbs, pcds=pcds)
-            rgbs = modals["rgbs"]
-            pcds = modals["pcds"]
-
         action = torch.cat([episode[2][i] for i in frame_ids])
         shape = [0, 0] * action.dim()
         shape[-1] = pad_len
@@ -646,6 +641,12 @@ class RLBenchAnalogicalDataset(data.Dataset):
 
         tframe_ids = torch.tensor(frame_ids)
         tframe_ids = F.pad(tframe_ids, (0, pad_len), value=-1)
+
+        if augment:
+            pcds, gripper, action = self._rotate(pcds, gripper, action, mask)
+            modals = self._resize(rgbs=rgbs, pcds=pcds)
+            rgbs = modals["rgbs"]
+            pcds = modals["pcds"]
 
         return {
             "frame_id": tframe_ids,

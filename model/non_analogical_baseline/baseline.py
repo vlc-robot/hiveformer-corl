@@ -87,5 +87,6 @@ class Baseline(nn.Module):
             task_id=task_id,
             gt_action=gt_action,
         )
+
         pred["task"] = None
         return pred

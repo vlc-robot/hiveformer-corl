@@ -90,5 +90,6 @@ class AnalogicalNetwork(nn.Module):
             gt_action_for_support=gt_action_for_support,
             gt_action_for_sampling=gt_action_for_sampling,
         )
+
         pred["task"] = None
         return pred
