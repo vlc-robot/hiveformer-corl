@@ -310,8 +310,7 @@ class RLBenchDataset(data.Dataset):
             )
 
         self._data_dirs = []
-        self._episodes_by_task = defaultdict(list)
-        self._num_episodes = 0
+        episodes_by_task = defaultdict(list)
         for root, (task, var) in itertools.product(self._root, taskvar):
             data_dir = root / f"{task}+{var}"
             if not data_dir.is_dir():
@@ -324,9 +323,11 @@ class RLBenchDataset(data.Dataset):
                 print(f"Can't find episodes at folder {data_dir}")
                 continue
             self._data_dirs.append(data_dir)
-            self._episodes_by_task[task] += episodes
+            episodes_by_task[task] += episodes
+
         self._episodes = []
-        for task, eps in self._episodes_by_task.items():
+        self._num_episodes = 0
+        for task, eps in episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
                 eps = random.sample(eps, self._max_episodes_per_task)
             history_truncated_eps = []
@@ -446,9 +447,12 @@ class RLBenchAnalogicalDataset(data.Dataset):
         max_episode_length: int,
         cache_size: int,
         max_episodes_per_task: int,
+        gripper_loc_bounds=None,
         num_iters: Optional[int] = None,
         cameras: Tuple[Camera, ...] = ("wrist", "left_shoulder", "right_shoulder"),
         training: bool = True,
+        image_rescale=(1.0, 1.0),
+        point_cloud_rotate_yaw_range=0.0,
     ):
         """
         Arguments:
@@ -464,7 +468,6 @@ class RLBenchAnalogicalDataset(data.Dataset):
         self._num_iters = num_iters
         self._training = training
         self._taskvar = taskvar
-
         if isinstance(main_root, (Path, str)):
             main_root = [Path(main_root)]
         if isinstance(support_root, (Path, str)):
@@ -472,6 +475,7 @@ class RLBenchAnalogicalDataset(data.Dataset):
         self._main_root = [Path(r).expanduser() for r in main_root]
         self._support_root = [Path(r).expanduser() for r in support_root]
         self._support_set_size = support_set_size
+        max_episode_length_dict = load_episodes()["max_episode_length"]
 
         # We keep only useful instructions to save mem
         self._instructions: Instructions = defaultdict(dict)
@@ -484,11 +488,18 @@ class RLBenchAnalogicalDataset(data.Dataset):
             else:
                 print(f"Can't find dataset folder {data_dir}")
 
-        self._resize = Resize(scales=(0.75, 1.25))
+        self._resize = Resize(scales=image_rescale)
+        self._rotate = Rotate(
+            gripper_loc_bounds=gripper_loc_bounds,
+            yaw_range=point_cloud_rotate_yaw_range
+        )
+
+        # -------------------------------
+        # Main episodes
+        # -------------------------------
 
         self._main_data_dirs = []
-        self._main_episodes_by_task = defaultdict(list)
-        self._main_num_episodes = 0
+        main_episodes_by_task = defaultdict(list)
         for root, (task, var) in itertools.product(self._main_root, taskvar):
             data_dir = root / f"{task}+{var}"
             if not data_dir.is_dir():
@@ -499,19 +510,27 @@ class RLBenchAnalogicalDataset(data.Dataset):
             if num_episodes == 0:
                 raise ValueError(f"Can't find episodes at folder {data_dir}")
             self._main_data_dirs.append(data_dir)
-            self._main_episodes_by_task[task] += episodes
+            main_episodes_by_task[task] += episodes
+
         self._main_episodes = []
-        for task, eps in self._main_episodes_by_task.items():
+        self._main_num_episodes = 0
+        for task, eps in main_episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
-                self._main_episodes += random.sample(eps, self._max_episodes_per_task)
-                self._main_num_episodes += self._max_episodes_per_task
-            else:
-                self._main_num_episodes += eps
-                self._main_num_episodes += len(eps)
+                eps = random.sample(eps, self._max_episodes_per_task)
+            history_truncated_eps = []
+            for (task, var, ep) in eps:
+                chunks = math.ceil(max_episode_length_dict[task] / self._max_episode_length)
+                for chunk in range(chunks):
+                    history_truncated_eps.append((task, var, ep, chunk))
+            self._main_episodes += history_truncated_eps
+            self._main_num_episodes += len(history_truncated_eps)
+
+        # -------------------------------
+        # Support episodes
+        # -------------------------------
 
         self._support_data_dirs = []
-        self._support_episodes = defaultdict(list)  # Indexed by task
-        self._support_num_episodes = 0
+        support_episodes_by_task = defaultdict(list)
         for root, (task, var) in itertools.product(self._support_root, taskvar):
             data_dir = root / f"{task}+{var}"
             if not data_dir.is_dir():
@@ -522,12 +541,18 @@ class RLBenchAnalogicalDataset(data.Dataset):
             if num_episodes == 0:
                 raise ValueError(f"Can't find episodes at folder {data_dir}")
             self._support_data_dirs.append(data_dir)
-            self._support_episodes[task] += episodes
-            self._support_num_episodes += num_episodes
-        for task, eps in self._support_episodes.items():
+            support_episodes_by_task[task] += episodes
+
+        self._support_episodes = defaultdict(list)
+        self._support_num_episodes = 0
+        for task, eps in support_episodes_by_task.items():
             if len(eps) > self._max_episodes_per_task:
-                self._support_episodes[task] = random.sample(eps, self._max_episodes_per_task)
-            self._support_num_episodes += len(self._support_episodes[task])
+                eps = random.sample(eps, self._max_episodes_per_task)
+            for (task, var, ep) in eps:
+                chunks = math.ceil(max_episode_length_dict[task] / self._max_episode_length)
+                for chunk in range(chunks):
+                    self._support_episodes[(task, chunk)].append((task, var, ep, chunk))
+                    self._support_num_episodes += 1
         self._support_episodes = dict(self._support_episodes)
 
         print(f"Created dataset from main root {main_root} and support root {support_root} "
@@ -536,13 +561,16 @@ class RLBenchAnalogicalDataset(data.Dataset):
 
     def __getitem__(self, episode_id: int) -> Optional[Sample]:
         episode_id %= self._main_num_episodes
-        task, variation, file = self._main_episodes[episode_id]
+        task, variation, file, chunk = self._main_episodes[episode_id]
+
         # TODO How to deal with data augmentations in this data loader? Currently we augment
         #  both the demos and the support set during training and neither during evaluation
-        main_episode = self._get_episode(task, variation, file, augment=self._training)
+
+        main_episode = self._get_episode(task, variation, file, chunk, augment=self._training)
         support_episodes = [
-            self._get_episode(task, variation, file, augment=self._training)
-            for task, variation, file in random.sample(self._support_episodes[task], self._support_set_size)
+            self._get_episode(task, variation, file, chunk, augment=self._training)
+            for task, variation, file, chunk
+            in random.sample(self._support_episodes[(task, chunk)], self._support_set_size)
         ]
 
         def collate_fn(batch: List[Dict]):
@@ -557,13 +585,13 @@ class RLBenchAnalogicalDataset(data.Dataset):
         episode = collate_fn([main_episode] + support_episodes)
         return episode
 
-    def _get_episode(self, task: str, variation: int, file: str, augment: bool) -> Optional[Sample]:
+    def _get_episode(self, task: str, variation: int, file: str, chunk: int, augment: bool) -> Optional[Sample]:
         episode = self._cache(file)
 
         if episode is None:
             return None
 
-        frame_ids = episode[0]
+        frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
         num_ind = len(frame_ids)
         pad_len = max(0, self._max_episode_length - num_ind)
 

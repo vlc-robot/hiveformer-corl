@@ -85,7 +85,7 @@ class Arguments(tap.Tap):
     point_cloud_rotate_yaw_range: float = 0.0  # in degrees, 0.0 for no rotation
 
     visualize_rgb_attn: int = 0  # deactivate by default during training as this has memory overhead
-    gripper_loc_bounds_file: str = "tasks/10_autolambda_tasks_location_bounds.json"
+    gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
     gripper_bounds_buffer: float = 0.04
 
@@ -451,6 +451,9 @@ def get_train_loader(args: Arguments, gripper_loc_bounds) -> DataLoader:
             cache_size=args.cache_size,
             num_iters=args.train_iters,
             cameras=args.cameras,  # type: ignore
+            image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
+            point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
+            gripper_loc_bounds=gripper_loc_bounds,
             support_set_size=args.support_set_size,
         )
 
@@ -518,6 +521,9 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 cache_size=args.cache_size,
                 cameras=args.cameras,  # type: ignore
                 training=False,
+                image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
+                point_cloud_rotate_yaw_range=args.point_cloud_rotate_yaw_range,
+                gripper_loc_bounds=gripper_loc_bounds,
                 support_set_size=args.support_set_size,
             )
         loader = DataLoader(
@@ -563,29 +569,31 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             regress_position_offset=bool(args.regress_position_offset),
             visualize_rgb_attn=bool(args.visualize_rgb_attn),
             use_instruction=bool(args.use_instruction),
-            task_specific_biases=bool(args.task_specific_biases),
             positional_features=args.positional_features,
+            task_specific_biases=bool(args.task_specific_biases),
             task_ids=[TASK_TO_ID[task] for task in args.tasks],
         )
     elif args.model == "analogical":
-        raise NotImplementedError
         _model = AnalogicalNetwork(
+            backbone=args.backbone,
             image_size=tuple(int(x) for x in args.image_size.split(",")),
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
-            rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
-            coarse_to_fine_sampling=bool(args.coarse_to_fine_sampling),
+            num_ghost_points_val=args.num_ghost_points_val,
+            weight_tying=bool(args.weight_tying),
+            gp_emb_tying=bool(args.gp_emb_tying),
+            num_sampling_level=args.num_sampling_level,
             fine_sampling_ball_diameter=args.fine_sampling_ball_diameter,
-            separate_coarse_and_fine_layers=bool(args.separate_coarse_and_fine_layers),
             regress_position_offset=bool(args.regress_position_offset),
+            use_instruction=bool(args.use_instruction),
+            positional_features=args.positional_features,
+            task_specific_biases=bool(args.task_specific_biases),
+            task_ids=[TASK_TO_ID[task] for task in args.tasks],
             support_set=args.support_set,
             global_correspondence=args.global_correspondence,
             num_matching_cross_attn_layers=args.num_matching_cross_attn_layers,
-            use_instruction=bool(args.use_instruction),
-            task_specific_biases=bool(args.task_specific_biases),
-            task_ids=[TASK_TO_ID[task] for task in args.tasks],
         )
 
     devices = [torch.device(d) for d in args.devices]
@@ -611,10 +619,10 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
         model_dict_weight = {}
         for key in model_dict["weight"]:
             _key = key[7:]
-            if 'prediction_head.feature_pyramid.inner_blocks' in _key:
-                _key = _key[:46] + _key[48:]
-            if 'prediction_head.feature_pyramid.layer_blocks' in _key:
-                _key = _key[:46] + _key[48:]
+            # if 'prediction_head.feature_pyramid.inner_blocks' in _key:
+            #     _key = _key[:46] + _key[48:]
+            # if 'prediction_head.feature_pyramid.layer_blocks' in _key:
+            #     _key = _key[:46] + _key[48:]
             model_dict_weight[_key] = model_dict["weight"][key]
         _model.load_state_dict(model_dict_weight)
         optimizer.load_state_dict(model_dict["optimizer"])

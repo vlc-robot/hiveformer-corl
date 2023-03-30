@@ -19,36 +19,48 @@ from model.utils.clip import load_clip
 
 class AnalogicalPredictionHead(nn.Module):
     def __init__(self,
-                 backbone="resnet",
-                 image_size=(128, 128),
+                 backbone="clip",
+                 image_size=(256, 256),
                  embedding_dim=60,
-                 num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
-                 rotation_parametrization="quat_from_query",
+                 num_attn_heads=4,
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
-                 coarse_to_fine_sampling=True,
-                 fine_sampling_ball_diameter=0.08,
-                 separate_coarse_and_fine_layers=True,
-                 regress_position_offset=True,
-                 support_set="others",
+                 num_ghost_points_val=10000,
+                 weight_tying=True,
+                 gp_emb_tying=True,
+                 num_sampling_level=3,
+                 fine_sampling_ball_diameter=0.16,
+                 regress_position_offset=False,
                  use_instruction=False,
-                 global_correspondence=False,
-                 num_matching_cross_attn_layers=2,
                  task_specific_biases=False,
-                 task_ids=[]):
+                 task_ids=[],
+                 positional_features="none",
+                 support_set="others",
+                 global_correspondence=False,
+                 num_matching_cross_attn_layers=2):
         super().__init__()
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
-        assert rotation_parametrization in ["quat_from_top_ghost"]
+        assert num_sampling_level in [1, 2, 3, 4]
+        assert positional_features in ["xyz_concat", "z_concat", "xyz_add", "z_add", "none"]
         assert support_set in ["self", "others"]
+
         self.image_size = image_size
-        self.rotation_parametrization = rotation_parametrization
-        self.num_ghost_points = (num_ghost_points // 2) if coarse_to_fine_sampling else num_ghost_points
-        self.coarse_to_fine_sampling = coarse_to_fine_sampling
-        self.fine_sampling_ball_diameter = fine_sampling_ball_diameter
+        self.num_ghost_points = num_ghost_points // num_sampling_level
+        self.num_ghost_points_val = num_ghost_points_val // num_sampling_level
+        self.num_sampling_level = num_sampling_level
+        self.sampling_ball_diameter_pyramid = [
+            None,
+            fine_sampling_ball_diameter,
+            fine_sampling_ball_diameter / 4.0,
+            fine_sampling_ball_diameter / 16.0
+        ]
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
+        self.weight_tying = weight_tying
+        self.gp_emb_tying = gp_emb_tying
+        self.positional_features = positional_features
         self.support_set = support_set
         self.global_correspondence = global_correspondence
 
@@ -61,31 +73,45 @@ class AnalogicalPredictionHead(nn.Module):
             p.requires_grad = False
 
         # Semantic visual features at different scales
-        self.feature_pyramid = FeaturePyramidNetwork([64, 256, 512, 1024, 2048], embedding_dim)
+        if self.positional_features in ["xyz_concat", "z_concat"]:
+            self.feature_pyramid = FeaturePyramidNetwork(
+                [64, 256, 512, 1024, 2048], embedding_dim - embedding_dim // 10)
+        else:
+            self.feature_pyramid = FeaturePyramidNetwork(
+                [64, 256, 512, 1024, 2048], embedding_dim)
         if self.image_size == (128, 128):
             # Coarse RGB features are the 2nd layer of the feature pyramid at 1/4 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (64x64)
-            self.coarse_feature_map = "res2"
-            self.coarse_downscaling_factor = 4
-            self.fine_feature_map = "res1"
-            self.fine_downscaling_factor = 2
+            self.coarse_feature_map = ['res2', 'res1', 'res1', 'res1']
+            self.downscaling_factor_pyramid = [4, 2, 2, 2]
         elif self.image_size == (256, 256):
             # Coarse RGB features are the 3rd layer of the feature pyramid at 1/8 resolution (32x32)
             # Fine RGB features are the 1st layer of the feature pyramid at 1/2 resolution (128x128)
-            self.coarse_feature_map = "res3"
-            self.coarse_downscaling_factor = 8
-            self.fine_feature_map = "res1"
-            self.fine_downscaling_factor = 2
+            self.feature_map_pyramid = ['res3', 'res1', 'res1', 'res1']
+            self.downscaling_factor_pyramid = [8, 2, 2, 2]
 
-        # 3D positional embeddings
-        self.pcd_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        # 3D relative positional embeddings
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+
+        # 3D absolute positional embeddings (only used for positional features, if any)
+        if self.positional_features == "xyz_concat":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim // 10)
+        elif self.positional_features == "z_concat":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim // 10)
+        if self.positional_features == "xyz_add":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim)
+        elif self.positional_features == "z_add":
+            self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(1, embedding_dim)
 
         # Ghost points learnable initial features
-        self.fine_ghost_points_embed = nn.Embedding(1, embedding_dim)
-        if separate_coarse_and_fine_layers:
-            self.coarse_ghost_points_embed = nn.Embedding(1, embedding_dim)
+        self.ghost_points_embed_pyramid = nn.ModuleList()
+        if self.gp_emb_tying:
+            gp_emb = nn.Embedding(1, embedding_dim)
+            for _ in range(self.num_sampling_level):
+                self.ghost_points_embed_pyramid.append(gp_emb)
         else:
-            self.coarse_ghost_points_embed = self.fine_ghost_points_embed
+            for _ in range(self.num_sampling_level):
+                self.ghost_points_embed_pyramid.append(nn.Embedding(1, embedding_dim))
 
         # Current gripper learnable features
         self.curr_gripper_embed = nn.Embedding(1, embedding_dim)
@@ -96,24 +122,32 @@ class AnalogicalPredictionHead(nn.Module):
         # Ghost point cross-attention to visual features and current gripper position
         self.task_specific_biases = task_specific_biases
         if self.task_specific_biases:
-            self.coarse_ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
-                embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
-            if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
-                self.fine_ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
-                embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
+            self.ghost_point_cross_attn_pyramid = nn.ModuleList()
+            if self.weight_tying:
+                ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
+                    embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
+                for _ in range(self.num_sampling_level):
+                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
             else:
-                self.fine_ghost_point_cross_attn = self.coarse_ghost_point_cross_attn
+                for _ in range(self.num_sampling_level):
+                    ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
+                        embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
+                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
         else:
-            self.coarse_ghost_point_cross_attn = RelativeCrossAttentionModule(
-                embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
-            if coarse_to_fine_sampling and separate_coarse_and_fine_layers:
-                self.fine_ghost_point_cross_attn = RelativeCrossAttentionModule(
+            self.ghost_point_cross_attn_pyramid = nn.ModuleList()
+            if self.weight_tying:
+                ghost_point_cross_attn = RelativeCrossAttentionModule(
                     embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
+                for _ in range(self.num_sampling_level):
+                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
             else:
-                self.fine_ghost_point_cross_attn = self.coarse_ghost_point_cross_attn
+                for _ in range(self.num_sampling_level):
+                    ghost_point_cross_attn = RelativeCrossAttentionModule(
+                        embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
+                    self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
 
         # Ghost point matching self-attention and cross-attention with support set
-        # TODO If task-specific biases work, adapt this too
+        # TODO If task-specific biases help, use them here too
         self.matching_cross_attn_layers = nn.ModuleList()
         self.matching_self_attn_layers = nn.ModuleList()
         self.matching_ffw_layers = nn.ModuleList()
@@ -130,7 +164,7 @@ class AnalogicalPredictionHead(nn.Module):
                 nn.Linear(embedding_dim, 3)
             )
 
-        # Gripper rotation prediction
+        # Gripper rotation (quaternion) and binary opening prediction
         self.gripper_state_predictor = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim),
             nn.ReLU(),
@@ -180,22 +214,20 @@ class AnalogicalPredictionHead(nn.Module):
         total_timesteps = visible_rgb.shape[0]
 
         # Compute visual features at different scales and their positional embeddings
-        (
-            coarse_visible_rgb_features, coarse_visible_rgb_pos,
-            fine_visible_rgb_features, fine_visible_rgb_pos, fine_visible_pcd
-        ) = self._compute_visual_features(visible_rgb, visible_pcd, num_cameras)
+        visible_rgb_features_pyramid, visible_rgb_pos_pyramid, visible_pcd_pyramid = self._compute_visual_features(
+            visible_rgb, visible_pcd, num_cameras)
 
         # Encode instruction
         if self.use_instruction:
-            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
+            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bst l c -> l bst c")
             instruction_dummy_pos = torch.zeros(total_timesteps, instruction_features.shape[0], 3, device=device)
-            instruction_dummy_pos = self.pcd_pe_layer(instruction_dummy_pos)
+            instruction_dummy_pos = self.relative_pe_layer(instruction_dummy_pos)
         else:
             instruction_features = None
             instruction_dummy_pos = None
 
         # Compute current gripper position features and positional embeddings
-        curr_gripper_pos = self.pcd_pe_layer(curr_gripper.unsqueeze(1))
+        curr_gripper_pos = self.relative_pe_layer(curr_gripper.unsqueeze(1))
         curr_gripper_features = self.curr_gripper_embed.weight.repeat(total_timesteps, 1).unsqueeze(0)
 
         # Sample ghost points coarsely across the entire workspace
@@ -276,7 +308,9 @@ class AnalogicalPredictionHead(nn.Module):
 
     def _compute_visual_features(self, visible_rgb, visible_pcd, num_cameras):
         """Compute visual features at different scales and their positional embeddings."""
-        # Pass each view independently through ResNet50 backbone
+        ncam = visible_rgb.shape[1]
+
+        # Pass each view independently through backbone
         visible_rgb = einops.rearrange(visible_rgb, "bst ncam c h w -> (bst ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
@@ -286,28 +320,40 @@ class AnalogicalPredictionHead(nn.Module):
 
         visible_pcd = einops.rearrange(visible_pcd, "bst ncam c h w -> (bst ncam) c h w")
 
-        coarse_visible_rgb_features = visible_rgb_features[self.coarse_feature_map]
-        coarse_visible_pcd = F.interpolate(
-            visible_pcd, scale_factor=1. / self.coarse_downscaling_factor, mode='bilinear')
-        coarse_visible_pcd = einops.rearrange(
-            coarse_visible_pcd, "(bst ncam) c h w -> bst (ncam h w) c", ncam=num_cameras)
-        coarse_visible_rgb_pos = self.pcd_pe_layer(coarse_visible_pcd)
-        coarse_visible_rgb_features = einops.rearrange(
-            coarse_visible_rgb_features, "(bst ncam) c h w -> bst ncam c h w", ncam=num_cameras)
+        visible_rgb_features_pyramid = []
+        visible_rgb_pos_pyramid = []
+        visible_pcd_pyramid = []
 
-        fine_visible_rgb_features = visible_rgb_features[self.fine_feature_map]
-        fine_visible_pcd = F.interpolate(
-            visible_pcd, scale_factor=1. / self.fine_downscaling_factor, mode='bilinear')
-        fine_visible_pcd = einops.rearrange(
-            fine_visible_pcd, "(bst ncam) c h w -> bst (ncam h w) c", ncam=num_cameras)
-        fine_visible_rgb_pos = self.pcd_pe_layer(fine_visible_pcd)
-        fine_visible_rgb_features = einops.rearrange(
-            fine_visible_rgb_features, "(bst ncam) c h w -> bst ncam c h w", ncam=num_cameras)
+        for i in range(self.num_sampling_level):
+            visible_rgb_features_i = visible_rgb_features[self.feature_map_pyramid[i]]
+            visible_pcd_i = F.interpolate(
+                visible_pcd, scale_factor=1. / self.downscaling_factor_pyramid[i], mode='bilinear')
+            h, w = visible_pcd_i.shape[-2:]
+            visible_pcd_i = einops.rearrange(
+                visible_pcd_i, "(bst ncam) c h w -> bst (ncam h w) c", ncam=num_cameras)
+            visible_rgb_pos_i = self.relative_pe_layer(visible_pcd_i)
+            visible_rgb_features_i = einops.rearrange(
+                visible_rgb_features_i, "(bst ncam) c h w -> bst ncam c h w", ncam=num_cameras)
 
-        return (
-            coarse_visible_rgb_features, coarse_visible_rgb_pos,
-            fine_visible_rgb_features, fine_visible_rgb_pos, fine_visible_pcd
-        )
+            if self.positional_features in ["xyz_concat", "xyz_add"]:
+                visible_rgb_pos_features_i = self.absolute_pe_layer(visible_pcd_i)
+                visible_rgb_pos_features_i = einops.rearrange(
+                    visible_rgb_pos_features_i, "bst (ncam h w) c -> bst ncam c h w", ncam=ncam, h=h, w=w)
+            elif self.positional_features in ["z_concat", "z_add"]:
+                visible_rgb_pos_features_i = self.absolute_pe_layer(visible_pcd_i[:, :, 2:3])
+                visible_rgb_pos_features_i = einops.rearrange(
+                    visible_rgb_pos_features_i, "bst (ncam h w) c -> bst ncam c h w", ncam=ncam, h=h, w=w)
+
+            if self.positional_features in ["xyz_concat", "z_concat"]:
+                visible_rgb_features_i = torch.cat([visible_rgb_features_i, visible_rgb_pos_features_i], dim=2)
+            elif self.positional_features in ["xyz_add", "z_add"]:
+                visible_rgb_features_i = visible_rgb_features_i + visible_rgb_pos_features_i
+
+            visible_rgb_features_pyramid.append(visible_rgb_features_i)
+            visible_rgb_pos_pyramid.append(visible_rgb_pos_i)
+            visible_pcd_pyramid.append(visible_pcd_i)
+
+        return visible_rgb_features_pyramid, visible_rgb_pos_pyramid, visible_pcd_pyramid
 
     def _sample_ghost_points(self, batch_size, device, ghost_point_type, anchor=None):
         """Sample ghost points.
@@ -376,7 +422,7 @@ class AnalogicalPredictionHead(nn.Module):
             attn_layers = self.fine_ghost_point_cross_attn
 
         # Initialize ghost point features and positional embeddings
-        ghost_pcd_pos = self.pcd_pe_layer(ghost_pcd)
+        ghost_pcd_pos = self.relative_pe_layer(ghost_pcd)
         num_ghost_points = ghost_pcd.shape[1]
         ghost_pcd_features = embed.weight.unsqueeze(0).repeat(num_ghost_points, batch_size, 1)
 
@@ -499,11 +545,8 @@ class AnalogicalPredictionHead(nn.Module):
             position = position + fine_ghost_pcd_offsets[torch.arange(batch_size), :, top_idx]
 
         # Predict rotation and gripper opening
-        if self.rotation_parametrization == "quat_from_top_ghost":
-            ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts bst c -> bst npts c")
-            features = ghost_pcd_features[torch.arange(batch_size), top_idx]
-        elif self.rotation_parametrization == "quat_from_query":
-            raise NotImplementedError
+        ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts bst c -> bst npts c")
+        features = ghost_pcd_features[torch.arange(batch_size), top_idx]
 
         pred = self.gripper_state_predictor(features)
         rotation = normalise_quat(pred[:, :4])

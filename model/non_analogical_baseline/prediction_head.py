@@ -24,8 +24,8 @@ from model.utils.clip import load_clip
 
 class PredictionHead(nn.Module):
     def __init__(self,
-                 backbone="resnet",
-                 image_size=(128, 128),
+                 backbone="clip",
+                 image_size=(256, 256),
                  embedding_dim=60,
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
@@ -33,16 +33,16 @@ class PredictionHead(nn.Module):
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
-                 num_ghost_points_val=1000,
-                 weight_tying=False,
-                 gp_emb_tying=False,
-                 num_sampling_level=2,
-                 fine_sampling_ball_diameter=0.08,
-                 regress_position_offset=True,
+                 num_ghost_points_val=10000,
+                 weight_tying=True,
+                 gp_emb_tying=True,
+                 num_sampling_level=3,
+                 fine_sampling_ball_diameter=0.16,
+                 regress_position_offset=False,
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
-                 positional_features=None,
+                 positional_features="none",
                  task_ids=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
@@ -57,13 +57,18 @@ class PredictionHead(nn.Module):
         self.num_ghost_points = num_ghost_points // num_sampling_level
         self.num_ghost_points_val = num_ghost_points_val // num_sampling_level
         self.num_sampling_level = num_sampling_level
-        self.sampling_ball_diameter_pyramid = [None, fine_sampling_ball_diameter, fine_sampling_ball_diameter/4.0, fine_sampling_ball_diameter/10.0]
+        self.sampling_ball_diameter_pyramid = [
+            None,
+            fine_sampling_ball_diameter,
+            fine_sampling_ball_diameter / 4.0,
+            fine_sampling_ball_diameter / 16.0
+        ]
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
         self.visualize_rgb_attn = visualize_rgb_attn
         self.weight_tying = weight_tying
-        self.positional_features = positional_features
         self.gp_emb_tying = gp_emb_tying
+        self.positional_features = positional_features
 
         # Frozen backbone
         if backbone == "resnet":
@@ -94,7 +99,7 @@ class PredictionHead(nn.Module):
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
-        # 3D absolute positional embeddings
+        # 3D absolute positional embeddings (only used for positional features, if any)
         if self.positional_features == "xyz_concat":
             self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim // 10)
         elif self.positional_features == "z_concat":
@@ -108,10 +113,10 @@ class PredictionHead(nn.Module):
         self.ghost_points_embed_pyramid = nn.ModuleList()
         if self.gp_emb_tying:
             gp_emb = nn.Embedding(1, embedding_dim)
-            for i in range(self.num_sampling_level):
+            for _ in range(self.num_sampling_level):
                 self.ghost_points_embed_pyramid.append(gp_emb)
         else:
-            for i in range(self.num_sampling_level):
+            for _ in range(self.num_sampling_level):
                 self.ghost_points_embed_pyramid.append(nn.Embedding(1, embedding_dim))
 
         # Current gripper learnable features
@@ -127,10 +132,10 @@ class PredictionHead(nn.Module):
             if self.weight_tying:
                 ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
                     embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
             else:
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
                         embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
@@ -139,10 +144,10 @@ class PredictionHead(nn.Module):
             if self.weight_tying:
                 ghost_point_cross_attn = RelativeCrossAttentionModule(
                     embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
             else:
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     ghost_point_cross_attn = RelativeCrossAttentionModule(
                         embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
@@ -181,7 +186,7 @@ class PredictionHead(nn.Module):
                 nn.Linear(embedding_dim, 3)
             )
 
-        # Gripper rotation prediction
+        # Gripper rotation (quaternion) and binary opening prediction
         self.gripper_state_predictor = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim),
             nn.ReLU(),
@@ -357,7 +362,7 @@ class PredictionHead(nn.Module):
         """Compute visual features at different scales and their positional embeddings."""
         ncam = visible_rgb.shape[1]
 
-        # Pass each view independently through ResNet50 backbone
+        # Pass each view independently through backbone
         visible_rgb = einops.rearrange(visible_rgb, "bt ncam c h w -> (bt ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
