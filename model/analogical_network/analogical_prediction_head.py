@@ -459,6 +459,9 @@ class AnalogicalPredictionHead(nn.Module):
         """Compute ghost point similarity scores with the ground-truth ghost point
         in the support set at the corresponding timestep.
         """
+        # TODO Matching a specific timestep breaks down for tasks with a variable number
+        #  of timesteps
+
         # Until now, we processed each timestep in parallel across the batch, support, and history
         # Here we reshape the tensors to be of shape (batch, 1 + support, history, ...) for matching
         ghost_pcd_ = torch.zeros(

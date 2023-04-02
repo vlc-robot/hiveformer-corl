@@ -351,6 +351,10 @@ class RLBenchDataset(data.Dataset):
 
         frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
         num_ind = len(frame_ids)
+        if num_ind == 0:
+            # Episode ID is not valid, sample another one
+            episode_id = random.randint(0, self._num_episodes - 1)
+            return self.__getitem__(episode_id)
         pad_len = max(0, self._max_episode_length - num_ind)
 
         states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
@@ -572,6 +576,12 @@ class RLBenchAnalogicalDataset(data.Dataset):
             for task, variation, file, chunk
             in random.sample(self._support_episodes[(task, chunk)], self._support_set_size)
         ]
+        if main_episode is None or any(ep is None for ep in support_episodes):
+            # Episode ID is not valid, sample another one
+            # TODO Need to improve this logic to properly cover tasks with a variable number
+            #  of timesteps
+            episode_id = random.randint(0, self._main_num_episodes - 1)
+            return self.__getitem__(episode_id)
 
         def collate_fn(batch: List[Dict]):
             keys = batch[0].keys()
@@ -593,6 +603,8 @@ class RLBenchAnalogicalDataset(data.Dataset):
 
         frame_ids = episode[0][chunk * self._max_episode_length: (chunk + 1) * self._max_episode_length]
         num_ind = len(frame_ids)
+        if num_ind == 0:
+            return None
         pad_len = max(0, self._max_episode_length - num_ind)
 
         states: torch.Tensor = torch.stack([episode[1][i].squeeze(0) for i in frame_ids])
