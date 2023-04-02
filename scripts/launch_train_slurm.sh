@@ -111,6 +111,7 @@ task_file=tasks/hiveformer_74_tasks_61_74.csv
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+cache_size=50
 for task in $(cat $task_file | tr '\n' ' '); do
   sbatch train_1gpu_32gb.sh \
    --tasks $task \
@@ -120,7 +121,8 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
    --use_instruction $use_instruction \
    --logger wandb \
-   --run_log_dir $task-HIVEFORMER
+   --run_log_dir $task-HIVEFORMER \
+   --cache_size $cache_size
 done
 
 #main_dir=04_02_multi_task
