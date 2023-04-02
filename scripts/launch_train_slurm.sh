@@ -104,24 +104,74 @@
 #   --run_log_dir $task
 #done
 
-main_dir=03_24_hiveformer_setting
-use_instruction=0
-task_file=tasks/hiveformer_74_tasks_41_50.csv
-gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+# TODO
+#main_dir=03_24_hiveformer_setting
+#use_instruction=0
+#task_file=tasks/hiveformer_74_tasks_61_74.csv
+#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+#dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+#valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+#for task in $(cat $task_file | tr '\n' ' '); do
+#  sbatch train_1gpu_32gb.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --run_log_dir $task-HIVEFORMER
+#done
+
+main_dir=04_02_multi_task
+use_instruction=1
+embedding_dim=120
+num_workers=16
+train_iters=2_000_000
+task_file=tasks/autolambda_10_tasks.csv
+gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-for task in $(cat $task_file | tr '\n' ' '); do
-  sbatch train_1gpu_32gb.sh \
-   --tasks $task \
-   --dataset $dataset \
-   --valset $valset \
-   --exp_log_dir $main_dir \
-   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --use_instruction $use_instruction \
-   --logger wandb \
-   --run_log_dir $task-HIVEFORMER
-done
 
+batch_size=16
+batch_size_val=4
+model=baseline
+sbatch train_4gpu_32gb.sh \
+ --model $model \
+ --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+ --tasks $(cat $task_file | tr '\n' ' ') \
+ --dataset $dataset \
+ --valset $valset \
+ --exp_log_dir $main_dir \
+ --num_workers $num_workers \
+ --use_instruction $use_instruction \
+ --embedding_dim $embedding_dim \
+ --train_iters $train_iters \
+ --gripper_loc_bounds_file $gripper_loc_bounds_file \
+ --use_instruction $use_instruction \
+ --logger wandb \
+ --run_log_dir multitask-$model
+
+batch_size=8
+batch_size_val=2
+model=analogical
+sbatch train_4gpu_32gb.sh \
+ --model $model \
+ --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+ --tasks $(cat $task_file | tr '\n' ' ') \
+ --dataset $dataset \
+ --valset $valset \
+ --exp_log_dir $main_dir \
+ --num_workers $num_workers \
+ --use_instruction $use_instruction \
+ --embedding_dim $embedding_dim \
+ --train_iters $train_iters \
+ --gripper_loc_bounds_file $gripper_loc_bounds_file \
+ --use_instruction $use_instruction \
+ --logger wandb \
+ --run_log_dir multitask-$model
+
+# TODO
 #main_dir=03_30_hiveformer_hard_10_demo_tasks
 #use_instruction=0
 #task_file=tasks/hiveformer_hard_10_demo_tasks.csv
