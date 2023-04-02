@@ -138,7 +138,7 @@ batch_size_val=4
 model=baseline
 sbatch train_2gpu_32gb.sh \
  --model $model \
- --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+ --devices cuda:0 cuda:1 \
  --tasks $(cat $task_file | tr '\n' ' ') \
  --dataset $dataset \
  --valset $valset \
@@ -157,7 +157,7 @@ batch_size_val=2
 model=analogical
 sbatch train_2gpu_32gb.sh \
  --model $model \
- --devices cuda:0 cuda:1 cuda:2 cuda:3 \
+ --devices cuda:0 cuda:1 \
  --tasks $(cat $task_file | tr '\n' ' ') \
  --dataset $dataset \
  --valset $valset \
