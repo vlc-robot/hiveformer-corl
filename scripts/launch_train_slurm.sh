@@ -126,7 +126,7 @@
 main_dir=04_02_multi_task
 use_instruction=1
 embedding_dim=120
-num_workers=16
+num_workers=6
 train_iters=2_000_000
 task_file=tasks/autolambda_10_tasks.csv
 gripper_loc_bounds_file=tasks/10_autolambda_tasks_location_bounds.json
@@ -136,7 +136,7 @@ valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveform
 batch_size=16
 batch_size_val=4
 model=baseline
-sbatch train_4gpu_32gb.sh \
+sbatch train_2gpu_32gb.sh \
  --model $model \
  --devices cuda:0 cuda:1 cuda:2 cuda:3 \
  --tasks $(cat $task_file | tr '\n' ' ') \
@@ -155,7 +155,7 @@ sbatch train_4gpu_32gb.sh \
 batch_size=8
 batch_size_val=2
 model=analogical
-sbatch train_4gpu_32gb.sh \
+sbatch train_2gpu_32gb.sh \
  --model $model \
  --devices cuda:0 cuda:1 cuda:2 cuda:3 \
  --tasks $(cat $task_file | tr '\n' ' ') \
