@@ -55,7 +55,7 @@ class Arguments(tap.Tap):
 
     # Main training parameters
     devices: List[str] = ["cuda:0"]  # ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    num_workers: int = 2
+    num_workers: int = 1
     batch_size: int = 16
     batch_size_val: int = 4
     lr: float = 1e-4
