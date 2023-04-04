@@ -155,31 +155,14 @@ sbatch train_1gpu_32gb.sh \
  --train_iters $train_iters \
  --cache_size $cache_size \
  --cache_size_val $cache_size_val \
+ --batch_size $batch_size \
+ --batch_size_val $batch_size_val \
  --gripper_loc_bounds_file $gripper_loc_bounds_file \
  --use_instruction $use_instruction \
  --logger wandb \
  --num_level $num_level \
  --regress_position_offset $regress_position_offset \
  --run_log_dir multitask-$model
-
-#batch_size=8
-#batch_size_val=2
-#model=analogical
-#sbatch train_2gpu_32gb.sh \
-# --model $model \
-# --devices cuda:0 cuda:1 \
-# --tasks $(cat $task_file | tr '\n' ' ') \
-# --dataset $dataset \
-# --valset $valset \
-# --exp_log_dir $main_dir \
-# --num_workers $num_workers \
-# --use_instruction $use_instruction \
-# --embedding_dim $embedding_dim \
-# --train_iters $train_iters \
-# --gripper_loc_bounds_file $gripper_loc_bounds_file \
-# --use_instruction $use_instruction \
-# --logger wandb \
-# --run_log_dir multitask-$model
 
 # TODO
 #main_dir=03_30_hiveformer_hard_10_demo_tasks
