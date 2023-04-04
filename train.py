@@ -34,7 +34,6 @@ class Arguments(tap.Tap):
     max_tries: int = 10
     max_episodes_per_task: int = 100
     instructions: Optional[Path] = "instructions.pkl"
-    cache_size: int = 100
     seed: int = 0
     tasks: Tuple[str, ...]
     variations: Tuple[int, ...] = (0,)
@@ -58,6 +57,8 @@ class Arguments(tap.Tap):
     num_workers: int = 1
     batch_size: int = 16
     batch_size_val: int = 4
+    cache_size: int = 100
+    cache_size_val: int = 100
     lr: float = 1e-4
     train_iters: int = 200_000
     max_episode_length: int = 5  # -1 for no limit
@@ -500,7 +501,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 instructions=instruction,
                 max_episode_length=max_episode_length,
                 max_episodes_per_task=args.max_episodes_per_task,
-                cache_size=args.cache_size,
+                cache_size=args.cache_size_val,
                 cameras=args.cameras,  # type: ignore
                 training=False,
                 image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
@@ -518,7 +519,7 @@ def get_val_loaders(args: Arguments, gripper_loc_bounds) -> Optional[List[DataLo
                 instructions=instruction,
                 max_episode_length=max_episode_length,
                 max_episodes_per_task=args.max_episodes_per_task,
-                cache_size=args.cache_size,
+                cache_size=args.cache_size_val,
                 cameras=args.cameras,  # type: ignore
                 training=False,
                 image_rescale=tuple(float(x) for x in args.image_rescale.split(",")),
