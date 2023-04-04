@@ -141,25 +141,28 @@ batch_size_val=2
 model=baseline
 num_sampling_level=3
 regress_position_offset=0
-sbatch train_1gpu_32gb.sh \
- --model $model \
- --tasks $(cat $task_file | tr '\n' ' ') \
- --dataset $dataset \
- --valset $valset \
- --exp_log_dir $main_dir \
- --use_instruction $use_instruction \
- --embedding_dim $embedding_dim \
- --train_iters $train_iters \
- --cache_size $cache_size \
- --cache_size_val $cache_size_val \
- --batch_size $batch_size \
- --batch_size_val $batch_size_val \
- --gripper_loc_bounds_file $gripper_loc_bounds_file \
- --use_instruction $use_instruction \
- --logger wandb \
- --num_sampling_level $num_sampling_level \
- --regress_position_offset $regress_position_offset \
- --run_log_dir multitask-$model
+for num_workers in 1 2 4 8; do
+  sbatch train_1gpu_32gb.sh \
+   --model $model \
+   --tasks $(cat $task_file | tr '\n' ' ') \
+   --dataset $dataset \
+   --valset $valset \
+   --exp_log_dir $main_dir \
+   --use_instruction $use_instruction \
+   --embedding_dim $embedding_dim \
+   --train_iters $train_iters \
+   --cache_size $cache_size \
+   --cache_size_val $cache_size_val \
+   --batch_size $batch_size \
+   --batch_size_val $batch_size_val \
+   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+   --use_instruction $use_instruction \
+   --logger wandb \
+   --num_sampling_level $num_sampling_level \
+   --num_workers $num_workers \
+   --regress_position_offset $regress_position_offset \
+   --run_log_dir multitask-$model-$num_workers-workers
+done
 
 # TODO
 #main_dir=03_30_hiveformer_hard_10_demo_tasks
