@@ -140,7 +140,7 @@ valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveform
 batch_size=8
 batch_size_val=2
 model=baseline
-num_level=3
+num_sampling_level=3
 regress_position_offset=0
 sbatch train_1gpu_32gb.sh \
  --model $model \
@@ -159,7 +159,7 @@ sbatch train_1gpu_32gb.sh \
  --gripper_loc_bounds_file $gripper_loc_bounds_file \
  --use_instruction $use_instruction \
  --logger wandb \
- --num_level $num_level \
+ --num_sampling_level $num_sampling_level \
  --regress_position_offset $regress_position_offset \
  --run_log_dir multitask-$model
 
