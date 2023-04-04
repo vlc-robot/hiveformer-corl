@@ -149,7 +149,6 @@ sbatch train_1gpu_32gb.sh \
  --dataset $dataset \
  --valset $valset \
  --exp_log_dir $main_dir \
- --num_workers $num_workers \
  --use_instruction $use_instruction \
  --embedding_dim $embedding_dim \
  --train_iters $train_iters \
