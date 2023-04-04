@@ -79,7 +79,7 @@ class Arguments(tap.Tap):
     # ---------------------------------------------------------------
 
     visualize_rgb_attn: int = 0
-    gripper_loc_bounds_file: str = "tasks/10_autolambda_tasks_location_bounds.json"
+    gripper_loc_bounds_file: str = "tasks/74_hiveformer_tasks_location_bounds.json"
     single_task_gripper_loc_bounds: int = 0
     gripper_bounds_buffer: float = 0.04
 

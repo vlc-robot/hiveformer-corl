@@ -105,13 +105,12 @@ class LossAndMetrics:
         position_loss,
         ground_truth_gaussian_spread,
         position_prediction_only=False,
-        compute_loss_at_all_layers=True,
+        compute_loss_at_all_layers=False,
         label_smoothing=0.0,
         position_loss_coeff=1.0,
-        position_offset_loss_coeff=1.0,
-        rotation_loss_coeff=1.0,
+        position_offset_loss_coeff=10000.0,
+        rotation_loss_coeff=10.0,
         gripper_loss_coeff=1.0,
-        rotation_parametrization="quat_from_query",
         regress_position_offset=False,
         symmetric_rotation_loss=False,
     ):
@@ -125,7 +124,6 @@ class LossAndMetrics:
         self.position_offset_loss_coeff = position_offset_loss_coeff
         self.rotation_loss_coeff = rotation_loss_coeff
         self.gripper_loss_coeff = gripper_loss_coeff
-        self.rotation_parametrization = rotation_parametrization
         self.regress_position_offset = regress_position_offset
         self.symmetric_rotation_loss = symmetric_rotation_loss
         task_file = Path(__file__).parent.parent / "tasks/all_82_tasks.csv"
@@ -240,13 +238,13 @@ class LossAndMetrics:
             metrics[f"{task}/pos_l2_final<0.01"] = (task_l2 < 0.01).to(dtype).mean()
 
         if not self.position_prediction_only:
-            # gripper loss
+            # Gripper accuracy
             pred_gripper = (pred["gripper"] > 0.5).squeeze(-1)
             true_gripper = outputs[:, 7].bool()
             acc = pred_gripper == true_gripper
             metrics["gripper"] = acc.to(dtype).mean()
 
-            # rotation loss
+            # Rotation accuracy
             if self.symmetric_rotation_loss:
                 gt_quat = outputs[:, 3:7]
                 gt_quat_ = -gt_quat.clone()
@@ -267,7 +265,7 @@ class LossAndMetrics:
                 metrics[f"{task}/rot_l1<0.05"] = (task_l1 < 0.05).to(dtype).mean()
                 metrics[f"{task}/rot_l1<0.025"] = (task_l1 < 0.025).to(dtype).mean()
 
-            # task prediction
+            # Task prediction (not used by our models)
             if pred["task"] is not None:
                 task = torch.Tensor([self.tasks.index(t) for t in sample["task"]])
                 task = task.to(device).long()

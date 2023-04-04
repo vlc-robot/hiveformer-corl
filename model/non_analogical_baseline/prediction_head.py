@@ -24,8 +24,8 @@ from model.utils.clip import load_clip
 
 class PredictionHead(nn.Module):
     def __init__(self,
-                 backbone="resnet",
-                 image_size=(128, 128),
+                 backbone="clip",
+                 image_size=(256, 256),
                  embedding_dim=60,
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
@@ -33,16 +33,16 @@ class PredictionHead(nn.Module):
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
-                 num_ghost_points_val=1000,
-                 weight_tying=False,
-                 gp_emb_tying=False,
-                 num_sampling_level=2,
-                 fine_sampling_ball_diameter=0.08,
-                 regress_position_offset=True,
+                 num_ghost_points_val=10000,
+                 weight_tying=True,
+                 gp_emb_tying=True,
+                 num_sampling_level=3,
+                 fine_sampling_ball_diameter=0.16,
+                 regress_position_offset=False,
                  visualize_rgb_attn=False,
                  use_instruction=False,
                  task_specific_biases=False,
-                 positional_features=None,
+                 positional_features="none",
                  task_ids=[]):
         super().__init__()
         assert backbone in ["resnet", "clip"]
@@ -57,13 +57,18 @@ class PredictionHead(nn.Module):
         self.num_ghost_points = num_ghost_points // num_sampling_level
         self.num_ghost_points_val = num_ghost_points_val // num_sampling_level
         self.num_sampling_level = num_sampling_level
-        self.sampling_ball_diameter_pyramid = [None, fine_sampling_ball_diameter, fine_sampling_ball_diameter/4.0, fine_sampling_ball_diameter/10.0]
+        self.sampling_ball_diameter_pyramid = [
+            None,
+            fine_sampling_ball_diameter,
+            fine_sampling_ball_diameter / 4.0,
+            fine_sampling_ball_diameter / 16.0
+        ]
         self.gripper_loc_bounds = np.array(gripper_loc_bounds)
         self.regress_position_offset = regress_position_offset
         self.visualize_rgb_attn = visualize_rgb_attn
         self.weight_tying = weight_tying
-        self.positional_features = positional_features
         self.gp_emb_tying = gp_emb_tying
+        self.positional_features = positional_features
 
         # Frozen backbone
         if backbone == "resnet":
@@ -94,7 +99,7 @@ class PredictionHead(nn.Module):
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
-        # 3D absolute positional embeddings
+        # 3D absolute positional embeddings (only used for positional features, if any)
         if self.positional_features == "xyz_concat":
             self.absolute_pe_layer = LearnedAbsolutePositionEncoding3D(3, embedding_dim // 10)
         elif self.positional_features == "z_concat":
@@ -108,10 +113,10 @@ class PredictionHead(nn.Module):
         self.ghost_points_embed_pyramid = nn.ModuleList()
         if self.gp_emb_tying:
             gp_emb = nn.Embedding(1, embedding_dim)
-            for i in range(self.num_sampling_level):
+            for _ in range(self.num_sampling_level):
                 self.ghost_points_embed_pyramid.append(gp_emb)
         else:
-            for i in range(self.num_sampling_level):
+            for _ in range(self.num_sampling_level):
                 self.ghost_points_embed_pyramid.append(nn.Embedding(1, embedding_dim))
 
         # Current gripper learnable features
@@ -127,10 +132,10 @@ class PredictionHead(nn.Module):
             if self.weight_tying:
                 ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
                     embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
             else:
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     ghost_point_cross_attn = TaskSpecificRelativeCrossAttentionModule(
                         embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers, task_ids)
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
@@ -139,10 +144,10 @@ class PredictionHead(nn.Module):
             if self.weight_tying:
                 ghost_point_cross_attn = RelativeCrossAttentionModule(
                     embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
             else:
-                for i in range(self.num_sampling_level):
+                for _ in range(self.num_sampling_level):
                     ghost_point_cross_attn = RelativeCrossAttentionModule(
                         embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
@@ -181,7 +186,7 @@ class PredictionHead(nn.Module):
                 nn.Linear(embedding_dim, 3)
             )
 
-        # Gripper rotation prediction
+        # Gripper rotation (quaternion) and binary opening prediction
         self.gripper_state_predictor = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim),
             nn.ReLU(),
@@ -203,7 +208,7 @@ class PredictionHead(nn.Module):
             task_id: (batch x history)
             gt_action: (batch x history, 8) in world coordinates
         """
-        batch_size, num_cameras, _, height, width = visible_rgb.shape
+        total_timesteps, num_cameras, _, height, width = visible_rgb.shape
         device = visible_rgb.device
         if gt_action is not None:
             gt_position = gt_action[:, :3].unsqueeze(1).detach()
@@ -217,7 +222,7 @@ class PredictionHead(nn.Module):
         # Encode instruction
         if self.use_instruction:
             instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
-            instruction_dummy_pos = torch.zeros(batch_size, instruction_features.shape[0], 3, device=device)
+            instruction_dummy_pos = torch.zeros(total_timesteps, instruction_features.shape[0], 3, device=device)
             instruction_dummy_pos = self.relative_pe_layer(instruction_dummy_pos)
         else:
             instruction_features = None
@@ -225,7 +230,7 @@ class PredictionHead(nn.Module):
 
         # Compute current gripper position features and positional embeddings
         curr_gripper_pos = self.relative_pe_layer(curr_gripper.unsqueeze(1))
-        curr_gripper_features = self.curr_gripper_embed.weight.repeat(batch_size, 1).unsqueeze(0)
+        curr_gripper_features = self.curr_gripper_embed.weight.repeat(total_timesteps, 1).unsqueeze(0)
 
         ghost_pcd_features_pyramid = []
         ghost_pcd_pyramid = []
@@ -236,10 +241,10 @@ class PredictionHead(nn.Module):
         for i in range(self.num_sampling_level):
             # Sample ghost points
             if i == 0:
-                anchor = gt_position
+                anchor = None
             else:
                 anchor = gt_position if gt_position is not None else position_pyramid[-1]
-            ghost_pcd_i = self._sample_ghost_points(batch_size, device, level=i, anchor=anchor)
+            ghost_pcd_i = self._sample_ghost_points(total_timesteps, device, level=i, anchor=anchor)
 
             if i == 0:
                 # Coarse RGB features
@@ -249,7 +254,7 @@ class PredictionHead(nn.Module):
                     visible_rgb_features_i, "b ncam c h w -> (ncam h w) b c")
             else:
                 # Local fine RGB features
-                l2_pred_pos = ((position_pyramid[-1] - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
+                l2_pred_pos = ((anchor - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
                 indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
                 visible_rgb_features_i = einops.rearrange(
@@ -277,12 +282,12 @@ class PredictionHead(nn.Module):
                 ghost_pcd_to_visible_rgb_attn_i
             ) = self._compute_ghost_point_features(
                 ghost_pcd_i, ghost_pcd_context_features_i, ghost_pcd_context_pos_i,
-                task_id, batch_size, level=i
+                task_id, total_timesteps, level=i
             )
 
             # Initialize query features
             if i == 0:
-                query_features = self.query_embed.weight.unsqueeze(1).repeat(1, batch_size, 1)
+                query_features = self.query_embed.weight.unsqueeze(1).repeat(1, total_timesteps, 1)
 
             query_context_features_i = ghost_pcd_context_features_i
             query_context_pos_i = ghost_pcd_context_pos_i
@@ -303,8 +308,6 @@ class PredictionHead(nn.Module):
                 level=i, task_id=task_id
             )
 
-            ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
-
             # The query decodes a mask over ghost points (used to predict the gripper position) and over visual
             # features (for visualization only)
             ghost_pcd_masks_i, visible_rgb_mask_i = self._decode_mask(
@@ -314,11 +317,12 @@ class PredictionHead(nn.Module):
             )
             query_features = query_features[-1]
 
-            ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
-            ghost_pcd_pyramid.append(ghost_pcd_i)
-
             top_idx = torch.max(ghost_pcd_masks_i[-1], dim=-1).indices
-            position_i = ghost_pcd_i[torch.arange(batch_size), :, top_idx].unsqueeze(1)
+            ghost_pcd_i = einops.rearrange(ghost_pcd_i, "b npts c -> b c npts")
+            position_i = ghost_pcd_i[torch.arange(total_timesteps), :, top_idx].unsqueeze(1)
+
+            ghost_pcd_pyramid.append(ghost_pcd_i)
+            ghost_pcd_features_pyramid.append(ghost_pcd_features_i)
             position_pyramid.append(position_i)
             visible_rgb_mask_pyramid.append(visible_rgb_mask_i)
             ghost_pcd_masks_pyramid.append(ghost_pcd_masks_i)
@@ -336,7 +340,7 @@ class PredictionHead(nn.Module):
 
         # Predict the next gripper action (position, rotation, gripper opening)
         position, rotation, gripper = self._predict_action(
-            ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, query_features, batch_size,
+            ghost_pcd_masks[-1], ghost_pcd, ghost_pcd_features, query_features, total_timesteps,
             fine_ghost_pcd_offsets if self.regress_position_offset else None
         )
 
@@ -357,7 +361,7 @@ class PredictionHead(nn.Module):
         """Compute visual features at different scales and their positional embeddings."""
         ncam = visible_rgb.shape[1]
 
-        # Pass each view independently through ResNet50 backbone
+        # Pass each view independently through backbone
         visible_rgb = einops.rearrange(visible_rgb, "bt ncam c h w -> (bt ncam) c h w")
         visible_rgb = self.normalize(visible_rgb)
         visible_rgb_features = self.backbone(visible_rgb)
@@ -402,11 +406,10 @@ class PredictionHead(nn.Module):
 
         return visible_rgb_features_pyramid, visible_rgb_pos_pyramid, visible_pcd_pyramid
 
-    def _sample_ghost_points(self, batch_size, device, level, anchor=None):
+    def _sample_ghost_points(self, total_timesteps, device, level, anchor=None):
         """Sample ghost points.
 
-        If level==0, sample points uniformly within the workspace
-        bounds and one near the anchor if it is specified.
+        If level==0, sample points uniformly within the workspace bounds.
 
         If level>0, sample points uniformly within a local sphere
         of the workspace bounds centered around the anchor.
@@ -417,13 +420,13 @@ class PredictionHead(nn.Module):
             num_ghost_points = self.num_ghost_points_val
 
         if level == 0:
-            bounds = np.stack([self.gripper_loc_bounds for _ in range(batch_size)])
+            bounds = np.stack([self.gripper_loc_bounds for _ in range(total_timesteps)])
             uniform_pcd = np.stack([
                 sample_ghost_points_uniform_cube(
                     bounds=bounds[i],
                     num_points=num_ghost_points
                 )
-                for i in range(batch_size)
+                for i in range(total_timesteps)
             ])
 
         elif level >= 1:
@@ -444,7 +447,7 @@ class PredictionHead(nn.Module):
                     bounds=bounds[i],
                     num_points=num_ghost_points
                 )
-                for i in range(batch_size)
+                for i in range(total_timesteps)
             ])
 
         uniform_pcd = torch.from_numpy(uniform_pcd).float().to(device)
@@ -453,10 +456,10 @@ class PredictionHead(nn.Module):
 
     def _compute_ghost_point_features(self,
                                       ghost_pcd, context_features, context_pos,
-                                      task_id, batch_size, level):
+                                      task_id, total_timesteps, level):
         """
-        Ghost points cross-attend to context features (visual features and current
-        gripper position).
+        Ghost points cross-attend to context features (visual features, instruction features,
+        and current gripper position).
         """
         embed = self.ghost_points_embed_pyramid[level]
         attn_layers = self.ghost_point_cross_attn_pyramid[level]
@@ -464,7 +467,7 @@ class PredictionHead(nn.Module):
         # Initialize ghost point features and positional embeddings
         ghost_pcd_pos = self.relative_pe_layer(ghost_pcd)
         num_ghost_points = ghost_pcd.shape[1]
-        ghost_pcd_features = embed.weight.unsqueeze(0).repeat(num_ghost_points, batch_size, 1)
+        ghost_pcd_features = embed.weight.unsqueeze(0).repeat(num_ghost_points, total_timesteps, 1)
 
         # Ghost points cross-attend to visual features and current gripper position
         if self.task_specific_biases:
@@ -494,7 +497,8 @@ class PredictionHead(nn.Module):
                                 query_features, context_features,
                                 query_pos, context_pos,
                                 level, task_id):
-        """The query cross-attends to context features (visual features and the current gripper position)."""
+        """The query cross-attends to context features (visual features, instruction features,
+        and current gripper position)."""
         attn_layers = self.query_cross_attn_pyramid[level]
 
         if self.task_specific_biases:
@@ -537,21 +541,21 @@ class PredictionHead(nn.Module):
         return ghost_pcd_masks, visible_rgb_mask
 
     def _predict_action(self,
-                        ghost_pcd_mask, ghost_pcd, ghost_pcd_features, query_features, batch_size,
+                        ghost_pcd_mask, ghost_pcd, ghost_pcd_features, query_features, total_timesteps,
                         fine_ghost_pcd_offsets=None):
         """Compute the predicted action (position, rotation, opening) from the predicted mask."""
         # Select top-scoring ghost point
         top_idx = torch.max(ghost_pcd_mask, dim=-1).indices
-        position = ghost_pcd[torch.arange(batch_size), :, top_idx]
+        position = ghost_pcd[torch.arange(total_timesteps), :, top_idx]
 
         # Add an offset regressed from the ghost point's position to the predicted position
         if fine_ghost_pcd_offsets is not None:
-            position = position + fine_ghost_pcd_offsets[torch.arange(batch_size), :, top_idx]
+            position = position + fine_ghost_pcd_offsets[torch.arange(total_timesteps), :, top_idx]
 
         # Predict rotation and gripper opening
         if self.rotation_parametrization == "quat_from_top_ghost":
             ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts bt c -> bt npts c")
-            features = ghost_pcd_features[torch.arange(batch_size), top_idx]
+            features = ghost_pcd_features[torch.arange(total_timesteps), top_idx]
         elif self.rotation_parametrization == "quat_from_query":
             features = query_features.squeeze(0)
 
