@@ -1,0 +1,154 @@
+{
+    "setup_checkers": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "straighten_rope": {
+        "0": 0.0,
+        "mean": 0.0
+    },
+    "press_switch": {
+        "0": 0.89,
+        "mean": 0.89
+    },
+    "pick_up_cup": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "toilet_seat_up": {
+        "0": 0.89,
+        "mean": 0.89
+    },
+    "take_usb_out_of_computer": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "take_shoes_out_of_box": {
+        "0": 0.22,
+        "mean": 0.22
+    },
+    "water_plants": {
+        "0": 0.83,
+        "mean": 0.83
+    },
+    "take_frame_off_hanger": {
+        "0": 0.74,
+        "mean": 0.74
+    },
+    "take_lid_off_saucepan": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "pick_and_lift_small": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "pick_and_lift": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "tower3": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "plug_charger_in_power_supply": {
+        "0": 0.79,
+        "mean": 0.79
+    },
+    "take_umbrella_out_of_umbrella_stand": {
+        "0": 0.93,
+        "mean": 0.93
+    },
+    "take_toilet_roll_off_stand": {
+        "0": 0.91,
+        "mean": 0.91
+    },
+    "take_money_out_safe": {
+        "0": 0.87,
+        "mean": 0.87
+    },
+    "play_jenga": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "scoop_with_spatula": {
+        "0": 0.88,
+        "mean": 0.88
+    },
+    "put_knife_on_chopping_board": {
+        "0": 0.9,
+        "mean": 0.9
+    },
+    "put_books_on_bookshelf": {
+        "0": 0.33,
+        "mean": 0.33
+    },
+    "turn_oven_on": {
+        "0": 0.94,
+        "mean": 0.94
+    },
+    "put_rubbish_in_bin": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "take_plate_off_colored_dish_rack": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "tv_on": {
+        "0": 0.98,
+        "mean": 0.98
+    },
+    "wipe_desk": {
+        "0": 0.0,
+        "mean": 0.0
+    },
+    "place_hanger_on_rack": {
+        "0": 0.98,
+        "mean": 0.98
+    },
+    "screw_nail": {
+        "0": 0.35,
+        "mean": 0.35
+    },
+    "stack_wine": {
+        "0": 0.95,
+        "mean": 0.95
+    },
+    "unplug_charger": {
+        "0": 0.47,
+        "mean": 0.47
+    },
+    "slide_block_to_target": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "put_umbrella_in_umbrella_stand": {
+        "0": 0.15,
+        "mean": 0.15
+    },
+    "sweep_to_dustpan": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "reach_target": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "phone_on_base": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "push_button": {
+        "0": 0.92,
+        "mean": 0.92
+    },
+    "slide_cabinet_open_and_place_cups": {
+        "0": 0.0,
+        "mean": 0.0
+    },
+    "toilet_seat_down": {
+        "0": 1.0,
+        "mean": 1.0
+    }
+}

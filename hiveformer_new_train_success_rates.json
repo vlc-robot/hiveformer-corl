@@ -1,0 +1,42 @@
+{
+    "turn_tap": {
+        "0": 0.95,
+        "mean": 0.95
+    },
+    "stack_blocks": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "open_drawer": {
+        "0": 0.79,
+        "mean": 0.79
+    },
+    "put_money_in_safe": {
+        "0": 0.97,
+        "mean": 0.97
+    },
+    "reach_and_drag": {
+        "0": 0.96,
+        "mean": 0.96
+    },
+    "place_shape_in_shape_sorter": {
+        "0": 0.86,
+        "mean": 0.86
+    },
+    "stack_cups": {
+        "0": 0.95,
+        "mean": 0.95
+    },
+    "insert_onto_square_peg": {
+        "0": 0.99,
+        "mean": 0.99
+    },
+    "meat_off_grill": {
+        "0": 1.0,
+        "mean": 1.0
+    },
+    "push_buttons": {
+        "0": 1.0,
+        "mean": 1.0
+    }
+}
