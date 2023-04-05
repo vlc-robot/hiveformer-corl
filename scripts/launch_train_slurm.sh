@@ -81,7 +81,7 @@
 main_dir=03_24_eval_on_peract_18_tasks
 num_workers=1
 use_instruction=1
-task_file=tasks/18_peract_short_tasks_1_10.csv
+task_file=tasks/18_peract_tasks_1_10.csv
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
