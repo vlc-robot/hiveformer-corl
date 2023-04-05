@@ -85,8 +85,8 @@ task_file=tasks/peract_18_tasks_1_10.csv
 gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
-for task in $(cat $task_file | tr '\n' ' '); do
-#for task in light_bulb_in put_groceries_in_cupboard place_shape_in_shape_sorter; do
+#for task in $(cat $task_file | tr '\n' ' '); do
+for task in stack_cups put_item_in_drawer stack_blocks; do
   sbatch train_1gpu_32gb.sh \
    --tasks $task \
    --dataset $dataset \
