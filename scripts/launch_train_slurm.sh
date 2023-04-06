@@ -78,48 +78,47 @@
 #     --run_log_dir $task
 #done
 
-main_dir=03_24_eval_on_peract_18_tasks
-num_workers=1
-use_instruction=1
-task_file=tasks/peract_18_tasks_1_10.csv
-gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
-dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
-valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
-#for task in $(cat $task_file | tr '\n' ' '); do
-for task in stack_cups put_item_in_drawer stack_blocks; do
+#main_dir=03_24_eval_on_peract_18_tasks
+#num_workers=1
+#use_instruction=1
+#task_file=tasks/peract_18_tasks_1_10.csv
+#gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
+#dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
+#valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
+##for task in $(cat $task_file | tr '\n' ' '); do
+#for task in stack_cups put_item_in_drawer stack_blocks; do
+#  sbatch train_1gpu_32gb.sh \
+#   --tasks $task \
+#   --dataset $dataset \
+#   --valset $valset \
+#   --exp_log_dir $main_dir \
+#   --num_workers $num_workers \
+#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
+#   --variations {0..199} \
+#   --use_instruction $use_instruction \
+#   --logger wandb \
+#   --run_log_dir $task
+#done
+
+# Long-horizon
+main_dir=03_24_hiveformer_setting
+use_instruction=0
+task_file=tasks/hiveformer_74_tasks_61_74.csv
+gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
+dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
+valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
+for task in $(cat $task_file | tr '\n' ' '); do
+#for task in stack_blocks stack_cups; do
   sbatch train_1gpu_32gb.sh \
    --tasks $task \
    --dataset $dataset \
    --valset $valset \
    --exp_log_dir $main_dir \
-   --num_workers $num_workers \
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
-   --variations {0..199} \
    --use_instruction $use_instruction \
    --logger wandb \
-   --run_log_dir $task
+   --run_log_dir $task-HIVEFORMER
 done
-
-# Long-horizon
-#main_dir=03_24_hiveformer_setting
-#use_instruction=0
-#task_file=tasks/hiveformer_74_tasks_61_74.csv
-#gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
-#dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
-#valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-#for task in $(cat $task_file | tr '\n' ' '); do
-#for task in stack_blocks stack_cups; do
-#  sbatch train_1gpu_32gb_125gb.sh \
-#   --tasks $task \
-#   --dataset $dataset \
-#   --valset $valset \
-#   --exp_log_dir $main_dir \
-#   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-#   --use_instruction $use_instruction \
-#   --logger wandb \
-#   --run_log_dir $task-HIVEFORMER-no-cache-val \
-#   --cache_size_val 0
-#done
 
 # Multi-task
 #main_dir=04_03_multi_task
