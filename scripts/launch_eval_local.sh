@@ -1,102 +1,73 @@
 exp=03_24_hiveformer_setting
-#ckpts=(
-#  turn_tap-HIVEFORMER_version160617
-#  push_button-HIVEFORMER_version160614
-#  slide_block_to_target-HIVEFORMER_version160615
-#  press_switch-HIVEFORMER_version160613
-#  take_usb_out_of_computer-HIVEFORMER_version160616
-#  lamp_off-HIVEFORMER_version160612
-#  close_drawer-HIVEFORMER_version160609
-#  close_fridge-HIVEFORMER_version160610
-#  close_microwave-HIVEFORMER_version160611
-#  reach_target-HIVEFORMER_version160608
-#  close_grill-HIVEFORMER_version161176
-#  beat_the_buzz-HIVEFORMER_version161174
-#  change_clock-HIVEFORMER_version161175
-#  basketball_in_hoop-HIVEFORMER_version161173
-#  pick_up_cup-HIVEFORMER_version161167
-#  play_jenga-HIVEFORMER_version161168
-#  take_lid_off_saucepan-HIVEFORMER_version161169
-#  toilet_seat_up-HIVEFORMER_version161171
-#  take_umbrella_out_of_umbrella_stand-HIVEFORMER_version161170
-#  turn_oven_on-HIVEFORMER_version161172
-#  open_wine_bottle-HIVEFORMER_version161075
-#  open_microwave-HIVEFORMER_version161074
-#  open_grill-HIVEFORMER_version161073
-#  open_drawer-HIVEFORMER_version161071
-#  open_fridge-HIVEFORMER_version161072
-#  lift_numbered_block-HIVEFORMER_version161069
-#  open_box-HIVEFORMER_version161070
-#  close_door-HIVEFORMER_version161046
-#  unplug_charger-HIVEFORMER_version161045
-#  lamp_on-HIVEFORMER_version161047
-#)
-#tasks=(
-#  turn_tap
-#  push_button
-#  slide_block_to_target
-#  press_switch
-#  take_usb_out_of_computer
-#  lamp_off
-#  close_drawer
-#  close_fridge
-#  close_microwave
-#  reach_target
-#  close_grill
-#  beat_the_buzz
-#  change_clock
-#  basketball_in_hoop
-#  pick_up_cup
-#  play_jenga
-#  take_lid_off_saucepan
-#  toilet_seat_up
-#  take_umbrella_out_of_umbrella_stand
-#  turn_oven_on
-#  open_wine_bottle
-#  open_microwave
-#  open_grill
-#  open_drawer
-#  open_fridge
-#  lift_numbered_block
-#  open_box
-#  close_door
-#  unplug_charger
-#  lamp_on
-#)
-
 ckpts=(
-#  close_microwave-HIVEFORMER_version160611
-#  press_switch-HIVEFORMER_version160613
-#  take_usb_out_of_computer-HIVEFORMER_version160616
-  unplug_charger-HIVEFORMER_version161045
-#  close_door-HIVEFORMER_version161046
-#  open_box-HIVEFORMER_version161070
-#  open_drawer-HIVEFORMER_version161071
-#  open_fridge-HIVEFORMER_version161072
-#  open_grill-HIVEFORMER_version161073
-#  open_microwave-HIVEFORMER_version161074
-#  lamp_on-HIVEFORMER_version161047
+  beat_the_buzz-HIVEFORMER_version161174
+  close_grill-HIVEFORMER_version161176
+  close_laptop_lid-HIVEFORMER_version161480
+  hang_frame_on_hanger-HIVEFORMER_version161481
+  open_door-HIVEFORMER_version161482
+  open_window-HIVEFORMER_version161483
+  put_umbrella_in_umbrella_stand-HIVEFORMER_version161652
+  scoop_with_spatula-HIVEFORMER_version161653
+  take_frame_off_hanger-HIVEFORMER_version161654
+  take_toilet_roll_off_stand-HIVEFORMER_version161656
+  close_box-HIVEFORMER_version161658
+  insert_onto_square_peg-HIVEFORMER_version161659
+  insert_usb_in_computer-HIVEFORMER_version161660
+  move_hanger-HIVEFORMER_version161663
+  open_oven-HIVEFORMER_version161968
+  phone_on_base-HIVEFORMER_version161969
+  place_shape_in_shape_sorter_version158810
+  put_books_on_bookshelf-HIVEFORMER_version161973
+  sweep_to_dustpan-HIVEFORMER_version161975
+  take_plate_off_colored_dish_rack-HIVEFORMER_version161976
+  water_plants-HIVEFORMER_version161977
+  push_buttons-HIVEFORMER_version162804
+  reach_and_drag-HIVEFORMER_version162805
+  setup_checkers-HIVEFORMER_version162807
+  tower3-HIVEFORMER_version162809
+  screw_nail-HIVEFORMER_version162806
+  wipe_desk-HIVEFORMER_version162810
+  stack_cups-HIVEFORMER_version162502
+  stack_blocks-HIVEFORMER_version162501
 )
 tasks=(
-#  close_microwave
-#  press_switch
-#  take_usb_out_of_computer
-  unplug_charger
-#  close_door
-#  open_box
-#  open_drawer
-#  open_fridge
-#  open_grill
-#  open_microwave
-#  lamp_on
+  beat_the_buzz
+  close_grill
+  close_laptop_lid
+  hang_frame_on_hanger
+  open_door
+  open_window
+  put_umbrella_in_umbrella_stand
+  scoop_with_spatula
+  take_frame_off_hanger
+  take_toilet_roll_off_stand
+  close_box
+  insert_onto_square_peg
+  insert_usb_in_computer
+  move_hanger
+  open_oven
+  phone_on_base
+  place_shape_in_shape_sorter
+  put_books_on_bookshelf
+  sweep_to_dustpan
+  take_plate_off_colored_dish_rack
+  water_plants
+  push_buttons
+  reach_and_drag
+  setup_checkers
+  tower3
+  screw_nail
+  wipe_desk
+  stack_cups
+  stack_blocks
 )
 
 data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
-num_episodes=10
+num_episodes=100
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 use_instruction=0
 num_ghost_points=10000
-headless=0
+headless=1
 offline=0
 
 num_ckpts=${#ckpts[@]}
@@ -104,8 +75,8 @@ for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
     --data_dir $data_dir --offline $offline --num_episodes $num_episodes --headless $headless --output_file eval/${tasks[$i]}.json  \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos 0 --use_instruction $use_instruction \
-    --gripper_loc_bounds_file $gripper_loc_bounds_file --num_ghost_points $num_ghost_points --num_ghost_points_val $num_ghost_points \
-     --output_file /home/zhouxian/git/hiveformer_theo/eval_new.json
+    --gripper_loc_bounds_file $gripper_loc_bounds_file --num_ghost_points $num_ghost_points --num_ghost_points_val $num_ghost_points
+    # --output_file /home/zhouxian/git/hiveformer_theo/eval_new.json
     # --variations {0..60}
 done
 
