@@ -107,9 +107,10 @@ task_file=tasks/hiveformer_74_tasks_61_74.csv
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
-for task in $(cat $task_file | tr '\n' ' '); do
-#for task in stack_blocks stack_cups; do
-  sbatch train_1gpu_32gb.sh \
+train_iters=400_000
+#for task in $(cat $task_file | tr '\n' ' '); do
+for task in change_channel tv_on slide_cabinet_open_and_place_cups take_shoes_out_of_box stack_cups stack_blocks; do
+  sbatch train_1gpu_32gb_125gb.sh \
    --tasks $task \
    --dataset $dataset \
    --valset $valset \
@@ -117,6 +118,7 @@ for task in $(cat $task_file | tr '\n' ' '); do
    --gripper_loc_bounds_file $gripper_loc_bounds_file \
    --use_instruction $use_instruction \
    --logger wandb \
+   --train_iters $train_iters \
    --run_log_dir $task-HIVEFORMER
 done
 
