@@ -29,6 +29,9 @@ ckpts=(
   wipe_desk-HIVEFORMER_version162810
   stack_cups-HIVEFORMER_version162502
   stack_blocks-HIVEFORMER_version162501
+  slide_cabinet_open_and_place_cups-HIVEFORMER_version163033
+  place_hanger_on_rack-HIVEFORMER_version163041
+  plug_charger_in_power_supply-HIVEFORMER_version163042
 )
 tasks=(
   beat_the_buzz
@@ -60,6 +63,9 @@ tasks=(
   wipe_desk
   stack_cups
   stack_blocks
+  slide_cabinet_open_and_place_cups
+  place_hanger_on_rack
+  plug_charger_in_power_supply
 )
 
 data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
