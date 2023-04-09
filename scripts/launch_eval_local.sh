@@ -1,3 +1,4 @@
+# HIVEFORMER
 exp=03_24_hiveformer_setting
 ckpts=(
   beat_the_buzz-HIVEFORMER_version161174
@@ -67,6 +68,13 @@ tasks=(
   place_hanger_on_rack
   plug_charger_in_power_supply
 )
+
+# PERACT
+#exp=03_24_peract_setting
+#ckpts=(
+#)
+#tasks=(
+#)
 
 data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
 num_episodes=100

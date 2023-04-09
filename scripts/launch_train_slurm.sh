@@ -78,29 +78,29 @@
 #     --run_log_dir $task
 #done
 
+# PERACT
 #main_dir=03_24_eval_on_peract_18_tasks
-#num_workers=1
 #use_instruction=1
 #task_file=tasks/peract_18_tasks_1_10.csv
 #gripper_loc_bounds_file=tasks/18_peract_tasks_location_bounds.json
 #dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_train
 #valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/18_peract_tasks_val
-##for task in $(cat $task_file | tr '\n' ' '); do
-#for task in stack_cups put_item_in_drawer stack_blocks; do
+#train_iters=200_000
+#for task in $(cat $task_file | tr '\n' ' '); do
 #  sbatch train_1gpu_32gb.sh \
 #   --tasks $task \
 #   --dataset $dataset \
 #   --valset $valset \
 #   --exp_log_dir $main_dir \
-#   --num_workers $num_workers \
 #   --gripper_loc_bounds_file $gripper_loc_bounds_file \
-#   --variations {0..199} \
 #   --use_instruction $use_instruction \
 #   --logger wandb \
-#   --run_log_dir $task
+#   --variations {0..199} \
+#   --train_iters $train_iters \
+#   --run_log_dir $task-PERACT
 #done
 
-# Long-horizon
+# HIVEFORMER
 main_dir=03_24_hiveformer_setting
 use_instruction=0
 task_file=tasks/hiveformer_74_tasks_61_74.csv

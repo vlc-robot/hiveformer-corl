@@ -43,7 +43,6 @@ exp_tgt=03_24_hiveformer_setting
 ckpt=best.pth
 
 sshpass -p $MATRIX_PW rsync -RL "$MATRIX:/$source_prefix/$exp_src/*/$ckpt" .
-#mv $source_prefix/$exp_tgt $target_prefix/
 
 
 # Uncleaned HiveFormer
