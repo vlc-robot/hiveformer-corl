@@ -109,7 +109,7 @@ dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hivefor
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
 train_iters=400_000
 #for task in $(cat $task_file | tr '\n' ' '); do
-for task in change_channel tv_on take_shoes_out_of_box stack_cups; do
+for task in place_shape_in_shape_sorter take_shoes_out_of_box take_usb_out_of_computer sweep_to_dustpan take_plate_off_colored_dish_rack; do
   sbatch train_1gpu_32gb_125gb.sh \
    --tasks $task \
    --dataset $dataset \
