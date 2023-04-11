@@ -254,7 +254,7 @@ class PredictionHead(nn.Module):
                     visible_rgb_features_i, "b ncam c h w -> (ncam h w) b c")
             else:
                 # Local fine RGB features
-                l2_pred_pos = ((anchor - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
+                l2_pred_pos = ((position_pyramid[-1] - visible_pcd_pyramid[i]) ** 2).sum(-1).sqrt()
                 indices = l2_pred_pos.topk(k=32 * 32 * num_cameras, dim=-1, largest=False).indices
 
                 visible_rgb_features_i = einops.rearrange(
