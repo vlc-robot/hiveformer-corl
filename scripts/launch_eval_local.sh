@@ -2,10 +2,6 @@
 exp=03_24_hiveformer_setting
 ckpts=(
   take_usb_out_of_computer-HIVEFORMER_version163526
-  place_shape_in_shape_sorter-HIVEFORMER_version163530
-  sweep_to_dustpan-HIVEFORMER_version163531
-  take_plate_off_colored_dish_rack-HIVEFORMER_version163532
-  place_hanger_on_rack-HIVEFORMER_version163533
 )
 tasks=(
 
