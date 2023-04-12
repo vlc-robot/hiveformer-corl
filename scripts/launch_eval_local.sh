@@ -1,72 +1,14 @@
 # HIVEFORMER
 exp=03_24_hiveformer_setting
 ckpts=(
-  beat_the_buzz-HIVEFORMER_version161174
-  close_grill-HIVEFORMER_version161176
-  close_laptop_lid-HIVEFORMER_version161480
-  hang_frame_on_hanger-HIVEFORMER_version161481
-  open_door-HIVEFORMER_version161482
-  open_window-HIVEFORMER_version161483
-  put_umbrella_in_umbrella_stand-HIVEFORMER_version161652
-  scoop_with_spatula-HIVEFORMER_version161653
-  take_frame_off_hanger-HIVEFORMER_version161654
-  take_toilet_roll_off_stand-HIVEFORMER_version161656
-  close_box-HIVEFORMER_version161658
-  insert_onto_square_peg-HIVEFORMER_version161659
-  insert_usb_in_computer-HIVEFORMER_version161660
-  move_hanger-HIVEFORMER_version161663
-  open_oven-HIVEFORMER_version161968
-  phone_on_base-HIVEFORMER_version161969
-  place_shape_in_shape_sorter_version158810
-  put_books_on_bookshelf-HIVEFORMER_version161973
-  sweep_to_dustpan-HIVEFORMER_version161975
-  take_plate_off_colored_dish_rack-HIVEFORMER_version161976
-  water_plants-HIVEFORMER_version161977
-  push_buttons-HIVEFORMER_version162804
-  reach_and_drag-HIVEFORMER_version162805
-  setup_checkers-HIVEFORMER_version162807
-  tower3-HIVEFORMER_version162809
-  screw_nail-HIVEFORMER_version162806
-  wipe_desk-HIVEFORMER_version162810
-  stack_cups-HIVEFORMER_version162502
-  stack_blocks-HIVEFORMER_version162501
-  slide_cabinet_open_and_place_cups-HIVEFORMER_version163033
-  place_hanger_on_rack-HIVEFORMER_version163041
-  plug_charger_in_power_supply-HIVEFORMER_version163042
+  take_usb_out_of_computer-HIVEFORMER_version163526
+  place_shape_in_shape_sorter-HIVEFORMER_version163530
+  sweep_to_dustpan-HIVEFORMER_version163531
+  take_plate_off_colored_dish_rack-HIVEFORMER_version163532
+  place_hanger_on_rack-HIVEFORMER_version163533
 )
 tasks=(
-  beat_the_buzz
-  close_grill
-  close_laptop_lid
-  hang_frame_on_hanger
-  open_door
-  open_window
-  put_umbrella_in_umbrella_stand
-  scoop_with_spatula
-  take_frame_off_hanger
-  take_toilet_roll_off_stand
-  close_box
-  insert_onto_square_peg
-  insert_usb_in_computer
-  move_hanger
-  open_oven
-  phone_on_base
-  place_shape_in_shape_sorter
-  put_books_on_bookshelf
-  sweep_to_dustpan
-  take_plate_off_colored_dish_rack
-  water_plants
-  push_buttons
-  reach_and_drag
-  setup_checkers
-  tower3
-  screw_nail
-  wipe_desk
-  stack_cups
-  stack_blocks
-  slide_cabinet_open_and_place_cups
-  place_hanger_on_rack
-  plug_charger_in_power_supply
+
 )
 
 # PERACT

@@ -108,8 +108,8 @@ gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 dataset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_train
 valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveformer_tasks_val
 train_iters=400_000
-for task in take_usb_out_of_computer open_window insert_onto_square_peg move_hanger place_shape_in_shape_sorter sweep_to_dustpan take_plate_off_colored_dish_rack place_hanger_on_rack plug_charger_in_power_supply; do
-#for task in reach_and_drag setup_checkers tower3 straighten_rope change_channel tv_on stack_cups take_shoes_out_of_box stack_blocks
+for task in plug_charger_in_power_supply reach_and_drag reach_and_drag setup_checkers tower3 straighten_rope; do
+#for task in change_channel tv_on stack_cups take_shoes_out_of_box stack_blocks; do
   sbatch train_1gpu_32gb.sh \
    --tasks $task \
    --dataset $dataset \
