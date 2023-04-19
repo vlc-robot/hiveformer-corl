@@ -110,8 +110,7 @@ valset=/projects/katefgroup/analogical_manipulation/rlbench/packaged/74_hiveform
 train_iters=400_000
 #for task in place_shape_in_shape_sorter sweep_to_dustpan take_plate_off_colored_dish_rack place_hanger_on_rack; do
 #for task in plug_charger_in_power_supply reach_and_drag reach_and_drag setup_checkers tower3 straighten_rope; do
-#for task in change_channel slide_cabinet_open_and_place_cups; do  # TODO 164618 164620
-for task in stack_cups stack_blocks tv_on take_shoes_out_of_box; do  # TODO Likely OOM error, try cache_size_val=0
+for task in stack_cups stack_blocks tv_on take_shoes_out_of_box slide_cabinet_open_and_place_cups change_channel; do  # TODO Likely OOM error, try cache_size_val=0
 #for task in stack_cups stack_blocks wipe_desk tv_on; do
   sbatch train_1gpu_32gb_125gb.sh \
    --tasks $task \
