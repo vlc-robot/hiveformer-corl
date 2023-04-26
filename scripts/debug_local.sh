@@ -14,7 +14,7 @@ use_instruction=0
 num_ghost_points=10000
 headless=0
 offline=0
-record_videos=1
+record_videos=0
 max_steps=10
 
 num_ckpts=${#ckpts[@]}
