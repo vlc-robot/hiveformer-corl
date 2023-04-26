@@ -578,7 +578,7 @@ class RLBenchEnv:
                             # pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices),
 
                             # Just the last one
-                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]],
+                            gt_keyframe_gripper_matrices=gt_keyframe_gripper_matrices[[step_id]] if step_id < len(gt_keyframe_gripper_matrices) else None,
                             pred_keyframe_gripper_matrices=np.stack(pred_keyframe_gripper_matrices)[[-1]],
 
                             pred_coarse_position=output.get("coarse_position"),
