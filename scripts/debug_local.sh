@@ -16,13 +16,14 @@ headless=0
 offline=0
 record_videos=1
 max_tries=10
+max_steps=5
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
   python eval.py --tasks ${tasks[$i]} --checkpoint $exp/${ckpts[$i]}/best.pth \
     --data_dir $data_dir --offline $offline --num_episodes $num_episodes --headless $headless --output_file eval/${tasks[$i]}.json  \
     --exp_log_dir $exp --run_log_dir ${tasks[$i]}-ONLINE --record_videos $record_videos --use_instruction $use_instruction --max_tries $max_tries \
-    --gripper_loc_bounds_file $gripper_loc_bounds_file --num_ghost_points $num_ghost_points --num_ghost_points_val $num_ghost_points \
+    --gripper_loc_bounds_file $gripper_loc_bounds_file --max_steps $max_steps --num_ghost_points $num_ghost_points --num_ghost_points_val $num_ghost_points \
     --output_file /home/sirdome/katefgroup/hiveformer/eval_new.json
 #    --variations {0..60}
 done
