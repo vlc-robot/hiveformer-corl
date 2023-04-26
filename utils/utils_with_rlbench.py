@@ -95,8 +95,8 @@ class Mover:
             gripper = obs.gripper_open
             dist_pos = np.sqrt(np.square(target[:3] - pos).sum())
             dist_rot = np.sqrt(np.square(target[3:7] - rot).sum())
-            criteria = (dist_pos < 5e-2,)
-            # criteria = (dist_pos < 1e-3,)
+            # criteria = (dist_pos < 5e-2,)
+            criteria = (dist_pos < 1e-3,)
 
             if all(criteria) or reward == 1:
                 break

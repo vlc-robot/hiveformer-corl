@@ -8,7 +8,7 @@ tasks=(
 )
 
 data_dir=/home/sirdome/katefgroup/raw/74_hiveformer_tasks_val
-num_episodes=10
+num_episodes=5
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 use_instruction=0
 num_ghost_points=10000
