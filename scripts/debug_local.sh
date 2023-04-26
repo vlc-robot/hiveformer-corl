@@ -1,10 +1,12 @@
 # HIVEFORMER
 exp=03_24_hiveformer_setting
 ckpts=(
-  insert_onto_square_peg-HIVEFORMER_version161659
+#  insert_onto_square_peg-HIVEFORMER_version161659
+  move_hanger-HIVEFORMER_version161663
 )
 tasks=(
-  insert_onto_square_peg
+#  insert_onto_square_peg
+  move_hanger
 )
 
 data_dir=/home/sirdome/katefgroup/raw/74_hiveformer_tasks_val
@@ -14,9 +16,9 @@ use_instruction=0
 num_ghost_points=10000
 headless=0
 offline=0
-record_videos=1
+record_videos=0
 max_tries=10
-max_steps=5
+max_steps=50
 
 num_ckpts=${#ckpts[@]}
 for ((i=0; i<$num_ckpts; i++)); do
