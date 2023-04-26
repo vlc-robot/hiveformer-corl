@@ -1,46 +1,14 @@
 # HIVEFORMER
 exp=03_24_hiveformer_setting
 ckpts=(
-  close_door-HIVEFORMER_version161046
-  take_usb_out_of_computer-HIVEFORMER_version163526
-  place_shape_in_shape_sorter-HIVEFORMER_version163673
-  sweep_to_dustpan-HIVEFORMER_version163674
-  take_plate_off_colored_dish_rack-HIVEFORMER_version163675
-  place_hanger_on_rack-HIVEFORMER_version163676
-  plug_charger_in_power_supply-HIVEFORMER_version163667
-  reach_and_drag-HIVEFORMER_version163669
-  setup_checkers-HIVEFORMER_version163670
-  tower3-HIVEFORMER_version162809
-  straighten_rope-HIVEFORMER_version163672
-  wipe_desk-HIVEFORMER_version164479
-  change_channel-HIVEFORMER_version165805
-  tv_on-HIVEFORMER_version164906
-  slide_cabinet_open_and_place_cups-HIVEFORMER_version165804
-  stack_cups-HIVEFORMER_version164902
-  stack_blocks-HIVEFORMER_version164905
+  insert_onto_square_peg-HIVEFORMER_version161659
 )
 tasks=(
-  close_door
-  take_usb_out_of_computer
-  place_shape_in_shape_sorter
-  sweep_to_dustpan
-  take_plate_off_colored_dish_rack
-  place_hanger_on_rack
-  plug_charger_in_power_supply
-  reach_and_drag
-  setup_checkers
-  tower3
-  straighten_rope
-  wipe_desk
-  change_channel
-  tv_on
-  slide_cabinet_open_and_place_cups
-  stack_cups
-  stack_blocks
+  insert_onto_square_peg
 )
 
 data_dir=/home/zhouxian/git/datasets/raw/74_hiveformer_tasks_val
-num_episodes=100
+num_episodes=10
 gripper_loc_bounds_file=tasks/74_hiveformer_tasks_location_bounds.json
 use_instruction=0
 num_ghost_points=10000

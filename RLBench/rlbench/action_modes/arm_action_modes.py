@@ -227,23 +227,28 @@ class EndEffectorPoseViaPlanning(ArmActionMode):
             )
             [s.set_collidable(True) for s in colliding_shapes]
         except ConfigurationPathError as e:
-            print("Could not find a path avoiding collisions, "
-                  "trying to find one ignoring collisions.")
-            try:
-                path = scene.robot.arm.get_path(
-                    action[:3],
-                    quaternion=action[3:],
-                    ignore_collisions=True,
-                    relative_to=relative_to,
-                    trials=100,
-                    max_configs=10,
-                    max_time_ms=10,
-                    trials_per_goal=5,
-                    algorithm=Algos.RRTConnect
-                )
-                [s.set_collidable(True) for s in colliding_shapes]
-            except ConfigurationPathError as e:
-                [s.set_collidable(True) for s in colliding_shapes]
+            if self._collision_checking:
+                print("Could not find a path avoiding collisions, "
+                      "trying to find one ignoring collisions.")
+                try:
+                    path = scene.robot.arm.get_path(
+                        action[:3],
+                        quaternion=action[3:],
+                        ignore_collisions=True,
+                        relative_to=relative_to,
+                        trials=100,
+                        max_configs=10,
+                        max_time_ms=10,
+                        trials_per_goal=5,
+                        algorithm=Algos.RRTConnect
+                    )
+                    [s.set_collidable(True) for s in colliding_shapes]
+                except ConfigurationPathError as e:
+                    [s.set_collidable(True) for s in colliding_shapes]
+                    raise InvalidActionError(
+                        'A path could not be found. Most likely due to the target '
+                        'being inaccessible or a collison was detected.') from e
+            else:
                 raise InvalidActionError(
                     'A path could not be found. Most likely due to the target '
                     'being inaccessible or a collison was detected.') from e

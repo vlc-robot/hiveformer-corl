@@ -253,6 +253,7 @@ class RLBenchEnv:
         headless=False,
         apply_cameras=("left_shoulder", "right_shoulder", "wrist", "front"),
         fine_sampling_ball_diameter=None,
+        collision_checking=False,
     ):
 
         # setup required inputs
@@ -268,7 +269,7 @@ class RLBenchEnv:
             image_size, apply_rgb, apply_depth, apply_pc, apply_cameras
         )
         self.action_mode = MoveArmThenGripper(
-            arm_action_mode=EndEffectorPoseViaPlanning(),
+            arm_action_mode=EndEffectorPoseViaPlanning(collision_checking=collision_checking),
             gripper_action_mode=Discrete(),
         )
         self.env = Environment(

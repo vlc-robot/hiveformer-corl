@@ -62,6 +62,7 @@ class Arguments(tap.Tap):
 
     record_videos: int = 0
     max_steps: int = 50
+    collision_checking: int = 1
 
     # ---------------------------------------------------------------
     # Original HiveFormer parameters
@@ -296,6 +297,7 @@ if __name__ == "__main__":
         apply_pc=True,
         headless=bool(args.headless),
         apply_cameras=args.cameras,
+        collision_checking=bool(args.collision_checking),
         # TODO Is there a way to display the fine sampling ball transparently with Open3D?
         # fine_sampling_ball_diameter=args.fine_sampling_ball_diameter if model != "original" else None,
     )
