@@ -37,7 +37,7 @@
 # To Xian directly from Matrix
 
 source_prefix=home/tgervet/hiveformer/train_logs
-target_prefix=/home/zhouxian/git/hiveformer_theo
+target_prefix=/home/sirdome/katefgroup/hiveformer
 exp_src=03_24_hiveformer_setting
 exp_tgt=03_24_hiveformer_setting
 ckpt=best.pth
