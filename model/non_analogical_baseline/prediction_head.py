@@ -36,6 +36,7 @@ class PredictionHead(nn.Module):
                  num_ghost_points_val=10000,
                  weight_tying=True,
                  gp_emb_tying=True,
+                 ins_pos_emb=False,
                  num_sampling_level=3,
                  fine_sampling_ball_diameter=0.16,
                  regress_position_offset=False,
@@ -69,6 +70,7 @@ class PredictionHead(nn.Module):
         self.weight_tying = weight_tying
         self.gp_emb_tying = gp_emb_tying
         self.positional_features = positional_features
+        self.ins_pos_emb = ins_pos_emb
 
         # Frozen backbone
         if backbone == "resnet":
@@ -152,6 +154,19 @@ class PredictionHead(nn.Module):
                         embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
 
+        # visual tokens cross-attention to language instructions
+        self.vis_ins_attn_pyramid = nn.ModuleList()
+        if self.weight_tying:
+            vis_ins_cross_attn = RelativeCrossAttentionModule(
+                embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
+            for i in range(self.num_sampling_level):
+                self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
+        else:
+            for i in range(self.num_sampling_level):
+                vis_ins_cross_attn = RelativeCrossAttentionModule(
+                    embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
+                self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
+
         # Query cross-attention to visual features, ghost points, and the current gripper position
         if self.task_specific_biases:
             self.query_cross_attn_pyramid = nn.ModuleList()
@@ -197,6 +212,10 @@ class PredictionHead(nn.Module):
         self.use_instruction = use_instruction
         if self.use_instruction:
             self.instruction_encoder = nn.Linear(512, embedding_dim)
+            if self.ins_pos_emb:
+                self._num_words = 53
+                self.instr_position_embedding = nn.Embedding(self._num_words, embedding_dim)
+                self.instr_position_norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, visible_rgb, visible_pcd, curr_gripper, instruction, task_id, gt_action=None):
         """
@@ -221,7 +240,19 @@ class PredictionHead(nn.Module):
 
         # Encode instruction
         if self.use_instruction:
-            instruction_features = einops.rearrange(self.instruction_encoder(instruction), "bt l c -> l bt c")
+            instruction_features = self.instruction_encoder(instruction)
+
+            if self.ins_pos_emb:
+                position = torch.arange(self._num_words)
+                position = position.unsqueeze(0).to(instruction_features.device)
+
+                pos_emb = self.instr_position_embedding(position)
+                pos_emb = self.instr_position_norm(pos_emb)
+                pos_emb = einops.repeat(pos_emb, "1 k d -> b k d", b=instruction_features.shape[0])
+
+                instruction_features += pos_emb
+
+            instruction_features = einops.rearrange(instruction_features, "bt l c -> l bt c")
             instruction_dummy_pos = torch.zeros(total_timesteps, instruction_features.shape[0], 3, device=device)
             instruction_dummy_pos = self.relative_pe_layer(instruction_dummy_pos)
         else:
@@ -272,6 +303,11 @@ class PredictionHead(nn.Module):
                 [ghost_pcd_context_features_i, curr_gripper_features], dim=0)
             ghost_pcd_context_pos_i = torch.cat([visible_rgb_pos_i, curr_gripper_pos], dim=1)
             if self.use_instruction:
+                ghost_pcd_context_features_i = self.vis_ins_attn_pyramid[i](
+                    query=ghost_pcd_context_features_i, value=instruction_features,
+                    query_pos=None, value_pos=None
+                )[-1]
+                
                 ghost_pcd_context_features_i = torch.cat(
                     [ghost_pcd_context_features_i, instruction_features], dim=0)
                 ghost_pcd_context_pos_i = torch.cat(
