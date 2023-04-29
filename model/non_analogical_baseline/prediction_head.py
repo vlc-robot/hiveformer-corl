@@ -155,17 +155,18 @@ class PredictionHead(nn.Module):
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
 
         # visual tokens cross-attention to language instructions
-        self.vis_ins_attn_pyramid = nn.ModuleList()
-        if self.weight_tying:
-            vis_ins_cross_attn = RelativeCrossAttentionModule(
-                embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
-            for i in range(self.num_sampling_level):
-                self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
-        else:
-            for i in range(self.num_sampling_level):
+        if self.use_instruction:
+            self.vis_ins_attn_pyramid = nn.ModuleList()
+            if self.weight_tying:
                 vis_ins_cross_attn = RelativeCrossAttentionModule(
                     embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
-                self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
+                for i in range(self.num_sampling_level):
+                    self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
+            else:
+                for i in range(self.num_sampling_level):
+                    vis_ins_cross_attn = RelativeCrossAttentionModule(
+                        embedding_dim, num_attn_heads, num_vis_ins_attn_layers)
+                    self.vis_ins_attn_pyramid.append(vis_ins_cross_attn)
 
         # Query cross-attention to visual features, ghost points, and the current gripper position
         if self.task_specific_biases:
