@@ -154,6 +154,7 @@ class PredictionHead(nn.Module):
                         embedding_dim, num_attn_heads, num_ghost_point_cross_attn_layers)
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
 
+        self.use_instruction = use_instruction
         # visual tokens cross-attention to language instructions
         if self.use_instruction:
             self.vis_ins_attn_pyramid = nn.ModuleList()
@@ -210,7 +211,6 @@ class PredictionHead(nn.Module):
         )
 
         # Instruction encoder
-        self.use_instruction = use_instruction
         if self.use_instruction:
             self.instruction_encoder = nn.Linear(512, embedding_dim)
             if self.ins_pos_emb:
