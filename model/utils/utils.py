@@ -48,11 +48,12 @@ https://github.com/papagina/RotationContinuity/blob/master/sanity_test/code/tool
 
 
 def normalize_vector(v, return_mag=False):
+    device = v.device
     batch = v.shape[0]
     v_mag = torch.sqrt(v.pow(2).sum(1))
-    v_mag = torch.max(v_mag, torch.autograd.Variable(torch.FloatTensor([1e-8]).cuda()))
-    v_mag = v_mag.view(batch, 1).expand(batch,v.shape[1])
-    v = v/v_mag
+    v_mag = torch.max(v_mag, torch.autograd.Variable(torch.FloatTensor([1e-8]).to(device)))
+    v_mag = v_mag.view(batch, 1).expand(batch, v.shape[1])
+    v = v / v_mag
     if return_mag:
         return v, v_mag[:, 0]
     else:
