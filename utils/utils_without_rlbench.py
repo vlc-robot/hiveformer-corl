@@ -189,6 +189,7 @@ class LossAndMetrics:
             gt_rot3x3 = torch3d_tf.quaternion_to_matrix(gt_quat)
             # losses["rotation"] = F.mse_loss(pred["rotation"], gt_rot3x3)
             losses["rotation"] = compute_geodesic_distance_from_two_matrices(pred, gt_rot3x3)
+            raise NotImplementedError
 
         losses["rotation"] *= self.rotation_loss_coeff
 

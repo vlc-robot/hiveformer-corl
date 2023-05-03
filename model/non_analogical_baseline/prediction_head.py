@@ -605,7 +605,7 @@ class PredictionHead(nn.Module):
 
         pred = self.gripper_state_predictor(features)
 
-        if "quat" in self.self.rotation_parametrization:
+        if "quat" in self.rotation_parametrization:
             rotation = normalise_quat(pred[:, :self.rotation_dim])
         elif "6D" in self.rotation_parametrization:
             rotation = compute_rotation_matrix_from_ortho6d(pred[:, :self.rotation_dim])
