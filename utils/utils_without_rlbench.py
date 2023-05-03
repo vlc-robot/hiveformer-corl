@@ -274,16 +274,20 @@ class LossAndMetrics:
             metrics["gripper"] = acc.to(dtype).mean()
 
             # Rotation accuracy
-            if self.symmetric_rotation_loss:
-                gt_quat = outputs[:, 3:7]
-                gt_quat_ = -gt_quat.clone()
-                l1 = (pred["rotation"] - gt_quat).abs().sum(1)
-                l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
-                select_mask = (l1 < l1_).float()
-                l1 = (select_mask * l1 + (1 - select_mask) * l1_)
-            else:
-                l1 = ((pred["rotation"] - outputs[:, 3:7]).abs().sum(1))
-                
+            gt_quat = outputs[:, 3:7]
+            if "quat" in self.rotation_parametrization:
+                if self.symmetric_rotation_loss:
+                    gt_quat_ = -gt_quat.clone()
+                    l1 = (pred["rotation"] - gt_quat).abs().sum(1)
+                    l1_ = (pred["rotation"] - gt_quat_).abs().sum(1)
+                    select_mask = (l1 < l1_).float()
+                    l1 = (select_mask * l1 + (1 - select_mask) * l1_)
+                else:
+                    l1 = ((pred["rotation"] - gt_quat).abs().sum(1))
+            elif "6D" in self.rotation_parametrization:
+                pred_quat = torch3d_tf.matrix_to_quaternion(pred["rotation"])
+                l1 = ((pred_quat - gt_quat).abs().sum(1))
+
             metrics["mean/rot_l1"] = l1.to(dtype).mean()
             metrics["mean/rot_l1<0.05"] = (l1 < 0.05).to(dtype).mean()
             metrics["mean/rot_l1<0.025"] = (l1 < 0.025).to(dtype).mean()
