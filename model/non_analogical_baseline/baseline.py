@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 
 from .prediction_head import PredictionHead
-from model.utils.utils import norm_tensor
+try:
+    from pytorch3d import transforms as torch3d_tf
+except:
+    pass
 
 
 class Baseline(nn.Module):
@@ -55,8 +58,12 @@ class Baseline(nn.Module):
         )
 
     def compute_action(self, pred) -> torch.Tensor:
+        if "quat" in self.prediction_head.rotation_parametrization:
+            rotation = pred["rotation"]
+        elif "6D" in self.prediction_head.rotation_parametrization:
+            rotation = torch3d_tf.matrix_to_quaternion(pred["rotation"])
         return torch.cat(
-            [pred["position"], pred["rotation"], pred["gripper"]],
+            [pred["position"], rotation, pred["gripper"]],
             dim=1,
         )
 
