@@ -100,7 +100,8 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
-    rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
+    # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
+    rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
     task_specific_biases: int = 0
 

@@ -12,6 +12,7 @@ class Baseline(nn.Module):
                  embedding_dim=60,
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
+                 num_vis_ins_attn_layers=2,
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
@@ -35,6 +36,7 @@ class Baseline(nn.Module):
             embedding_dim=embedding_dim,
             num_ghost_point_cross_attn_layers=num_ghost_point_cross_attn_layers,
             num_query_cross_attn_layers=num_query_cross_attn_layers,
+            num_vis_ins_attn_layers=num_vis_ins_attn_layers,
             rotation_parametrization=rotation_parametrization,
             num_ghost_points=num_ghost_points,
             num_ghost_points_val=num_ghost_points_val,
@@ -53,9 +55,8 @@ class Baseline(nn.Module):
         )
 
     def compute_action(self, pred) -> torch.Tensor:
-        rotation = norm_tensor(pred["rotation"])
         return torch.cat(
-            [pred["position"], rotation, pred["gripper"]],
+            [pred["position"], pred["rotation"], pred["gripper"]],
             dim=1,
         )
 

@@ -118,7 +118,9 @@ class Arguments(tap.Tap):
     embedding_dim: int = 60
     num_ghost_point_cross_attn_layers: int = 2
     num_query_cross_attn_layers: int = 2
-    rotation_parametrization: str = "quat_from_query"  # one of "quat_from_top_ghost", "quat_from_query" for now
+    num_vis_ins_attn_layers: int = 2
+    # one of "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"
+    rotation_parametrization: str = "quat_from_query"
     use_instruction: int = 0
     task_specific_biases: int = 0
 
@@ -559,6 +561,7 @@ def get_model(args: Arguments, gripper_loc_bounds) -> Tuple[optim.Optimizer, Hiv
             embedding_dim=args.embedding_dim,
             num_ghost_point_cross_attn_layers=args.num_ghost_point_cross_attn_layers,
             num_query_cross_attn_layers=args.num_query_cross_attn_layers,
+            num_vis_ins_attn_layers=args.num_vis_ins_attn_layers,
             rotation_parametrization=args.rotation_parametrization,
             gripper_loc_bounds=gripper_loc_bounds,
             num_ghost_points=args.num_ghost_points,
@@ -695,6 +698,7 @@ if __name__ == "__main__":
 
     loss_and_metrics = LossAndMetrics(
         position_prediction_only=bool(args.position_prediction_only),
+        rotation_parametrization=args.rotation_parametrization,
         position_loss=args.position_loss,
         compute_loss_at_all_layers=bool(args.compute_loss_at_all_layers),
         ground_truth_gaussian_spread=args.ground_truth_gaussian_spread,

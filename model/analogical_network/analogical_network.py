@@ -1,9 +1,7 @@
-import numpy as np
 import torch
 import torch.nn as nn
 
 from .analogical_prediction_head import AnalogicalPredictionHead
-from model.utils.utils import norm_tensor
 
 
 class AnalogicalNetwork(nn.Module):
@@ -52,9 +50,8 @@ class AnalogicalNetwork(nn.Module):
         )
 
     def compute_action(self, pred) -> torch.Tensor:
-        rotation = norm_tensor(pred["rotation"])
         return torch.cat(
-            [pred["position"], rotation, pred["gripper"]],
+            [pred["position"], pred["rotation"], pred["gripper"]],
             dim=1,
         )
 

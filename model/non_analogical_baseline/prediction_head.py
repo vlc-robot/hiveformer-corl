@@ -16,7 +16,8 @@ from model.utils.layers import (
 from model.utils.utils import (
     normalise_quat,
     sample_ghost_points_uniform_cube,
-    sample_ghost_points_uniform_sphere
+    sample_ghost_points_uniform_sphere,
+    compute_rotation_matrix_from_ortho6d
 )
 from model.utils.resnet import load_resnet50
 from model.utils.clip import load_clip
@@ -30,6 +31,7 @@ class PredictionHead(nn.Module):
                  num_attn_heads=4,
                  num_ghost_point_cross_attn_layers=2,
                  num_query_cross_attn_layers=2,
+                 num_vis_ins_attn_layers=2,
                  rotation_parametrization="quat_from_query",
                  gripper_loc_bounds=None,
                  num_ghost_points=1000,
@@ -48,7 +50,8 @@ class PredictionHead(nn.Module):
         super().__init__()
         assert backbone in ["resnet", "clip"]
         assert image_size in [(128, 128), (256, 256)]
-        assert rotation_parametrization in ["quat_from_top_ghost", "quat_from_query"]
+        assert rotation_parametrization in [
+            "quat_from_top_ghost", "quat_from_query", "6D_from_top_ghost", "6D_from_query"]
         assert num_sampling_level in [1, 2, 3, 4]
         assert visualize_rgb_attn in [False], "Temporarily disabled"
         assert positional_features in ["xyz_concat", "z_concat", "xyz_add", "z_add", "none"]
@@ -155,7 +158,7 @@ class PredictionHead(nn.Module):
                     self.ghost_point_cross_attn_pyramid.append(ghost_point_cross_attn)
 
         self.use_instruction = use_instruction
-        # visual tokens cross-attention to language instructions
+        # Visual tokens cross-attention to language instructions
         if self.use_instruction:
             self.vis_ins_attn_pyramid = nn.ModuleList()
             if self.weight_tying:
@@ -204,10 +207,14 @@ class PredictionHead(nn.Module):
             )
 
         # Gripper rotation (quaternion) and binary opening prediction
+        if "quat" in self.rotation_parametrization:
+            self.rotation_dim = 4
+        elif "6D" in self.rotation_parametrization:
+            self.rotation_dim = 6
         self.gripper_state_predictor = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim),
             nn.ReLU(),
-            nn.Linear(embedding_dim, 4 + 1)
+            nn.Linear(embedding_dim, self.rotation_dim + 1)
         )
 
         # Instruction encoder
@@ -590,14 +597,19 @@ class PredictionHead(nn.Module):
             position = position + fine_ghost_pcd_offsets[torch.arange(total_timesteps), :, top_idx]
 
         # Predict rotation and gripper opening
-        if self.rotation_parametrization == "quat_from_top_ghost":
+        if self.rotation_parametrization in ["quat_from_top_ghost", "6D_from_top_ghost"]:
             ghost_pcd_features = einops.rearrange(ghost_pcd_features, "npts bt c -> bt npts c")
             features = ghost_pcd_features[torch.arange(total_timesteps), top_idx]
-        elif self.rotation_parametrization == "quat_from_query":
+        elif self.rotation_parametrization in ["quat_from_query", "6D_from_query"]:
             features = query_features.squeeze(0)
 
         pred = self.gripper_state_predictor(features)
-        rotation = normalise_quat(pred[:, :4])
-        gripper = torch.sigmoid(pred[:, 4:])
+
+        if "quat" in self.self.rotation_parametrization:
+            rotation = normalise_quat(pred[:, :self.rotation_dim])
+        elif "6D" in self.rotation_parametrization:
+            rotation = compute_rotation_matrix_from_ortho6d(pred[:, :self.rotation_dim])
+
+        gripper = torch.sigmoid(pred[:, self.rotation_dim:])
 
         return position, rotation, gripper
