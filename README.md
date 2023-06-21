@@ -1,5 +1,9 @@
 # :bee: Hiveformer :bee:
 
+> **⚠️ WARNING**
+> 
+> This code does not allow to reproduce results disclosed in the paper. A more consistent version has been published in this repository: github.com/cshizhe/hiveformer
+
 [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
 ![arXiv](https://img.shields.io/badge/cs.RO-2209.04899-red.svg?style=for-the-badge&logo=arXiv&logoColor=white)
