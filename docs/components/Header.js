@@ -41,6 +41,19 @@ export default class Header extends Component {
               <hr />
               <ul className="social">
                 {
+                  constants.codeLinks && Object.entries(constants.codeLinks).map(([name, item], index) => {
+                    if (item.disable) return null;
+                    return (
+                      <li key={index}>
+                        <a href={item.url} target="_blank" rel='noopener noreferrer' ><i className={`fa ${item.icon}`}></i> {name}</a>
+                      </li>
+                    )
+                  }
+                  )
+                }
+              </ul>
+              <ul className="social">
+                {
                   constants.socialLinks && Object.entries(constants.socialLinks).map(([name, item], index) => {
                     if (item.disable) return null;
                     return (

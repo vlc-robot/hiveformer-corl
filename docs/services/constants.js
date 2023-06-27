@@ -1,5 +1,5 @@
-export const socialLinks = {
-  "Code (CoRL version)": {
+export const codeLinks = {
+  "Code (CoRL)": {
     url: 'https://vlc-robot.github.io/hiveformer-corl/',
     icon: 'fa-github',
     disable: false,
@@ -8,7 +8,10 @@ export const socialLinks = {
     url: 'https://vlc-robot.github.io/hiveformer-rpl/',
     icon: 'fa-github',
     disable: false,
-  },
+  }
+};
+
+export const socialLinks = {
   "YouTube": {
     url: 'https://youtu.be/nnpvOrq0XjU',
     icon: 'fa-youtube',
@@ -20,7 +23,7 @@ export const socialLinks = {
     disable: false,
   },
   "Contact": {
-    url: 'mailto:pierrelouisguhur@gmail.com',
+    url: 'mailto:cshizhe@gmail.com',
     icon: 'fa-envelope',
     disable: false,
   },
