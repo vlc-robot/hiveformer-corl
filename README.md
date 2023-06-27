@@ -2,7 +2,7 @@
 
 > **⚠️ WARNING**
 > 
->  The repository is not maintained anymore. You can find a reimplementation of the paper on [this repository](https://github.com/vlc-robot/hiveformer-rpl)
+>  **The repository is not maintained anymore. You can find a reimplementation of the paper on [this repository](https://github.com/vlc-robot/hiveformer-rpl)**.
 
 [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
