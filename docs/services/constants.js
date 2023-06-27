@@ -1,11 +1,11 @@
 export const codeLinks = {
   "Code (CoRL)": {
-    url: 'https://vlc-robot.github.io/hiveformer-corl/',
+    url: 'https://github.com/vlc-robot/hiveformer-corl',
     icon: 'fa-github',
     disable: false,
   },
   "Code (reimplementation)": {
-    url: 'https://vlc-robot.github.io/hiveformer-rpl/',
+    url: 'https://github.com/vlc-robot/hiveformer-rpl',
     icon: 'fa-github',
     disable: false,
   }
