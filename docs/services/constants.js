@@ -1,6 +1,11 @@
 export const socialLinks = {
-  "GitHub": {
-    url: 'https://github.com/guhur/hiveformer',
+  "Code (CoRL version)": {
+    url: 'https://vlc-robot.github.io/hiveformer-corl/',
+    icon: 'fa-github',
+    disable: false,
+  },
+  "Code (reimplementation)": {
+    url: 'https://vlc-robot.github.io/hiveformer-rpl/',
     icon: 'fa-github',
     disable: false,
   },

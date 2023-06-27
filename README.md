@@ -2,7 +2,7 @@
 
 > **⚠️ WARNING**
 > 
-> This code does not allow to reproduce results disclosed in the paper. A more consistent version has been published in this repository: github.com/cshizhe/hiveformer
+>  The repository is not maintained anymore. You can find a reimplementation of the paper on [this repository](github.com/vlc-robot/hiveformer-rpl)
 
 [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)

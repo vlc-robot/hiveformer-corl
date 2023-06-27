@@ -2,7 +2,7 @@
   "name": "resume",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://guhur.github.io/hiveformer",
+  "homepage": "https://vlc-robot.github.io/hiveformer-corl/",
   "dependencies": {
     "next": "latest",
     "react": "latest",
